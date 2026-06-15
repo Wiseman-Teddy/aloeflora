@@ -1,0 +1,6 @@
+{
+  "name": "Aloeflora",
+  "description": "Quality, Affordable & Natural Hair, Body, and Home Care Products from Nairobi, Kenya. Full storefront and unified enterprise Admin dashboard.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
