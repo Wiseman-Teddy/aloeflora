@@ -511,11 +511,7 @@ export default function App() {
           
           <div className="flex flex-col md:flex-row items-center justify-between pt-6 border-t border-emerald-900 text-[10px] text-emerald-200/50 font-mono">
             <span>© {new Date().getFullYear()} ALOEFLORA Kenya. All rights reserved.</span>
-            <div className="flex flex-wrap gap-4 mt-4 md:mt-0">
-              <span>DB ENGINE: PostgreSQL RLS</span>
-              <span>•</span>
-              <span>SSL TRG: AES_256_GCM</span>
-            </div>
+
           </div>
         </div>
       </footer>
