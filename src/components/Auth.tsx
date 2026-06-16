@@ -29,7 +29,7 @@ export default function Auth() {
         });
         if (error) throw error;
         
-        const adminEmails = ['obondodoris@gmail.com', 'admin@aloeflora.com'];
+        const adminEmails = ['aganyawiseman@gmail.com'];
         if (adminEmails.includes(email)) {
           navigate('/admin', { replace: true });
         } else {

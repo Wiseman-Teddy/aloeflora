@@ -53,7 +53,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return;
     }
     // Hardcoded admin emails for simplicity
-    const adminEmails = ['obondodoris@gmail.com', 'admin@aloeflora.com'];
+    const adminEmails = ['aganyawiseman@gmail.com'];
     if (currentUser.email && adminEmails.includes(currentUser.email)) {
       setRole('admin');
     } else {
