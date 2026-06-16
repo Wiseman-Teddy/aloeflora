@@ -297,7 +297,7 @@ export default function AdminConsole({
               onClick={() => setActiveModule(item.id)}
               className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-bold cursor-pointer transition ${
                 activeModule === item.id
-                  ? "bg-emerald-850 text-white shadow"
+                  ? "bg-emerald-800 text-white shadow"
                   : "text-gray-600 hover:bg-gray-100 hover:text-gray-950"
               }`}
             >
@@ -340,7 +340,7 @@ export default function AdminConsole({
               
               <div className="bg-gray-50/50 p-4 border rounded-xl">
                 <span className="text-[10px] uppercase font-bold text-gray-400">Total Sales Vol</span>
-                <div className="text-lg font-extrabold text-gray-905 mt-1">{totalSalesUnits} items</div>
+                <div className="text-lg font-extrabold text-gray-900 mt-1">{totalSalesUnits} items</div>
                 <span className="text-[9px] text-emerald-600 font-semibold flex items-center gap-0.5 mt-1">
                   ▲ 8.1% <span className="text-gray-400 font-normal">completed orders</span>
                 </span>
@@ -575,7 +575,7 @@ export default function AdminConsole({
                             </span>
                           </div>
                         </td>
-                        <td className="p-3 text-center font-bold text-emerald-850">KES {p.price}</td>
+                        <td className="p-3 text-center font-bold text-emerald-800">KES {p.price}</td>
                         <td className="p-3 text-center">
                           <span className={`font-bold px-2 py-0.5 rounded ${
                             p.stock === 0 
@@ -654,7 +654,7 @@ export default function AdminConsole({
 
                 <div className="flex justify-between items-center text-gray-800 font-bold border-t pt-2">
                   <span>Operating Gross Profit Margin</span>
-                  <span className="text-emerald-850">KES {mockGrossProfit}</span>
+                  <span className="text-emerald-800">KES {mockGrossProfit}</span>
                 </div>
 
                 <div className="flex justify-between items-center text-gray-500 pl-4">
@@ -697,7 +697,7 @@ export default function AdminConsole({
                           <span className="font-bold text-gray-900">{camp.name}</span>
                           <span className="text-[10px] font-mono text-gray-400 block">{camp.platform}</span>
                         </div>
-                        <span className="font-bold text-emerald-850 bg-emerald-50 px-2 py-0.5 rounded text-[10px]">
+                        <span className="font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded text-[10px]">
                           ROI +{camp.roi}%
                         </span>
                       </div>
@@ -835,7 +835,7 @@ export default function AdminConsole({
                   ></textarea>
                 </div>
 
-                <button type="submit" className="bg-emerald-850 hover:bg-emerald-800 text-white font-bold p-3 rounded-xl w-full uppercase cursor-pointer">
+                <button type="submit" className="bg-emerald-800 hover:bg-emerald-800 text-white font-bold p-3 rounded-xl w-full uppercase cursor-pointer">
                   Seal and Deploy Draft
                 </button>
               </form>
@@ -987,7 +987,7 @@ export default function AdminConsole({
                 <button
                   type="button"
                   onClick={saveSeoFields}
-                  className="bg-emerald-850 hover:bg-emerald-800 text-white font-bold p-3 rounded-xl uppercase cursor-pointer text-center"
+                  className="bg-emerald-800 hover:bg-emerald-800 text-white font-bold p-3 rounded-xl uppercase cursor-pointer text-center"
                 >
                   Sync Meta Tags & rebuild indexes
                 </button>

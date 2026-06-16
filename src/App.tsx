@@ -1,4 +1,5 @@
 import React, { useState, useEffect, Suspense, lazy } from "react";
+import { Routes, Route, Navigate, Link, useLocation } from "react-router-dom";
 import { 
   ShoppingBag, 
   Sparkles, 
@@ -16,9 +17,14 @@ import {
   HelpCircle,
   Menu,
   X,
-  MapPin
+  MapPin,
+  LogOut,
+  User as UserIcon
 } from "lucide-react";
 import { supabase } from "./lib/supabase";
+import { useAuth } from "./contexts/AuthContext";
+import ProtectedRoute from "./components/ProtectedRoute";
+import Auth from "./components/Auth";
 
 import { Product, Order, SupportTicket, MarketingCampaign, BookingEvent, CMSPost, DevOpsLog, AuditAnomaly, SEOConfig } from "./types";
 import { 
@@ -38,8 +44,8 @@ const AdminConsole = lazy(() => import("./components/AdminConsole"));
 const ArchitectureDocs = lazy(() => import("./components/ArchitectureDocs"));
 
 export default function App() {
-  // View Router state
-  const [activeTab, setActiveTab] = useState<"store" | "admin" | "docs">("store");
+  const { user, role, signOut } = useAuth();
+  const location = useLocation();
   
   // Theme state
   const [darkMode, setDarkMode] = useState<boolean>(() => {
@@ -275,7 +281,7 @@ export default function App() {
               <span className="text-lg">A</span>
             </div>
             <div className="text-left select-none">
-              <div className="text-sm font-extrabold tracking-tight text-emerald-850 dark:text-lime-400 block scale-y-105 leading-none uppercase">
+              <div className="text-sm font-extrabold tracking-tight text-emerald-800 dark:text-lime-400 block scale-y-105 leading-none uppercase">
                 ALOEFLORA
               </div>
               <div className="text-[9px] uppercase font-bold tracking-wider text-gray-400 mt-1 block font-mono leading-none">
@@ -284,38 +290,26 @@ export default function App() {
             </div>
           </div>
 
-          {/* Core Tab switch router */}
+          {/* Main Navigation Links */}
           <nav className="hidden md:flex items-center gap-2 bg-neutral-100/70 dark:bg-zinc-900/60 p-1.5 rounded-full border border-neutral-150/40">
-            <button
-              onClick={() => setActiveTab("store")}
-              className={`px-4 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer select-none ${
-                activeTab === "store"
-                  ? "bg-emerald-800 text-white shadow-sm"
-                  : "text-gray-600 dark:text-gray-300 hover:text-gray-950"
-              }`}
+            <Link
+              to="/store"
+              className="px-4 py-1.5 rounded-full text-xs font-semibold transition cursor-pointer select-none text-gray-600 dark:text-gray-300 hover:text-gray-950 hover:bg-white dark:hover:bg-gray-800"
             >
-              <Eye className="w-3.5 h-3.5" /> Customer Storefront
-            </button>
-            <button
-              onClick={() => setActiveTab("admin")}
-              className={`px-4 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer select-none ${
-                activeTab === "admin"
-                  ? "bg-emerald-800 text-white shadow-sm"
-                  : "text-gray-600 dark:text-gray-300 hover:text-gray-950"
-              }`}
+              Home
+            </Link>
+            <a
+              href="/store#organic-formulations"
+              className="px-4 py-1.5 rounded-full text-xs font-semibold transition cursor-pointer select-none text-gray-600 dark:text-gray-300 hover:text-gray-950 hover:bg-white dark:hover:bg-gray-800"
             >
-              <Lock className="w-3.5 h-3.5" /> Consolidated Admin Console
-            </button>
-            <button
-              onClick={() => setActiveTab("docs")}
-              className={`px-4 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer select-none ${
-                activeTab === "docs"
-                  ? "bg-emerald-800 text-white shadow-sm"
-                  : "text-gray-600 dark:text-gray-300 hover:text-gray-950"
-              }`}
+              Products
+            </a>
+            <a
+              href="#footer-contacts"
+              className="px-4 py-1.5 rounded-full text-xs font-semibold transition cursor-pointer select-none text-gray-600 dark:text-gray-300 hover:text-gray-950 hover:bg-white dark:hover:bg-gray-800"
             >
-              <FileCode2 className="w-3.5 h-3.5" /> Architectural Specifications
-            </button>
+              Contacts
+            </a>
           </nav>
 
           {/* Interactive controls */}
@@ -328,13 +322,41 @@ export default function App() {
               {darkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
             </button>
 
-            {/* Simulated Roles State visual notification bar */}
-            <div className="hidden lg:flex items-center gap-2 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-100/50 px-3 py-1.5 rounded-full select-none text-xs">
-              <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span>
-              <span className="font-semibold text-emerald-900 dark:text-emerald-300 text-[10px] uppercase font-mono">
-                {activeTab === "admin" ? "Role: Admin" : "Role: Guest / Buyer"}
-              </span>
-            </div>
+            {/* Auth Buttons & Roles State visual notification bar */}
+            {user ? (
+              <div className="hidden lg:flex items-center gap-3">
+                {role === 'admin' && (
+                  <Link
+                    to="/admin"
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-100 hover:bg-emerald-200 text-emerald-800 text-xs font-bold transition"
+                  >
+                    <Lock className="w-3.5 h-3.5" /> Admin Console
+                  </Link>
+                )}
+                <div className="flex items-center gap-2 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-100/50 px-3 py-1.5 rounded-full select-none text-xs">
+                  <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span>
+                  <span className="font-semibold text-emerald-900 dark:text-emerald-300 text-[10px] uppercase font-mono">
+                    Role: {role}
+                  </span>
+                </div>
+                <button
+                  onClick={signOut}
+                  className="p-2 rounded-full bg-red-50 hover:bg-red-100 text-red-600 dark:bg-red-900/20 dark:hover:bg-red-900/40 cursor-pointer transition"
+                  title="Sign Out"
+                >
+                  <LogOut className="w-4 h-4" />
+                </button>
+              </div>
+            ) : (
+              <div className="hidden lg:flex items-center gap-2">
+                <Link
+                  to="/auth"
+                  className="px-4 py-1.5 rounded-full bg-emerald-800 hover:bg-emerald-700 text-white text-xs font-semibold transition flex items-center gap-1.5"
+                >
+                  <UserIcon className="w-3.5 h-3.5" /> Sign In
+                </Link>
+              </div>
+            )}
 
             {/* Mobile menu trigger */}
             <button
@@ -348,40 +370,53 @@ export default function App() {
 
         {/* Responsive Mobile navigation list */}
         {isMobileMenuOpen && (
-          <div className="md:hidden border-t bg-white dark:bg-gray-905 p-4 space-y-2 text-xs flex flex-col items-stretch">
-            <button
-              onClick={() => {
-                setActiveTab("store");
-                setIsMobileMenuOpen(false);
-              }}
-              className={`p-3 rounded-xl font-bold flex items-center gap-2 ${
-                activeTab === "store" ? "bg-emerald-800 text-white" : ""
-              }`}
+          <div className="md:hidden border-t bg-white dark:bg-gray-900 p-4 space-y-2 text-xs flex flex-col items-stretch">
+            <Link
+              to="/store"
+              onClick={() => setIsMobileMenuOpen(false)}
+              className="p-3 rounded-xl font-bold flex items-center gap-2 hover:bg-gray-50 dark:hover:bg-gray-800"
             >
-              <Eye className="w-4 h-4" /> Storefront
-            </button>
-            <button
-              onClick={() => {
-                setActiveTab("admin");
-                setIsMobileMenuOpen(false);
-              }}
-              className={`p-3 rounded-xl font-bold flex items-center gap-2 ${
-                activeTab === "admin" ? "bg-emerald-800 text-white" : ""
-              }`}
+              Home
+            </Link>
+            <a
+              href="/store#organic-formulations"
+              onClick={() => setIsMobileMenuOpen(false)}
+              className="p-3 rounded-xl font-bold flex items-center gap-2 hover:bg-gray-50 dark:hover:bg-gray-800"
             >
-              <Lock className="w-4 h-4" /> Admin Console
-            </button>
-            <button
-              onClick={() => {
-                setActiveTab("docs");
-                setIsMobileMenuOpen(false);
-              }}
-              className={`p-3 rounded-xl font-bold flex items-center gap-2 ${
-                activeTab === "docs" ? "bg-emerald-800 text-white" : ""
-              }`}
+              Products
+            </a>
+            <a
+              href="#footer-contacts"
+              onClick={() => setIsMobileMenuOpen(false)}
+              className="p-3 rounded-xl font-bold flex items-center gap-2 hover:bg-gray-50 dark:hover:bg-gray-800"
             >
-              <FileCode2 className="w-4 h-4" /> Architecture specs
-            </button>
+              Contacts
+            </a>
+            {role === 'admin' && (
+              <Link
+                to="/admin"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="p-3 rounded-xl font-bold flex items-center gap-2 text-emerald-700 bg-emerald-50 dark:bg-emerald-900/30"
+              >
+                <Lock className="w-4 h-4" /> Admin Console
+              </Link>
+            )}
+            {user ? (
+              <button
+                onClick={() => { signOut(); setIsMobileMenuOpen(false); }}
+                className="p-3 rounded-xl font-bold flex items-center gap-2 text-red-600"
+              >
+                <LogOut className="w-4 h-4" /> Sign Out
+              </button>
+            ) : (
+              <Link
+                to="/auth"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="p-3 rounded-xl font-bold flex items-center gap-2 text-emerald-800 dark:text-lime-400"
+              >
+                <UserIcon className="w-4 h-4" /> Sign In
+              </Link>
+            )}
           </div>
         )}
       </header>
@@ -389,44 +424,53 @@ export default function App() {
       {/* CENTRAL CORE WRAPPER SECTION */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 min-h-[calc(100vh-160px)]">
         <Suspense fallback={<div className="flex items-center justify-center py-20"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-800"></div></div>}>
-          {activeTab === "store" && (
-            <CustomerStore 
-              products={products}
-              events={events}
-              cmsPosts={cmsPosts}
-              onAddOrder={handleAddNewOrder}
-              onRegisterEvent={handleRegisterEventSeat}
-              onUpdateProductStock={handleUpdateProductStock}
+          <Routes>
+            <Route path="/" element={<Navigate to="/store" replace />} />
+            <Route path="/auth" element={<Auth />} />
+            <Route 
+              path="/store/*" 
+              element={
+                <CustomerStore 
+                  products={products}
+                  events={events}
+                  cmsPosts={cmsPosts}
+                  onAddOrder={handleAddNewOrder}
+                  onRegisterEvent={handleRegisterEventSeat}
+                  onUpdateProductStock={handleUpdateProductStock}
+                />
+              } 
             />
-          )}
-
-          {activeTab === "admin" && (
-            <AdminConsole 
-              products={products}
-              orders={orders}
-              tickets={tickets}
-              campaigns={campaigns}
-              cmsPosts={cmsPosts}
-              devLogs={devLogs}
-              anomalies={anomalies}
-              seoConfig={seoConfig}
-              onUpdateInventory={setProducts}
-              onUpdateOrders={setOrders}
-              onUpdateCampaigns={setCampaigns}
-              onUpdateCMS={setCmsPosts}
-              onUpdateSEO={setSeoConfig}
-              onResolveAnomaly={handleResolveAnomaly}
+            <Route 
+              path="/admin/*" 
+              element={
+                <ProtectedRoute requiredRole="admin">
+                  <AdminConsole 
+                    products={products}
+                    orders={orders}
+                    tickets={tickets}
+                    campaigns={campaigns}
+                    cmsPosts={cmsPosts}
+                    devLogs={devLogs}
+                    anomalies={anomalies}
+                    seoConfig={seoConfig}
+                    onUpdateInventory={setProducts}
+                    onUpdateOrders={setOrders}
+                    onUpdateCampaigns={setCampaigns}
+                    onUpdateCMS={setCmsPosts}
+                    onUpdateSEO={setSeoConfig}
+                    onResolveAnomaly={handleResolveAnomaly}
+                  />
+                </ProtectedRoute>
+              } 
             />
-          )}
-
-          {activeTab === "docs" && (
-            <ArchitectureDocs />
-          )}
+            <Route path="/docs" element={<ArchitectureDocs />} />
+            <Route path="*" element={<Navigate to="/store" replace />} />
+          </Routes>
         </Suspense>
       </main>
 
       {/* GLOBAL BRAND FOOTER SIGNALS */}
-      <footer className="border-t border-gray-100 dark:border-gray-900 bg-white dark:bg-gray-950/60 py-12 mt-12">
+      <footer id="footer-contacts" className="border-t border-emerald-950 dark:border-gray-900 bg-emerald-950 text-white py-12 mt-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-8">
             <div className="space-y-4">
@@ -434,18 +478,18 @@ export default function App() {
                 <div className="w-8 h-8 rounded bg-gradient-to-br from-emerald-800 to-lime-500 flex items-center justify-center text-white text-xs font-bold shadow-md">
                   A
                 </div>
-                <span className="font-extrabold tracking-tight text-emerald-850 dark:text-lime-400 uppercase">ALOEFLORA</span>
+                <span className="font-extrabold tracking-tight text-emerald-800 dark:text-lime-400 uppercase">ALOEFLORA</span>
               </div>
-              <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
+              <p className="text-xs text-emerald-100/70 leading-relaxed">
                 Quality, Affordable & Natural Products.<br/>
                 Locally sourced. Zero toxic components. Pure, intense hydration for Kenyan curls and skin.
               </p>
             </div>
             
             <div>
-              <h4 className="font-bold text-sm text-gray-900 dark:text-white mb-4">Quick Links</h4>
-              <ul className="space-y-2 text-xs text-gray-500 dark:text-gray-400">
-                <li><button onClick={() => setActiveTab("store")} className="hover:text-emerald-600 transition">Shop Products</button></li>
+              <h4 className="font-bold text-sm text-white mb-4">Quick Links</h4>
+              <ul className="space-y-2 text-xs text-emerald-100/70">
+                <li><Link to="/store" className="hover:text-emerald-600 transition">Shop Products</Link></li>
                 <li><a href="#events-marketing-section" className="hover:text-emerald-600 transition">Events & Workshops</a></li>
                 <li><button className="hover:text-emerald-600 transition">Track Order</button></li>
                 <li><button className="hover:text-emerald-600 transition">Return Policy</button></li>
@@ -453,40 +497,40 @@ export default function App() {
             </div>
 
             <div>
-              <h4 className="font-bold text-sm text-gray-900 dark:text-white mb-4">Contact Info</h4>
-              <ul className="space-y-3 text-xs text-gray-500 dark:text-gray-400">
+              <h4 className="font-bold text-sm text-white mb-4">Contact Info</h4>
+              <ul className="space-y-3 text-xs text-emerald-100/70">
                 <li className="flex items-start gap-2">
-                  <MapPin className="w-4 h-4 text-emerald-700 shrink-0" />
+                  <MapPin className="w-4 h-4 text-lime-400 shrink-0" />
                   <span>Nairobi CBD Depot, Kenya</span>
                 </li>
                 <li className="flex items-center gap-2">
-                  <Phone className="w-4 h-4 text-emerald-700 shrink-0" />
+                  <Phone className="w-4 h-4 text-lime-400 shrink-0" />
                   <a href="tel:+254702283637" className="hover:text-emerald-600 transition">+254 702 283 637</a>
                 </li>
                 <li className="flex items-center gap-2">
-                  <Mail className="w-4 h-4 text-emerald-700 shrink-0" />
+                  <Mail className="w-4 h-4 text-lime-400 shrink-0" />
                   <a href="mailto:obondodoris@gmail.com" className="hover:text-emerald-600 transition">obondodoris@gmail.com</a>
                 </li>
               </ul>
             </div>
 
             <div>
-              <h4 className="font-bold text-sm text-gray-900 dark:text-white mb-4">Social Media</h4>
+              <h4 className="font-bold text-sm text-white mb-4">Social Media</h4>
               <div className="flex gap-4">
-                <a href="https://www.instagram.com/aloefloraproducts?igsh=YzljYTk1ODg3Zg==" target="_blank" rel="noreferrer" className="w-8 h-8 rounded-full bg-emerald-50 dark:bg-emerald-900/30 flex items-center justify-center text-emerald-800 dark:text-lime-400 hover:bg-emerald-100 transition">
+                <a href="https://www.instagram.com/aloefloraproducts?igsh=YzljYTk1ODg3Zg==" target="_blank" rel="noreferrer" className="w-8 h-8 rounded-full bg-emerald-900 border border-emerald-800 flex items-center justify-center text-lime-400 hover:bg-emerald-800 transition">
                   <span className="font-bold text-xs">IG</span>
                 </a>
-                <a href="https://www.facebook.com/aloefloraproducts" target="_blank" rel="noreferrer" className="w-8 h-8 rounded-full bg-emerald-50 dark:bg-emerald-900/30 flex items-center justify-center text-emerald-800 dark:text-lime-400 hover:bg-emerald-100 transition">
+                <a href="https://www.facebook.com/aloefloraproducts" target="_blank" rel="noreferrer" className="w-8 h-8 rounded-full bg-emerald-900 border border-emerald-800 flex items-center justify-center text-lime-400 hover:bg-emerald-800 transition">
                   <span className="font-bold text-xs">FB</span>
                 </a>
-                <a href="https://wa.me/254702283637" target="_blank" rel="noreferrer" className="w-8 h-8 rounded-full bg-emerald-50 dark:bg-emerald-900/30 flex items-center justify-center text-emerald-800 dark:text-lime-400 hover:bg-emerald-100 transition">
+                <a href="https://wa.me/254702283637" target="_blank" rel="noreferrer" className="w-8 h-8 rounded-full bg-emerald-900 border border-emerald-800 flex items-center justify-center text-lime-400 hover:bg-emerald-800 transition">
                   <span className="font-bold text-xs">WA</span>
                 </a>
               </div>
             </div>
           </div>
           
-          <div className="flex flex-col md:flex-row items-center justify-between pt-6 border-t border-gray-100 dark:border-gray-800/60 text-[10px] text-gray-400 font-mono">
+          <div className="flex flex-col md:flex-row items-center justify-between pt-6 border-t border-emerald-900 text-[10px] text-emerald-200/50 font-mono">
             <span>© {new Date().getFullYear()} ALOEFLORA Kenya. All rights reserved.</span>
             <div className="flex flex-wrap gap-4 mt-4 md:mt-0">
               <span>DB ENGINE: PostgreSQL RLS</span>
