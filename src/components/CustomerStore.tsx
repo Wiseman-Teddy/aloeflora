@@ -27,7 +27,8 @@ import {
   RefreshCw,
   Send,
   Loader2,
-  Globe
+  Globe,
+  Trash2
 } from "lucide-react";
 import { Product, CartItem, Order, BookingEvent, CMSPost } from "../types";
 import { CUSTOMER_RATING_ACCENTS } from "../data/mockData";
@@ -143,32 +144,40 @@ export default function CustomerStore({
 
   // Add Item to cart
   const addToCart = (product: Product, variant?: string) => {
+    const selectedVariant = variant || product.variants?.[0];
     setCart((prev) => {
       const existing = prev.find(
-        (item) => item.product.id === product.id && item.selectedVariant === variant
+        (item) => item.product.id === product.id && item.selectedVariant === selectedVariant
       );
       if (existing) {
         return prev.map((item) =>
-          item.product.id === product.id && item.selectedVariant === variant
+          item.product.id === product.id && item.selectedVariant === selectedVariant
             ? { ...item, quantity: item.quantity + 1 }
             : item
         );
       }
-      return [...prev, { product, quantity: 1, selectedVariant: variant || product.variants?.[0] }];
+      return [...prev, { product, quantity: 1, selectedVariant }];
     });
     // Trigger small animation feedback
     setIsCartOpen(true);
   };
 
-  // Modify Cart Item quantity
+  const removeFromCart = (productId: string, variant?: string) => {
+    setCart((prev) => prev.filter(
+      (item) => !(item.product.id === productId && item.selectedVariant === variant)
+    ));
+  };
+
   const updateCartQuantity = (productId: string, variant: string | undefined, delta: number) => {
-    setCart((prev) => prev.map((item) => {
-      if (item.product.id === productId && item.selectedVariant === variant) {
-        const nextQty = item.quantity + delta;
-        return nextQty > 0 ? { ...item, quantity: nextQty } : item;
-      }
-      return item;
-    }).filter(item => item.quantity > 0));
+    setCart((prev) =>
+      prev.map((item) => {
+        if (item.product.id === productId && item.selectedVariant === variant) {
+          const newQty = Math.max(1, item.quantity + delta);
+          return { ...item, quantity: newQty };
+        }
+        return item;
+      })
+    );
   };
 
   // Toggle Wishlist
@@ -1088,22 +1097,31 @@ export default function CustomerStore({
                             {item.selectedVariant}
                           </span>
                         )}
-                        <div className="text-xs font-semibold text-emerald-800 mt-1">KES {item.product.price}</div>
+                        <div className="text-xs font-semibold text-emerald-800 mt-1">KES {item.product.price * item.quantity}</div>
                       </div>
-                      <div className="flex items-center gap-2 bg-white border rounded bg-transparent">
+                      <div className="flex flex-col items-end gap-2">
                         <button 
-                          onClick={() => updateCartQuantity(item.product.id, item.selectedVariant, -1)}
-                          className="p-1 hover:bg-gray-50 text-gray-500 cursor-pointer"
+                          onClick={() => removeFromCart(item.product.id, item.selectedVariant)}
+                          className="p-1 hover:bg-red-50 text-red-500 rounded cursor-pointer transition"
+                          title="Remove item"
                         >
-                          <Minus className="w-3 h-3" />
+                          <Trash2 className="w-4 h-4" />
                         </button>
-                        <span className="text-xs font-bold">{item.quantity}</span>
-                        <button 
-                          onClick={() => updateCartQuantity(item.product.id, item.selectedVariant, 1)}
-                          className="p-1 hover:bg-gray-50 text-gray-500 cursor-pointer"
-                        >
-                          <Plus className="w-3 h-3" />
-                        </button>
+                        <div className="flex items-center gap-2 bg-white border rounded bg-transparent">
+                          <button 
+                            onClick={() => updateCartQuantity(item.product.id, item.selectedVariant, -1)}
+                            className="p-1 hover:bg-gray-50 text-gray-500 cursor-pointer"
+                          >
+                            <Minus className="w-3 h-3" />
+                          </button>
+                          <span className="text-xs font-bold w-4 text-center">{item.quantity}</span>
+                          <button 
+                            onClick={() => updateCartQuantity(item.product.id, item.selectedVariant, 1)}
+                            className="p-1 hover:bg-gray-50 text-gray-500 cursor-pointer"
+                          >
+                            <Plus className="w-3 h-3" />
+                          </button>
+                        </div>
                       </div>
                     </div>
                   ))}
