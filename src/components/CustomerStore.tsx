@@ -89,6 +89,7 @@ export default function CustomerStore({
   // Multi-step Checkout details
   const [isCheckoutOpen, setIsCheckoutOpen] = useState<boolean>(false);
   const [checkoutStep, setCheckoutStep] = useState<number>(1);
+  const [checkoutConsent, setCheckoutConsent] = useState<boolean>(false);
   const [checkoutName, setCheckoutName] = useState<string>("");
   const [checkoutPhone, setCheckoutPhone] = useState<string>("");
   const [checkoutEmail, setCheckoutEmail] = useState<string>("");
@@ -111,7 +112,7 @@ export default function CustomerStore({
   // Customer AI Specialist (Gemini assistant proxy)
   const [customerQuery, setCustomerQuery] = useState<string>("");
   const [aiChatHistory, setAiChatHistory] = useState<{ role: string; text: string }[]>([
-    { role: "assistant", text: "Habari! I am ALOEFLORA's AI Specialist from Nairobi. How can I assist you with your hair, body, or home care goals today? I can suggest products tailored precisely for curl moisture or skin repair." }
+    { role: "assistant", text: "Habari! I am ALOEFLORA PRODUCTS's AI Specialist from Nairobi. How can I assist you with your hair, body, or home care goals today? I can suggest products tailored precisely for curl moisture or skin repair." }
   ]);
   const [isAiLoading, setIsAiLoading] = useState<boolean>(false);
   const [openAiAssistant, setOpenAiAssistant] = useState<boolean>(false);
@@ -260,7 +261,7 @@ export default function CustomerStore({
         ...prev,
         { 
           role: "assistant", 
-          text: `Thank you for your inquiry about "${userMessage}". Since our live server-side AI connection is warm-up caching, here is ALOEFLORA's expert recommendation: For absolute scalp nourishment, combine our Pure Aloe Vera Gel Shampoo (KES 850) with regular applications of Aloe & Castor Growth Hair Oil (KES 1,200). Organic Rosemary and Peppermint extracts work efficiently to thicken natural curls, sealed off by our West African Shea leaves!` 
+          text: `Thank you for your inquiry about "${userMessage}". Since our live server-side AI connection is warm-up caching, here is ALOEFLORA PRODUCTS's expert recommendation: For absolute scalp nourishment, combine our Pure Aloe Vera Gel Shampoo (KES 850) with regular applications of Aloe & Castor Growth Hair Oil (KES 1,200). Organic Rosemary and Peppermint extracts work efficiently to thicken natural curls, sealed off by our West African Shea leaves!` 
         }
       ]);
     } finally {
@@ -416,12 +417,11 @@ export default function CustomerStore({
             </div>
             
             <h1 className="text-4xl md:text-5xl lg:text-5xl font-extrabold tracking-tight leading-tight">
-              Quality, Affordable & <br />
-              <span className="text-lime-400 underline decoration-emerald-800">Natural Products</span>
+              {cmsPosts.find(p => p.id === 'hero-title')?.content || "Nature's Absolute Repair System"}
             </h1>
             
             <p className="text-sm md:text-base text-emerald-100 max-w-md leading-relaxed">
-              Locally sourced. Zero toxic components. Pure, intense hydration for Kenyan curl structures, skin cells, and healthy household surfaces.
+              {cmsPosts.find(p => p.id === 'hero-subtitle')?.content || "Locally sourced. Zero toxic components. Pure, intense hydration for Kenyan curl structures, skin cells, and healthy household surfaces."}
             </p>
 
             <div className="flex flex-wrap gap-3">
@@ -457,7 +457,7 @@ export default function CustomerStore({
           {/* 10 Image / Product Carousel Section */}
           <div className="lg:col-span-7 flex flex-col justify-center h-full relative">
             <span className="text-[10px] uppercase tracking-widest text-emerald-300 text-right font-mono mb-2">
-              ALOEFLORA Showcase (Products {heroIndex + 1}/10)
+              ALOEFLORA PRODUCTS Showcase (Products {heroIndex + 1}/10)
             </span>
             <div className="relative bg-white/5 backdrop-blur-md border border-white/10 rounded-3xl p-6 shadow-2xl overflow-hidden min-h-[300px] flex items-center">
               
@@ -1180,7 +1180,7 @@ export default function CustomerStore({
                 <span className="text-xs bg-emerald-900 text-lime-400 font-bold px-2 py-0.5 rounded-full">
                   Step {checkoutStep}/2
                 </span>
-                <h3 className="text-md font-bold text-gray-950 dark:text-white">ALOEFLORA Multi-Step Checkout</h3>
+                <h3 className="text-md font-bold text-gray-950 dark:text-white">ALOEFLORA PRODUCTS Multi-Step Checkout</h3>
               </div>
 
               {checkoutStep === 1 ? (
@@ -1320,19 +1320,39 @@ export default function CustomerStore({
                     </div>
                   </div>
 
-                  <div className="flex gap-2 pt-2">
-                    <button 
-                      onClick={() => setCheckoutStep(1)}
-                      className="border border-gray-200 hover:bg-gray-50 p-3 rounded-xl text-xs font-bold transition cursor-pointer"
-                    >
-                      Back
-                    </button>
-                    <button 
-                      onClick={handleInitiateSTK}
-                      className="flex-1 bg-emerald-800 hover:bg-emerald-800 text-white font-bold p-3 rounded-xl text-xs flex items-center justify-center gap-1.5 shadow"
-                    >
-                      Trigger Lipa Na M-Pesa STK Push
-                    </button>
+                  <div className="pt-2">
+                    <label className="flex items-start gap-2 cursor-pointer p-3 bg-gray-50 border border-gray-100 rounded-xl mb-4 text-xs">
+                      <input 
+                        type="checkbox" 
+                        required
+                        className="mt-0.5" 
+                        checked={checkoutConsent}
+                        onChange={(e) => setCheckoutConsent(e.target.checked)}
+                      />
+                      <span className="text-gray-600">
+                        I confirm that my billing details are correct, and I explicitly agree to the ALOEFLORA PRODUCTS 
+                        <span className="font-bold text-emerald-800"> Privacy Policy</span> and 
+                        <span className="font-bold text-emerald-800"> Terms of Service</span>.
+                      </span>
+                    </label>
+
+                    <div className="flex gap-2">
+                      <button 
+                        onClick={() => setCheckoutStep(1)}
+                        className="border border-gray-200 hover:bg-gray-50 p-3 rounded-xl text-xs font-bold transition cursor-pointer"
+                      >
+                        Back
+                      </button>
+                      <button 
+                        onClick={handleInitiateSTK}
+                        disabled={!checkoutConsent}
+                        className={`flex-1 font-bold p-3 rounded-xl text-xs flex items-center justify-center gap-1.5 shadow transition ${
+                          checkoutConsent ? 'bg-emerald-800 hover:bg-emerald-700 text-white cursor-pointer' : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                        }`}
+                      >
+                        Trigger Lipa Na M-Pesa STK Push
+                      </button>
+                    </div>
                   </div>
                 </div>
               )}
@@ -1408,7 +1428,7 @@ export default function CustomerStore({
                   {/* Micro phone interface mockup */}
                   <div className="bg-gray-950 p-4 rounded-2xl border border-gray-800 text-left space-y-3 font-mono text-xs">
                     <div className="text-gray-400 border-b border-gray-800 pb-2">STK Push Message Dialog:</div>
-                    <div className="text-emerald-400 font-bold">Pay Bill: 174379 (ALOEFLORA)</div>
+                    <div className="text-emerald-400 font-bold">Pay Bill: 174379 (ALOEFLORA PRODUCTS)</div>
                     <div>Account No: ORD-{generatedOrderId || "9281"}</div>
                     <div>Amount: KES {total}</div>
                     <div className="text-gray-400">Enter Your 4-Digit M-Pesa Secret PIN:</div>
@@ -1476,7 +1496,7 @@ export default function CustomerStore({
                   <div className="space-y-1">
                     <h4 className="font-bold text-emerald-400">KES {total} Paid Successfully</h4>
                     <p className="text-xs text-gray-400">Safaricom Receipt Ref: QFF{Math.random().toString(36).substring(2, 8).toUpperCase()}</p>
-                    <p className="text-[10px] text-gray-500 px-4 mt-2">ALOEFLORA Nairobi accounts sync cleared. Your order is registered in our dashboard.</p>
+                    <p className="text-[10px] text-gray-500 px-4 mt-2">ALOEFLORA PRODUCTS Nairobi accounts sync cleared. Your order is registered in our dashboard.</p>
                   </div>
 
                   {!user && !registrationSuccess && (
@@ -1523,7 +1543,7 @@ export default function CustomerStore({
                     }}
                     className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs p-3 rounded-xl w-full cursor-pointer transition mt-4"
                   >
-                    Return to ALOEFLORA Store
+                    Return to ALOEFLORA PRODUCTS Store
                   </button>
                 </div>
               )}
@@ -1619,7 +1639,7 @@ export default function CustomerStore({
                   <Sparkles className="w-4 h-4" />
                 </div>
                 <div>
-                  <h4 className="text-xs font-bold leading-normal">ALOEFLORA AI Expert</h4>
+                  <h4 className="text-xs font-bold leading-normal">ALOEFLORA PRODUCTS AI Expert</h4>
                   <div className="flex items-center gap-1">
                     <span className="w-1.5 h-1.5 bg-lime-400 rounded-full animate-pulse"></span>
                     <span className="text-[9px] text-emerald-300">Grounded in Raw Flora Formulas</span>

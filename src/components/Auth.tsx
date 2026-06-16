@@ -6,6 +6,7 @@ import { useAuth } from '../contexts/AuthContext';
 
 export default function Auth() {
   const [isLogin, setIsLogin] = useState(true);
+  const [authConsent, setAuthConsent] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -68,7 +69,7 @@ export default function Auth() {
             A
           </div>
           <h2 className="text-2xl font-extrabold text-gray-900 dark:text-white uppercase tracking-tight">
-            ALOEFLORA
+            ALOEFLORA PRODUCTS
           </h2>
           <p className="text-xs text-gray-500 dark:text-gray-400 font-mono mt-1 uppercase tracking-widest">
             {isLogin ? 'Welcome Back' : 'Join Our Community'}
@@ -113,9 +114,26 @@ export default function Auth() {
             </div>
           </div>
 
+          {!isLogin && (
+            <label className="flex items-start gap-2 cursor-pointer p-3 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-xl mt-2 text-xs">
+              <input 
+                type="checkbox" 
+                required
+                className="mt-0.5" 
+                checked={authConsent}
+                onChange={(e) => setAuthConsent(e.target.checked)}
+              />
+              <span className="text-gray-600 dark:text-gray-400">
+                I explicitly agree to the ALOEFLORA PRODUCTS 
+                <span className="font-bold text-emerald-800 dark:text-emerald-400"> Privacy Policy</span> and 
+                <span className="font-bold text-emerald-800 dark:text-emerald-400"> Terms of Service</span>.
+              </span>
+            </label>
+          )}
+
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || (!isLogin && !authConsent)}
             className="w-full bg-emerald-800 hover:bg-emerald-700 text-white font-bold p-3 rounded-xl transition flex items-center justify-center gap-2 mt-2 cursor-pointer shadow-md disabled:opacity-70 disabled:cursor-not-allowed"
           >
             {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}

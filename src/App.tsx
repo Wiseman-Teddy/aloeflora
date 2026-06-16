@@ -84,10 +84,6 @@ export default function App() {
     return saved ? JSON.parse(saved) : INITIAL_CMS;
   });
 
-  const [devLogs, setDevLogs] = useState<DevOpsLog[]>(() => {
-    const saved = localStorage.getItem("aloeflora_db_devlogs");
-    return saved ? JSON.parse(saved) : INITIAL_DEV_LOGS;
-  });
 
   const [anomalies, setAnomalies] = useState<AuditAnomaly[]>(() => {
     const saved = localStorage.getItem("aloeflora_db_anomalies");
@@ -101,6 +97,8 @@ export default function App() {
 
   // Mobile menu visibility
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
+  const [showLegal, setShowLegal] = useState<boolean>(false);
+  const [showProfile, setShowProfile] = useState<boolean>(false);
 
   // Sync state variables to LocalStorage on updates
   useEffect(() => {
@@ -127,9 +125,6 @@ export default function App() {
     localStorage.setItem("aloeflora_db_cms", JSON.stringify(cmsPosts));
   }, [cmsPosts]);
 
-  useEffect(() => {
-    localStorage.setItem("aloeflora_db_devlogs", JSON.stringify(devLogs));
-  }, [devLogs]);
 
   useEffect(() => {
     localStorage.setItem("aloeflora_db_anomalies", JSON.stringify(anomalies));
@@ -182,15 +177,7 @@ export default function App() {
   const handleAddNewOrder = (newOrder: Order) => {
     setOrders((prev) => [newOrder, ...prev]);
 
-    // Dispatch a successful dev log
-    const newLog: DevOpsLog = {
-      id: "log-" + (devLogs.length + 1),
-      timestamp: new Date().toISOString(),
-      level: "info",
-      service: "api",
-      message: `Order completed: invoice matching ${newOrder.id} dispatched successfully.`
-    };
-    setDevLogs((prev) => [newLog, ...prev]);
+
   };
 
   const handleUpdateProductStock = (productId: string, quantitySold: number) => {
@@ -213,14 +200,7 @@ export default function App() {
           };
           setAnomalies((prevAnm) => [newAnomaly, ...prevAnm]);
 
-          const newLog: DevOpsLog = {
-            id: "log-" + (devLogs.length + 2),
-            timestamp: new Date().toISOString(),
-            level: "warn",
-            service: "database",
-            message: alertMessage
-          };
-          setDevLogs((prevLog) => [newLog, ...prevLog]);
+
         }
         return { ...p, stock: nextStock };
       }
@@ -450,7 +430,6 @@ export default function App() {
                     tickets={tickets}
                     campaigns={campaigns}
                     cmsPosts={cmsPosts}
-                    devLogs={devLogs}
                     anomalies={anomalies}
                     seoConfig={seoConfig}
                     onUpdateInventory={setProducts}

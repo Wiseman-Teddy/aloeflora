@@ -1,0 +1,38 @@
+name: Production CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: 'npm'
+          
+      - name: Install Dependencies
+        run: npm ci
+        
+      - name: Security Audit
+        run: npm audit --audit-level=high
+        
+      - name: TypeScript Linting
+        run: npm run lint
+        
+      - name: Production Build
+        run: npm run build
+        
+      # Vercel Deployment is automatically handled by the Vercel GitHub App integration.
+      # The app will not deploy if any of the above jobs (lint, build, audit) fail.

@@ -3,6 +3,7 @@ export interface Product {
   name: string;
   description: string;
   price: number;
+  costPrice: number;
   category: "hair" | "body" | "home";
   subCategory: string;
   imageUrl: string;
@@ -46,6 +47,7 @@ export interface Order {
     productName: string;
     quantity: number;
     price: number;
+    costPrice?: number;
     selectedVariant?: string;
   }[];
   subtotal: number;

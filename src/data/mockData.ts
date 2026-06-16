@@ -14,7 +14,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     id: "p1",
     name: "Aloeflora Pure Aloe Vera Gel Shampoo",
     description: "Formulated with 85% raw organic Aloe juice sourced from local Kenyan farms. Restores natural moisture, repairs damaged hair cuticles, and relieves dry, itchy scalp. Sulfate-free and color-safe.",
-    price: 850,
+    price: 850, costPrice: 382,
     category: "hair",
     subCategory: "Shampoos",
     imageUrl: "https://images.unsplash.com/photo-1535585209827-a15fcdbc4c2d?auto=format&fit=crop&q=80&w=600",
@@ -34,7 +34,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     id: "p2",
     name: "Aloeflora Hydrating Aloe & Avocado Conditioner",
     description: "An ultra-creamy deep conditioning treatment blending fresh avocado oil with concentrated aloe pulp. Delivers intense slip for easy detangling, preventing hair breakage during wash days.",
-    price: 900,
+    price: 900, costPrice: 405,
     category: "hair",
     subCategory: "Conditioners",
     imageUrl: "https://images.unsplash.com/photo-1526947425960-945c6e72858f?auto=format&fit=crop&q=80&w=600",
@@ -53,7 +53,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     id: "p3",
     name: "Aloeflora Aloe & Castor Growth Hair Oil",
     description: "A signature hair nutrient stimulant sealing ends, moisturizing roots, and stimulating rapid volume. Infused with black castor oil, herbal aloe peptides, and Kenyan peppermint oil.",
-    price: 1200,
+    price: 1200, costPrice: 540,
     category: "hair",
     subCategory: "Oils",
     imageUrl: "https://images.unsplash.com/photo-1608248597481-496100c8c836?auto=format&fit=crop&q=80&w=600",
@@ -72,7 +72,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     id: "p4",
     name: "Aloeflora Nourishing Herbal Growth Cream",
     description: "Daily leave-in hydration styling butter containing shea butter, wild aloe leaf infusion, and hibiscus extract. Holds moisture for up to 72 hours, excellent for twists, braids, and blowouts.",
-    price: 950,
+    price: 950, costPrice: 427,
     category: "hair",
     subCategory: "Hair Creams",
     imageUrl: "https://images.unsplash.com/photo-1601049541289-9b1b7bbbfe19?auto=format&fit=crop&q=80&w=600",
@@ -89,7 +89,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     id: "p5",
     name: "Aloeflora Aloe Calendula Moisturizing Soap",
     description: "Handcrafted natural herbal bath bar blending anti-inflammatory Calendula flowers with cold-pressed olive oils and high-purity aloe soap base. Gently regenerates dry, sensitive, or eczema-prone skin.",
-    price: 350,
+    price: 350, costPrice: 157,
     category: "body",
     subCategory: "Soaps",
     imageUrl: "https://images.unsplash.com/photo-1607006342411-1a9330b6b21c?auto=format&fit=crop&q=80&w=600",
@@ -108,7 +108,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     id: "p6",
     name: "Aloeflora Ultra-Shea Hydrating Body Lotion",
     description: "Intense deep restoration body moisturizer infused with cold-pressed cocoa butter, multi-vitamin aloe concentrate, and Kenyan macadamia seed oils. Absorbs fast with a velvety premium finish.",
-    price: 750,
+    price: 750, costPrice: 337,
     category: "body",
     subCategory: "Lotions",
     imageUrl: "https://images.unsplash.com/photo-1556228720-195a672e8a03?auto=format&fit=crop&q=80&w=600",
@@ -125,7 +125,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     id: "p7",
     name: "Aloeflora Calming Lavender Aloe Body Oil",
     description: "Luxurious dry body glow oil soothing muscles and locking in hydration after showers. Features organic aloe juice and french lavender buds, ideal for relaxing body therapies.",
-    price: 1100,
+    price: 1100, costPrice: 495,
     category: "body",
     subCategory: "Body Oils",
     imageUrl: "https://images.unsplash.com/photo-1617897903246-719242758050?auto=format&fit=crop&q=80&w=600",
@@ -142,7 +142,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     id: "p8",
     name: "Aloeflora Aloe Mint Refining Exfoliating Scrub",
     description: "Revitalizing face and body micro-exfoliant made from crushed walnut shells, fine sugar crystals, concentrated aloe extract, and spearmint essential oil. Buffs dry skin to reveal polished radiance.",
-    price: 800,
+    price: 800, costPrice: 360,
     category: "body",
     subCategory: "Scrubs",
     imageUrl: "https://images.unsplash.com/photo-1598440947619-2c35fc9aa908?auto=format&fit=crop&q=80&w=600",
@@ -159,7 +159,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     id: "p9",
     name: "Aloeflora Aloe Vera Lavender Air Freshener",
     description: "Eco-friendly, water-based household room spray neutralizing heavy kitchen or bathroom odors instantly. Crafted with pure lavender hydrosol and organic aloe enzymes.",
-    price: 500,
+    price: 500, costPrice: 225,
     category: "home",
     subCategory: "Air Fresheners",
     imageUrl: "https://images.unsplash.com/photo-1616949755610-8c9bbc08f138?auto=format&fit=crop&q=80&w=600",
@@ -176,7 +176,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     id: "p10",
     name: "Aloeflora Bio-Degradable Pine Multi-Cleaner",
     description: "A tough, concentrated natural surface disinfectant stripping kitchen grease and floor grime with the power of pine needles oil, citrus extracts, and natural saponified aloe. No harsh chemical gases.",
-    price: 650,
+    price: 650, costPrice: 292,
     category: "home",
     subCategory: "Cleaning Products",
     imageUrl: "https://images.unsplash.com/photo-1581578731548-c64695cc6952?auto=format&fit=crop&q=80&w=600",
@@ -205,8 +205,8 @@ export const INITIAL_ORDERS: Order[] = [
     building: "Kitisuru Heights",
     houseNumber: "A4",
     items: [
-      { productId: "p1", productName: "Aloeflora Pure Aloe Vera Gel Shampoo", quantity: 2, price: 850 },
-      { productId: "p3", productName: "Aloeflora Aloe & Castor Growth Hair Oil", quantity: 1, price: 1200 }
+      { productId: "p1", productName: "Aloeflora Pure Aloe Vera Gel Shampoo", quantity: 2, price: 850, costPrice: 382 },
+      { productId: "p3", productName: "Aloeflora Aloe & Castor Growth Hair Oil", quantity: 1, price: 1200, costPrice: 540 }
     ],
     subtotal: 2900,
     deliveryFee: 250, // Outside CBD
@@ -228,8 +228,8 @@ export const INITIAL_ORDERS: Order[] = [
     building: "Trust Tower",
     houseNumber: "Floor 4, Suite 12",
     items: [
-      { productId: "p5", productName: "Aloeflora Aloe Calendula Moisturizing Soap", quantity: 5, price: 350 },
-      { productId: "p10", productName: "Aloeflora Bio-Degradable Pine Multi-Cleaner", quantity: 1, price: 650 }
+      { productId: "p5", productName: "Aloeflora Aloe Calendula Moisturizing Soap", quantity: 5, price: 350, costPrice: 157 },
+      { productId: "p10", productName: "Aloeflora Bio-Degradable Pine Multi-Cleaner", quantity: 1, price: 650, costPrice: 292 }
     ],
     subtotal: 2400,
     deliveryFee: 0, // CBD Nairobi Delivery Free
@@ -251,8 +251,8 @@ export const INITIAL_ORDERS: Order[] = [
     building: "Acacia Villas",
     houseNumber: "Gate 14",
     items: [
-      { productId: "p2", productName: "Aloeflora Hydrating Aloe & Avocado Conditioner", quantity: 1, price: 900 },
-      { productId: "p6", productName: "Aloeflora Ultra-Shea Hydrating Body Lotion", quantity: 1, price: 750 }
+      { productId: "p2", productName: "Aloeflora Hydrating Aloe & Avocado Conditioner", quantity: 1, price: 900, costPrice: 405 },
+      { productId: "p6", productName: "Aloeflora Ultra-Shea Hydrating Body Lotion", quantity: 1, price: 750, costPrice: 337 }
     ],
     subtotal: 1650,
     deliveryFee: 300, // Karen higher tier Outside CBD
@@ -367,6 +367,33 @@ export const INITIAL_EVENTS: BookingEvent[] = [
 
 export const INITIAL_CMS: CMSPost[] = [
   {
+    id: "hero-title",
+    title: "Storefront Hero Title",
+    content: "Nature's Absolute Repair System",
+    type: "blog",
+    status: "published",
+    author: "Admin Master",
+    createdAt: "2026-06-15"
+  },
+  {
+    id: "hero-subtitle",
+    title: "Storefront Hero Subtitle",
+    content: "Affordable, High-Quality and Natural Solutions for Hair, Skin and Home Care specifically built for the Kenyan environment.",
+    type: "blog",
+    status: "published",
+    author: "Admin Master",
+    createdAt: "2026-06-15"
+  },
+  {
+    id: "about-text",
+    title: "Storefront About Text",
+    content: "ALOEFLORA PRODUCTS is a premium Kenyan organic brand utilizing the potent cellular structures of localized Aloe Vera strains grown under direct sun. Our formulations deliver unrivaled moisture retention for 4C hair textures and sensitive African skin profiles.",
+    type: "blog",
+    status: "published",
+    author: "Admin Master",
+    createdAt: "2026-06-15"
+  },
+  {
     id: "CMS-01",
     title: "How Local Kenyan Aloe Vera outperforms global strains",
     content: "When it comes to cellular hair hydration and moisture sealing, the geographical conditions of high elevation Kenya soil paired with dry heat elements creates high concentrations of pure polysaccharides within the succulent leaf core tissue...",
@@ -426,13 +453,13 @@ export const INITIAL_AUDIT_ANOMALIES: AuditAnomaly[] = [
 ];
 
 export const DEFAULT_SEO_CONFIG: SEOConfig = {
-  metaTitle: "ALOEFLORA | Quality, Affordable & Natural Hair, Body, Home Care Kenya",
-  metaDescription: "Welcome to ALOEFLORA Kenya. We offer premium, natural, organic hair care, skin care, and non-toxic home care solutions locally crafted and shipped in Nairobi, Kenya.",
+  metaTitle: "ALOEFLORA PRODUCTS | Quality, Affordable & Natural Hair, Body, Home Care Kenya",
+  metaDescription: "Welcome to ALOEFLORA PRODUCTS Kenya. We offer premium, natural, organic hair care, skin care, and non-toxic home care solutions locally crafted and shipped in Nairobi, Kenya.",
   keywords: "Best Hair Products Nairobi, Natural Hair Products Kenya, Affordable Hair Care Products, Natural Body Products Kenya, Affordable Home Care Products, Best Quality Natural Products Nairobi",
   structuredDataJson: `{
   "@context": "https://schema.org",
   "@type": "Store",
-  "name": "ALOEFLORA",
+  "name": "ALOEFLORA PRODUCTS",
   "image": "https://images.unsplash.com/photo-1526947425960-945c6e72858f",
   "description": "Quality, Affordable & Natural Products in Nairobi Kenya",
   "telephone": "+254702283637",

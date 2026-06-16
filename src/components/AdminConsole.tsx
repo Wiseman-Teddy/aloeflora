@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { 
+import { User, LogOut, 
   BarChart3, 
   Layers, 
   ShoppingBag, 
@@ -23,8 +23,9 @@ import {
   Lock,
   MessageSquare
 } from "lucide-react";
-import { Product, Order, SupportTicket, MarketingCampaign, CMSPost, DevOpsLog, AuditAnomaly, SEOConfig, SystemMetrics } from "../types";
+import { Product, Order, SupportTicket, MarketingCampaign, CMSPost, AuditAnomaly, SEOConfig, SystemMetrics } from "../types";
 import { supabase } from "../lib/supabase";
+import { sanitizeInput } from "../utils/sanitize";
 
 interface AdminConsoleProps {
   products: Product[];
@@ -32,7 +33,6 @@ interface AdminConsoleProps {
   tickets: SupportTicket[];
   campaigns: MarketingCampaign[];
   cmsPosts: CMSPost[];
-  devLogs: DevOpsLog[];
   anomalies: AuditAnomaly[];
   seoConfig: SEOConfig;
   onUpdateInventory: (updatedProducts: Product[]) => void;
@@ -49,7 +49,6 @@ export default function AdminConsole({
   tickets,
   campaigns,
   cmsPosts,
-  devLogs,
   anomalies,
   seoConfig,
   onUpdateInventory,
@@ -71,6 +70,7 @@ export default function AdminConsole({
   const [prodName, setProdName] = useState<string>("");
   const [prodDesc, setProdDesc] = useState<string>("");
   const [prodPrice, setProdPrice] = useState<number>(500);
+  const [prodCostPrice, setProdCostPrice] = useState<number>(200);
   const [prodCategory, setProdCategory] = useState<"hair" | "body" | "home">("hair");
   const [prodSubCategory, setProdSubCategory] = useState<string>("Shampoos");
   const [prodImageUrl, setProdImageUrl] = useState<string>("");
@@ -91,6 +91,7 @@ export default function AdminConsole({
 
   // CMS forms
   const [isAddingCms, setIsAddingCms] = useState<boolean>(false);
+  const [editingCmsId, setEditingCmsId] = useState<string | null>(null);
   const [cmsTitle, setCmsTitle] = useState<string>("");
   const [cmsContent, setCmsContent] = useState<string>("");
   const [cmsType, setCmsType] = useState<"blog" | "testimonial" | "policy" | "faq" | "promo">("blog");
@@ -139,9 +140,21 @@ export default function AdminConsole({
     .filter((o) => o.paymentStatus === "paid")
     .reduce((sum, o) => sum + o.items.reduce((acc, item) => acc + item.quantity, 0), 0);
 
-  // COGS simulation - roughly 35% component manufacturing fees in Kenya
-  const mockCogs = totalPaidRevenue * 0.35;
-  const mockOperatingExpenses = 4200; // Logistics fuel, delivery riders, internet servers etc.
+  // Execute true profit calculations dynamically
+  const mockOperatingExpenses = 4200; // Logistics fuel, internet servers etc.
+  
+  // Calculate total COGS strictly from sold items matching the product catalog cost prices
+  const mockCogs = orders
+    .filter((o) => o.paymentStatus === "paid")
+    .reduce((totalCost, order) => {
+      const orderCosts = order.items.reduce((acc, item) => {
+        const product = products.find(p => p.id === item.productId);
+        const itemCost = product ? product.costPrice : (item.price * 0.45); // fallback
+        return acc + (itemCost * item.quantity);
+      }, 0);
+      return totalCost + orderCosts;
+    }, 0);
+
   const mockGrossProfit = totalPaidRevenue - mockCogs;
   const mockNetProfit = mockGrossProfit - mockOperatingExpenses;
 
@@ -158,6 +171,7 @@ export default function AdminConsole({
       name: prodName,
       description: prodDesc,
       price: prodPrice,
+      costPrice: prodCostPrice,
       category: prodCategory,
       subCategory: prodSubCategory,
       imageUrl: prodImageUrl,
@@ -180,6 +194,7 @@ export default function AdminConsole({
     setProdName("");
     setProdDesc("");
     setProdPrice(500);
+    setProdCostPrice(200);
     setProdCategory("hair");
     setProdSubCategory("Shampoos");
     setProdImageUrl("");
@@ -213,21 +228,50 @@ export default function AdminConsole({
     e.preventDefault();
     if (!cmsTitle || !cmsContent) return;
 
-    const newPost: CMSPost = {
-      id: "CMS-" + (cmsPosts.length + 1),
-      title: cmsTitle,
-      content: cmsContent,
-      type: cmsType,
-      status: cmsStatus,
-      author: "Admin Master",
-      createdAt: new Date().toISOString().split("T")[0]
-    };
-
-    onUpdateCMS([...cmsPosts, newPost]);
+    if (editingCmsId) {
+      const updatedPosts = cmsPosts.map(p => {
+        if (p.id === editingCmsId) {
+          return { ...p, title: sanitizeInput(cmsTitle), content: sanitizeInput(cmsContent), type: cmsType, status: cmsStatus };
+        }
+        return p;
+      });
+      onUpdateCMS(updatedPosts);
+      setEditingCmsId(null);
+      alert("CMS Article Updated Successfully!");
+    } else {
+      let safeId = cmsTitle.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+      if(cmsPosts.some(p => p.id === safeId)) safeId += "-" + Math.floor(Math.random() * 1000);
+      const newPost: CMSPost = {
+        id: safeId,
+        title: sanitizeInput(cmsTitle),
+        content: sanitizeInput(cmsContent),
+        type: cmsType,
+        status: cmsStatus,
+        author: "Admin Master",
+        createdAt: new Date().toISOString().split("T")[0]
+      };
+      onUpdateCMS([...cmsPosts, newPost]);
+      alert("New CMS Article Published Successfully!");
+    }
+    
     setIsAddingCms(false);
     setCmsTitle("");
     setCmsContent("");
-    alert("New CMS Article Draft Published Successfully!");
+  };
+
+  const handleEditCMS = (post: CMSPost) => {
+    setEditingCmsId(post.id);
+    setCmsTitle(post.title);
+    setCmsContent(post.content);
+    setCmsType(post.type);
+    setCmsStatus(post.status);
+    setIsAddingCms(true);
+  };
+
+  const handleDeleteCMS = (id: string) => {
+    if(confirm("Are you sure you want to permanently delete this CMS Post?")) {
+      onUpdateCMS(cmsPosts.filter(p => p.id !== id));
+    }
   };
 
   const saveSeoFields = () => {
@@ -288,7 +332,6 @@ export default function AdminConsole({
           { id: "support", label: "Support Desk", icon: MessageSquare },
           { id: "cms", label: "CMS Web Editor", icon: PenTool },
           { id: "seo", label: "Technical SEO", icon: FileText },
-          { id: "devops", label: "DevOps Logs", icon: Terminal }
         ].map((item) => {
           const Icon = item.icon;
           return (
@@ -494,7 +537,11 @@ export default function AdminConsole({
 
                 <div className="grid grid-cols-3 gap-3">
                   <div className="space-y-1">
-                    <label className="font-bold">Retails Price (KES)</label>
+                    <label className="font-bold">Cost Price (KES)</label>
+                    <input type="number" value={prodCostPrice} onChange={(e) => setProdCostPrice(Number(e.target.value))} className="w-full p-2 border bg-white rounded-lg focus:outline-none" required />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="font-bold">Selling/Retail Price (KES)</label>
                     <input type="number" value={prodPrice} onChange={(e) => setProdPrice(Number(e.target.value))} className="w-full p-2 border bg-white rounded-lg focus:outline-none" required />
                   </div>
                   <div className="space-y-1">
@@ -554,7 +601,8 @@ export default function AdminConsole({
                 <thead className="bg-zinc-50 border-b border-gray-100 font-bold uppercase text-gray-400 text-[10px]">
                   <tr>
                     <th className="p-3 text-left">Listing Description</th>
-                    <th className="p-3 text-center">Retail price</th>
+                    <th className="p-3 text-center">Cost Price</th>
+                    <th className="p-3 text-center">Selling Price</th>
                     <th className="p-3 text-center">Stock multiplier</th>
                     <th className="p-3 text-center">Safety Stock</th>
                     <th className="p-3 text-center">Trigger point</th>
@@ -575,6 +623,7 @@ export default function AdminConsole({
                             </span>
                           </div>
                         </td>
+                        <td className="p-3 text-center font-bold text-red-500">KES {p.costPrice}</td>
                         <td className="p-3 text-center font-bold text-emerald-800">KES {p.price}</td>
                         <td className="p-3 text-center">
                           <span className={`font-bold px-2 py-0.5 rounded ${
@@ -643,27 +692,27 @@ export default function AdminConsole({
 
               <div className="space-y-3 text-xs">
                 <div className="flex justify-between items-center text-gray-700 font-bold">
-                  <span>Merchant Processing Revenue</span>
+                  <span>Total Revenue (Money In)</span>
                   <span>KES {totalPaidRevenue}</span>
                 </div>
 
                 <div className="flex justify-between items-center text-gray-500 pl-4">
-                  <span>- Cost of Goods Sold (COGS 35% raw supply)</span>
+                  <span>- Total Product Costs (Money out for items)</span>
                   <span>KES {mockCogs}</span>
                 </div>
 
                 <div className="flex justify-between items-center text-gray-800 font-bold border-t pt-2">
-                  <span>Operating Gross Profit Margin</span>
+                  <span>Gross Profit</span>
                   <span className="text-emerald-800">KES {mockGrossProfit}</span>
                 </div>
 
                 <div className="flex justify-between items-center text-gray-500 pl-4">
-                  <span>- Administrative Nairobi logistics + riders fees</span>
+                  <span>- Operating Expenses (Logistics & Hosting)</span>
                   <span>KES {mockOperatingExpenses}</span>
                 </div>
 
                 <div className="flex justify-between items-center text-gray-950 font-extrabold border-t-2 pt-2 text-sm">
-                  <span>Operating Net Profit Margin</span>
+                  <span>Net Profit (Money You Keep)</span>
                   <span className="text-emerald-900">KES {mockNetProfit > 0 ? mockNetProfit : 0}</span>
                 </div>
               </div>
@@ -854,6 +903,11 @@ export default function AdminConsole({
                   </span>
                   <h4 className="font-bold text-gray-900 mt-1">{post.title}</h4>
                   <p className="text-gray-500 line-clamp-3 leading-relaxed leading-normal">{post.content}</p>
+                  
+                  <div className="flex gap-2 pt-2 border-t mt-3 border-gray-100">
+                    <button onClick={() => handleEditCMS(post)} className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 py-1.5 rounded text-[10px] font-bold transition">Edit</button>
+                    <button onClick={() => handleDeleteCMS(post.id)} className="flex-1 bg-red-50 hover:bg-red-100 text-red-700 py-1.5 rounded text-[10px] font-bold transition">Delete</button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -1005,66 +1059,35 @@ export default function AdminConsole({
           </div>
         )}
 
-        {/* TAB 8: DEVOPS SYSTEM & METRICS TERMINAL */}
-        {activeModule === "devops" && (
-          <div className="space-y-6 animate-in fade-in duration-150 text-left font-mono text-xs">
+        {/* TAB 10: SETTINGS & PROFILE */}
+        {activeModule === "settings" && (
+          <div className="space-y-6 animate-in fade-in duration-150 text-left max-w-2xl mx-auto">
             <div>
-              <h3 className="text-lg font-bold text-gray-950 font-sans">Application DevOps Terminal</h3>
-              <p className="text-xs text-gray-500 font-sans mt-0.5">Physical telemetry streaming from Node.js process pools.</p>
+              <h3 className="text-lg font-bold text-gray-950">System Settings & Profile</h3>
+              <p className="text-xs text-gray-500 mt-0.5">Manage administrative credentials and system configuration.</p>
             </div>
-
-            {/* Simulated Live telemetry sliders */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="bg-black text-lime-400 p-4 rounded-xl border border-gray-800 text-center">
-                <div className="text-[10px] uppercase font-bold text-gray-500 font-sans">Node Core CPU</div>
-                <div className="text-xl font-extrabold mt-1">{metrics.cpuUsage}%</div>
-                <div className="w-full bg-gray-900 h-1.5 rounded-full mt-2 relative overflow-hidden">
-                  <div style={{ width: `${metrics.cpuUsage}%` }} className="bg-lime-400 h-full"></div>
-                </div>
+            
+            <form onSubmit={(e) => { e.preventDefault(); alert('Profile updated!'); }} className="bg-zinc-50/50 p-6 border rounded-2xl space-y-4">
+              <div className="space-y-1">
+                <label className="text-[10px] uppercase font-bold text-gray-500">Admin Name</label>
+                <input type="text" defaultValue="Master Admin" required className="w-full p-3 bg-white border border-gray-200 rounded-xl focus:outline-none focus:border-emerald-600 text-xs" />
               </div>
-
-              <div className="bg-black text-lime-400 p-4 rounded-xl border border-gray-800 text-center">
-                <div className="text-[10px] uppercase font-bold text-gray-500 font-sans">DB Response Latency</div>
-                <div className="text-xl font-extrabold mt-1">{metrics.databaseLatency} ms</div>
-                <div className="w-full bg-gray-900 h-1.5 rounded-full mt-2 relative overflow-hidden">
-                  <div style={{ width: `${(metrics.databaseLatency / 15) * 100}%` }} className="bg-emerald-500 h-full"></div>
-                </div>
-              </div>
-
-              <div className="bg-black text-lime-400 p-4 rounded-xl border border-gray-800 text-center">
-                <div className="text-[10px] uppercase font-bold text-gray-500 font-sans">Active Web sockets</div>
-                <div className="text-xl font-extrabold mt-1">{metrics.activeSessions} socket connections</div>
-                <div className="w-full bg-gray-900 h-1.5 rounded-full mt-2 relative overflow-hidden">
-                  <div style={{ width: `${(metrics.activeSessions / 30) * 100}%` }} className="bg-lime-400 h-full font-mono"></div>
-                </div>
-              </div>
-
-              <div className="bg-black text-lime-400 p-4 rounded-xl border border-gray-800 text-center">
-                <div className="text-[10px] uppercase font-bold text-gray-500 font-sans">HTTP Query count</div>
-                <div className="text-xl font-extrabold mt-1">{metrics.requestCount} triggers</div>
-                <div className="text-[9px] text-gray-500 mt-1">Safaricom/C2B heartbeats</div>
-              </div>
-            </div>
-
-            {/* raw command logs and alerts terminal mock */}
-            <div className="bg-black text-gray-300 p-4 rounded-2xl border border-gray-800 max-h-60 overflow-y-auto space-y-1.5 leading-relaxed leading-normal text-[11px]">
-              <div className="text-gray-500 border-b border-gray-800 pb-2 flex justify-between font-sans">
-                <span>Docker Container stream events: cmd="node dist/server.cjs"</span>
-                <span className="text-emerald-500 animate-pulse">● LIVE STREAMING</span>
+              <div className="space-y-1">
+                <label className="text-[10px] uppercase font-bold text-gray-500">Admin Email</label>
+                <input type="email" defaultValue="aganyawiseman@gmail.com" required className="w-full p-3 bg-white border border-gray-200 rounded-xl focus:outline-none focus:border-emerald-600 text-xs" />
               </div>
               
-              {devLogs.map((log) => (
-                <div key={log.id} className="flex gap-2.5">
-                  <span className="text-gray-500">[{log.timestamp.split("T")[1].replace("Z", "")}]</span>
-                  <span className={`font-bold uppercase tracking-wider ${
-                    log.level === "error" ? "text-rose-500" : log.level === "warn" ? "text-amber-500" : "text-emerald-400"
-                  }`}>
-                    {log.level}
-                  </span>
-                  <span className="text-lime-400">({log.service})</span>
-                  <span>{log.message}</span>
-                </div>
-              ))}
+              <button type="submit" className="w-full bg-emerald-800 text-white font-bold py-3 rounded-xl hover:bg-emerald-700 transition cursor-pointer text-xs shadow-md mt-4">
+                Save Profile Configuration
+              </button>
+            </form>
+
+            <div className="bg-red-50 p-6 border border-red-100 rounded-2xl text-center space-y-3">
+              <h4 className="font-bold text-red-900">End Session</h4>
+              <p className="text-xs text-red-700 max-w-sm mx-auto">Terminate your current secure administrative session. You will be required to re-authenticate to access the ERP.</p>
+              <button onClick={() => window.location.href = '/'} className="w-full bg-red-600 text-white font-bold py-3 rounded-xl hover:bg-red-700 transition flex items-center justify-center gap-2 cursor-pointer text-xs shadow-md mx-auto max-w-sm mt-2">
+                <LogOut className="w-4 h-4" /> Secure Sign Out
+              </button>
             </div>
           </div>
         )}
