@@ -34,7 +34,8 @@ export default function Auth() {
         if (adminEmails.includes(email)) {
           navigate('/admin', { replace: true });
         } else {
-          navigate((location.state as any)?.from?.pathname || '/store', { replace: true });
+          // Force all customers to the dashboard immediately
+          navigate('/dashboard', { replace: true });
         }
       } else {
         const { data, error } = await supabase.auth.signUp({
@@ -44,7 +45,7 @@ export default function Auth() {
         if (error) throw error;
         
         if (data.session) {
-           navigate('/store', { replace: true });
+           navigate('/dashboard', { replace: true });
         } else {
            alert('Account created! Please check your email for the confirmation link to log in.');
            setIsLogin(true);

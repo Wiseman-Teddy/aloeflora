@@ -26,6 +26,7 @@ import { User, LogOut,
 import { Product, Order, SupportTicket, MarketingCampaign, CMSPost, AuditAnomaly, SEOConfig, SystemMetrics } from "../types";
 import { supabase } from "../lib/supabase";
 import { sanitizeInput } from "../utils/sanitize";
+import { useAuth } from "../contexts/AuthContext";
 
 interface AdminConsoleProps {
   products: Product[];
@@ -58,6 +59,10 @@ export default function AdminConsole({
   onUpdateSEO,
   onResolveAnomaly
 }: AdminConsoleProps) {
+  const { signOut } = useAuth();
+  const [adminName, setAdminName] = useState("Admin User");
+  const [adminEmail, setAdminEmail] = useState("admin@aloeflora.com");
+  
   // Navigation
   const [activeModule, setActiveModule] = useState<string>("executive");
 
@@ -312,56 +317,119 @@ export default function AdminConsole({
   };
 
   return (
-    <div id="admin-unified-console-wrapper" className="grid grid-cols-1 lg:grid-cols-12 gap-8 text-left">
+    <div id="admin-unified-console-wrapper" className="flex flex-col lg:flex-row gap-6 text-left min-h-screen -mt-2">
       
-      {/* LEFT SIDEBAR NAVIGATION: Pure Clean Grid */}
-      <div className="lg:col-span-3 space-y-3 bg-semibold-zinc rounded-2xl p-4 border border-zinc-150/40">
-        <div className="pb-3 border-b mb-4">
-          <div className="flex items-center gap-2">
-            <span className="w-2.5 h-2.5 bg-emerald-700 rounded-full"></span>
-            <div className="text-xs font-bold text-gray-400 uppercase tracking-widest leading-none">Management Roles</div>
+      {/* LEFT SIDEBAR NAVIGATION: Dark Theme ShopX Style */}
+      <div className="w-full lg:w-64 shrink-0 bg-[#0F172A] text-slate-300 rounded-3xl p-5 shadow-xl flex flex-col justify-between h-auto lg:h-[calc(100vh-120px)] lg:sticky top-24">
+        <div className="flex-1 overflow-y-auto no-scrollbar">
+          <div className="pb-6 mb-2 flex items-center gap-3 px-2">
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-lime-400 flex items-center justify-center text-white font-bold shadow-lg shadow-emerald-900/20">
+              <span className="text-sm">A</span>
+            </div>
+            <h3 className="text-lg font-bold text-white tracking-tight">ALOEFLORA</h3>
           </div>
-          <h3 className="text-md font-bold text-gray-900 mt-1">Concentric Console</h3>
-        </div>
 
-        {[
-          { id: "executive", label: "Executive Metrics", icon: BarChart3 },
-          { id: "inventory", label: "Inventory ERP", icon: ShoppingBag },
-          { id: "financial", label: "P&L Financials", icon: TrendingUp },
-          { id: "marketing", label: "Ads & Promo Codes", icon: Percent },
-          { id: "support", label: "Support Desk", icon: MessageSquare },
-          { id: "cms", label: "CMS Web Editor", icon: PenTool },
-          { id: "seo", label: "Technical SEO", icon: FileText },
-        ].map((item) => {
-          const Icon = item.icon;
-          return (
-            <button
-              key={item.id}
-              onClick={() => setActiveModule(item.id)}
-              className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-bold cursor-pointer transition ${
-                activeModule === item.id
-                  ? "bg-emerald-800 text-white shadow"
-                  : "text-gray-600 hover:bg-gray-100 hover:text-gray-950"
-              }`}
-            >
-              <Icon className="w-4 h-4" /> {item.label}
-            </button>
-          );
-        })}
+          <div className="space-y-6">
+            {/* OVERVIEW */}
+            <div>
+              <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 px-2">Overview</div>
+              <button
+                onClick={() => setActiveModule("executive")}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-semibold transition ${
+                  activeModule === "executive"
+                    ? "bg-emerald-600 text-white shadow-lg shadow-emerald-900/20"
+                    : "hover:bg-slate-800 hover:text-white"
+                }`}
+              >
+                <BarChart3 className="w-4 h-4" /> Dashboard
+              </button>
+            </div>
 
-        {/* Audit Log Flag badge widget */}
-        {anomalies.length > 0 && (
-          <div className="bg-amber-50 border border-amber-200 rounded-2xl p-3 flex items-center gap-3">
-            <AlertTriangle className="w-7 h-7 text-amber-700 shrink-0" />
-            <div className="text-[11px] leading-tight text-amber-900">
-              <span className="font-bold">Audit engine check:</span> {anomalies.length} potential cash/stock mismatch triggers detected. Check financials.
+            {/* MANAGEMENT */}
+            <div>
+              <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 px-2">Management</div>
+              {[
+                { id: "inventory", label: "Inventory", icon: ShoppingBag },
+                { id: "support", label: "Support Tickets", icon: MessageSquare },
+                { id: "cms", label: "CMS Web Editor", icon: PenTool },
+              ].map(item => (
+                <button
+                  key={item.id}
+                  onClick={() => setActiveModule(item.id)}
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-semibold transition mb-1 ${
+                    activeModule === item.id
+                      ? "bg-emerald-600 text-white shadow-lg shadow-emerald-900/20"
+                      : "hover:bg-slate-800 hover:text-white"
+                  }`}
+                >
+                  <item.icon className="w-4 h-4" /> {item.label}
+                </button>
+              ))}
+            </div>
+
+            {/* ANALYTICS & SALES */}
+            <div>
+              <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 px-2">Analytics & Sales</div>
+              {[
+                { id: "financial", label: "P&L Reports", icon: TrendingUp },
+                { id: "marketing", label: "Marketing", icon: Percent },
+              ].map(item => (
+                <button
+                  key={item.id}
+                  onClick={() => setActiveModule(item.id)}
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-semibold transition mb-1 ${
+                    activeModule === item.id
+                      ? "bg-emerald-600 text-white shadow-lg shadow-emerald-900/20"
+                      : "hover:bg-slate-800 hover:text-white"
+                  }`}
+                >
+                  <item.icon className="w-4 h-4" /> {item.label}
+                </button>
+              ))}
+            </div>
+
+            {/* SETTINGS */}
+            <div>
+              <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 px-2">Settings</div>
+              <button
+                onClick={() => setActiveModule("seo")}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-semibold transition mb-1 ${
+                  activeModule === "seo"
+                    ? "bg-emerald-600 text-white shadow-lg shadow-emerald-900/20"
+                    : "hover:bg-slate-800 hover:text-white"
+                }`}
+              >
+                <Settings className="w-4 h-4" /> Store Settings
+              </button>
+              <button
+                onClick={signOut}
+                className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-semibold text-red-400 hover:bg-red-900/20 transition"
+              >
+                <LogOut className="w-4 h-4" /> Log Out
+              </button>
             </div>
           </div>
-        )}
+        </div>
+
+        {/* Audit Log Flag badge widget inside Sidebar */}
+        <div className="mt-6 pt-4 border-t border-slate-800 shrink-0">
+          {anomalies.length > 0 ? (
+            <div className="bg-amber-900/30 border border-amber-500/30 rounded-xl p-3 flex items-start gap-3">
+              <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+              <div className="text-[10px] leading-tight text-amber-200">
+                <span className="font-bold text-amber-400">Audit Alert:</span> {anomalies.length} potential triggers detected. Check financials.
+              </div>
+            </div>
+          ) : (
+             <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-3 flex items-center gap-3 text-emerald-400 text-[10px]">
+                <CheckCircle className="w-4 h-4" /> Systems Nominal
+             </div>
+          )}
+        </div>
       </div>
 
       {/* RIGHT WORKSPACE CONTEXT: Dynamic tab panels */}
-      <div className="lg:col-span-9 bg-white shadow-sm border border-gray-100 rounded-3xl p-6">
+      <div className="flex-1 w-full max-w-full lg:max-w-[calc(100%-17.5rem)] bg-white dark:bg-gray-900 shadow-sm border border-gray-100 dark:border-gray-800 rounded-3xl p-6 md:p-8">
         
         {/* TAB 1: EXECUTIVE DASHBOARD MODULE */}
         {activeModule === "executive" && (
@@ -986,11 +1054,59 @@ export default function AdminConsole({
           </div>
         )}
 
-        {/* TAB 7: TECHNICAL SEO FIELDS MANAGER */}
+        {/* TAB 7: STORE SETTINGS & ADMIN PROFILE */}
         {activeModule === "seo" && (
-          <div className="space-y-6 animate-in fade-in duration-150 text-left">
+          <div className="space-y-8 animate-in fade-in duration-150 text-left">
+            
+            {/* Admin Profile Section */}
             <div>
-              <h3 className="text-lg font-bold text-gray-950">Technical SEO Tagging</h3>
+              <div className="mb-4">
+                <h3 className="text-lg font-bold text-gray-950 dark:text-white">Admin Profile Settings</h3>
+                <p className="text-xs text-gray-500">Update your console access credentials and personal details.</p>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs bg-gray-50/50 dark:bg-gray-800/50 p-6 rounded-2xl border border-gray-100 dark:border-gray-800">
+                <div className="space-y-4">
+                  <div className="space-y-1">
+                    <label className="font-bold text-gray-400 uppercase text-[10px]">Full Name</label>
+                    <input
+                      type="text"
+                      value={adminName}
+                      onChange={(e) => setAdminName(e.target.value)}
+                      className="w-full p-3 border dark:border-gray-700 rounded-xl bg-white dark:bg-gray-900 focus:outline-none focus:border-emerald-800"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="font-bold text-gray-400 uppercase text-[10px]">Email Address</label>
+                    <input
+                      type="email"
+                      value={adminEmail}
+                      onChange={(e) => setAdminEmail(e.target.value)}
+                      className="w-full p-3 border dark:border-gray-700 rounded-xl bg-white dark:bg-gray-900 focus:outline-none focus:border-emerald-800"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-4 flex flex-col justify-between">
+                  <div className="space-y-1">
+                    <label className="font-bold text-gray-400 uppercase text-[10px]">Current Role</label>
+                    <div className="w-full p-3 border dark:border-gray-700 rounded-xl bg-gray-100 dark:bg-gray-800 text-gray-500 cursor-not-allowed">
+                      Super Administrator
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => alert('Profile updated successfully!')}
+                    className="w-full py-3 bg-emerald-800 hover:bg-emerald-700 text-white font-bold rounded-xl shadow transition mt-auto"
+                  >
+                    Save Profile Changes
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <hr className="border-gray-100 dark:border-gray-800" />
+
+            <div className="mb-4">
+              <h3 className="text-lg font-bold text-gray-950 dark:text-white">Technical SEO Tagging</h3>
               <p className="text-xs text-gray-500">Configure global metadata structures optimized for Kenyan natural search keyword aggregates.</p>
             </div>
 

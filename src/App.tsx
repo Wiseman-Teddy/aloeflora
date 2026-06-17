@@ -19,6 +19,8 @@ import {
   X,
   MapPin,
   LogOut,
+  Settings,
+  LayoutDashboard,
   User as UserIcon
 } from "lucide-react";
 import { supabase } from "./lib/supabase";
@@ -42,6 +44,7 @@ import {
 const CustomerStore = lazy(() => import("./components/CustomerStore"));
 const AdminConsole = lazy(() => import("./components/AdminConsole"));
 const ArchitectureDocs = lazy(() => import("./components/ArchitectureDocs"));
+const UserDashboard = lazy(() => import("./components/UserDashboard"));
 
 export default function App() {
   const { user, role, signOut } = useAuth();
@@ -98,7 +101,6 @@ export default function App() {
   // Mobile menu visibility
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
   const [showLegal, setShowLegal] = useState<boolean>(false);
-  const [showProfile, setShowProfile] = useState<boolean>(false);
 
   // Sync state variables to LocalStorage on updates
   useEffect(() => {
@@ -245,6 +247,10 @@ export default function App() {
     }).filter(anm => anm.status !== "resolved")); // removes resolved
   };
 
+  const handleAddTicket = (ticket: SupportTicket) => {
+    setTickets((prev) => [ticket, ...prev]);
+  };
+
   return (
     <div className={`min-h-screen transition duration-300 font-sans ${
       darkMode ? "bg-gray-950 text-white" : "bg-neutral-50/50 text-gray-900"
@@ -262,7 +268,7 @@ export default function App() {
             </div>
             <div className="text-left select-none">
               <div className="text-sm font-extrabold tracking-tight text-emerald-800 dark:text-lime-400 block scale-y-105 leading-none uppercase">
-                ALOEFLORA
+                ALOEFLORA PRODUCTS
               </div>
               <div className="text-[9px] uppercase font-bold tracking-wider text-gray-400 mt-1 block font-mono leading-none">
                 Quality, Affordable & Natural
@@ -319,6 +325,15 @@ export default function App() {
                     Role: {role}
                   </span>
                 </div>
+                {role === 'customer' && (
+                  <Link
+                    to="/dashboard"
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-100 hover:bg-emerald-200 text-emerald-800 text-xs font-bold transition"
+                    title="My Dashboard"
+                  >
+                    <LayoutDashboard className="w-3.5 h-3.5" /> Dashboard
+                  </Link>
+                )}
                 <button
                   onClick={signOut}
                   className="p-2 rounded-full bg-red-50 hover:bg-red-100 text-red-600 dark:bg-red-900/20 dark:hover:bg-red-900/40 cursor-pointer transition"
@@ -382,12 +397,23 @@ export default function App() {
               </Link>
             )}
             {user ? (
-              <button
-                onClick={() => { signOut(); setIsMobileMenuOpen(false); }}
-                className="p-3 rounded-xl font-bold flex items-center gap-2 text-red-600"
-              >
-                <LogOut className="w-4 h-4" /> Sign Out
-              </button>
+              <>
+                {role === 'customer' && (
+                  <Link
+                    to="/dashboard"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                    className="p-3 rounded-xl font-bold flex items-center gap-2 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800"
+                  >
+                    <LayoutDashboard className="w-4 h-4" /> My Dashboard
+                  </Link>
+                )}
+                <button
+                  onClick={() => { signOut(); setIsMobileMenuOpen(false); }}
+                  className="p-3 rounded-xl font-bold flex items-center gap-2 text-red-600"
+                >
+                  <LogOut className="w-4 h-4" /> Sign Out
+                </button>
+              </>
             ) : (
               <Link
                 to="/auth"
@@ -402,7 +428,7 @@ export default function App() {
       </header>
 
       {/* CENTRAL CORE WRAPPER SECTION */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 min-h-[calc(100vh-160px)]">
+      <main className={`${location.pathname.includes('/dashboard') || location.pathname.includes('/admin') ? 'w-full max-w-[1920px]' : 'max-w-7xl'} mx-auto px-4 sm:px-6 lg:px-8 py-8 min-h-[calc(100vh-160px)]`}>
         <Suspense fallback={<div className="flex items-center justify-center py-20"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-800"></div></div>}>
           <Routes>
             <Route path="/" element={<Navigate to="/store" replace />} />
@@ -443,6 +469,19 @@ export default function App() {
               } 
             />
             <Route path="/docs" element={<ArchitectureDocs />} />
+            <Route 
+              path="/dashboard/*" 
+              element={
+                <ProtectedRoute requiredRole="customer">
+                  <UserDashboard 
+                    orders={orders} 
+                    products={products} 
+                    events={events}
+                    onAddTicket={handleAddTicket}
+                  />
+                </ProtectedRoute>
+              } 
+            />
             <Route path="*" element={<Navigate to="/store" replace />} />
           </Routes>
         </Suspense>
@@ -457,7 +496,7 @@ export default function App() {
                 <div className="w-8 h-8 rounded bg-gradient-to-br from-emerald-800 to-lime-500 flex items-center justify-center text-white text-xs font-bold shadow-md">
                   A
                 </div>
-                <span className="font-extrabold tracking-tight text-emerald-800 dark:text-lime-400 uppercase">ALOEFLORA</span>
+                <span className="font-extrabold tracking-tight text-emerald-800 dark:text-lime-400 uppercase">ALOEFLORA PRODUCTS</span>
               </div>
               <p className="text-xs text-emerald-100/70 leading-relaxed">
                 Quality, Affordable & Natural Products.<br/>
@@ -510,7 +549,7 @@ export default function App() {
           </div>
           
           <div className="flex flex-col md:flex-row items-center justify-between pt-6 border-t border-emerald-900 text-[10px] text-emerald-200/50 font-mono">
-            <span>© {new Date().getFullYear()} ALOEFLORA Kenya. All rights reserved.</span>
+            <span>© {new Date().getFullYear()} ALOEFLORA PRODUCTS Kenya. All rights reserved.</span>
 
           </div>
         </div>
