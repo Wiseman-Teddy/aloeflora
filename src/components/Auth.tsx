@@ -66,11 +66,11 @@ export default function Auth() {
 
       <div className="bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-3xl p-8 shadow-xl max-w-md w-full relative z-10 animate-in fade-in zoom-in duration-300">
         <div className="text-center mb-8">
-          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-800 to-lime-500 flex items-center justify-center text-white text-xl font-extrabold shadow-md mx-auto mb-4">
-            A
+          <div className="bg-white p-1 rounded-2xl shadow-sm border border-emerald-900/10 dark:border-gray-800 mx-auto w-max mb-4">
+            <img src="/logo.jpeg" alt="ALOEFLORA Logo" className="h-14 w-auto object-contain rounded-xl" />
           </div>
           <h2 className="text-2xl font-extrabold text-gray-900 dark:text-white uppercase tracking-tight">
-            ALOEFLORA PRODUCTS
+            ALOEFLORA
           </h2>
           <p className="text-xs text-gray-500 dark:text-gray-400 font-mono mt-1 uppercase tracking-widest">
             {isLogin ? 'Welcome Back' : 'Join Our Community'}

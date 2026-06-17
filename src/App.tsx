@@ -260,21 +260,19 @@ export default function App() {
       <header id="enterprise-header" className="sticky top-0 z-50 bg-white/90 dark:bg-gray-950/90 backdrop-blur-md border-b border-gray-100 dark:border-gray-900 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
           
-          {/* Brand Logo matching leaf description */}
-          <div className="flex items-center gap-3">
-            {/* Custom SVG logo mimicking pure green succulent leaves styled exquisitely */}
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-800 to-lime-500 shadow-md shadow-emerald-700/20 flex items-center justify-center text-white font-extrabold select-none shrink-0 border border-emerald-900/10">
-              <span className="text-lg">A</span>
+          <Link to="/" className="flex items-center gap-3">
+            <div className="bg-white p-0.5 rounded-xl shadow-sm border border-emerald-900/10 dark:border-gray-800">
+              <img src="/logo.jpeg" alt="ALOEFLORA Logo" className="h-10 w-auto object-contain rounded-lg" />
             </div>
-            <div className="text-left select-none">
+            <div className="text-left select-none hidden sm:block">
               <div className="text-sm font-extrabold tracking-tight text-emerald-800 dark:text-lime-400 block scale-y-105 leading-none uppercase">
-                ALOEFLORA PRODUCTS
+                ALOEFLORA
               </div>
               <div className="text-[9px] uppercase font-bold tracking-wider text-gray-400 mt-1 block font-mono leading-none">
                 Quality, Affordable & Natural
               </div>
             </div>
-          </div>
+          </Link>
 
           {/* Main Navigation Links */}
           <nav className="hidden md:flex items-center gap-2 bg-neutral-100/70 dark:bg-zinc-900/60 p-1.5 rounded-full border border-neutral-150/40">
@@ -492,11 +490,11 @@ export default function App() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-8">
             <div className="space-y-4">
-              <div className="flex items-center gap-2 select-none">
-                <div className="w-8 h-8 rounded bg-gradient-to-br from-emerald-800 to-lime-500 flex items-center justify-center text-white text-xs font-bold shadow-md">
-                  A
+              <div className="flex items-center gap-3 mb-6">
+                <div className="bg-white p-0.5 rounded-xl shadow-sm border border-emerald-900/10">
+                  <img src="/logo.jpeg" alt="ALOEFLORA Logo" className="h-12 w-auto object-contain rounded-lg" />
                 </div>
-                <span className="font-extrabold tracking-tight text-emerald-800 dark:text-lime-400 uppercase">ALOEFLORA PRODUCTS</span>
+                <span className="font-extrabold tracking-tight text-emerald-800 dark:text-lime-400 uppercase text-lg">ALOEFLORA</span>
               </div>
               <p className="text-xs text-emerald-100/70 leading-relaxed">
                 Quality, Affordable & Natural Products.<br/>

@@ -323,8 +323,8 @@ export default function AdminConsole({
       <div className="w-full lg:w-64 shrink-0 bg-[#0F172A] text-slate-300 rounded-3xl p-5 shadow-xl flex flex-col justify-between h-auto lg:h-[calc(100vh-120px)] lg:sticky top-24">
         <div className="flex-1 overflow-y-auto no-scrollbar">
           <div className="pb-6 mb-2 flex items-center gap-3 px-2">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-lime-400 flex items-center justify-center text-white font-bold shadow-lg shadow-emerald-900/20">
-              <span className="text-sm">A</span>
+            <div className="bg-white p-0.5 rounded-xl shadow-sm border border-emerald-900/10 dark:border-gray-800">
+              <img src="/logo.jpeg" alt="ALOEFLORA Logo" className="h-8 w-auto object-contain rounded-lg" />
             </div>
             <h3 className="text-lg font-bold text-white tracking-tight">ALOEFLORA</h3>
           </div>

@@ -129,7 +129,12 @@ export default function UserDashboard({ orders, products, events = [], onAddTick
       {/* SIDEBAR */}
       <div className="w-full md:w-64 shrink-0 space-y-1 bg-white dark:bg-gray-900 border-r border-gray-100 dark:border-gray-800 pr-4 pb-12">
         <div className="px-4 py-3 mb-4 hidden md:block">
-          <span className="font-extrabold tracking-tight text-emerald-800 dark:text-lime-400 uppercase text-lg">ALOEFLORA</span>
+          <div className="flex items-center gap-2">
+            <div className="bg-white p-0.5 rounded-xl shadow-sm border border-emerald-900/10 dark:border-gray-800">
+              <img src="/logo.jpeg" alt="ALOEFLORA Logo" className="h-8 w-auto object-contain rounded-lg" />
+            </div>
+            <span className="font-extrabold tracking-tight text-emerald-800 dark:text-lime-400 uppercase text-lg">ALOEFLORA</span>
+          </div>
         </div>
         
         {sidebarLinks.map((link) => {
