@@ -147,32 +147,78 @@ export default function App() {
     localStorage.setItem("aloeflora_dark_mode", String(darkMode));
   }, [darkMode]);
 
-  // Real-time Supabase integration for orders
+  // Real-time Supabase integration for all data
   useEffect(() => {
-    const fetchOrders = async () => {
+    const fetchAllData = async () => {
       try {
-        const { data, error } = await supabase.from('orders').select('*').order('created_at', { ascending: false });
-        if (data && !error && data.length > 0) {
-          const mapped: Order[] = data.map((d: any) => ({
+        // Orders
+        const { data: ordData, error: ordErr } = await supabase.from('orders').select('*').order('created_at', { ascending: false });
+        if (ordData && !ordErr && ordData.length > 0) {
+          const mapped: Order[] = ordData.map((d: any) => ({
             id: d.id, customerName: d.customer_name, phone: d.phone, email: "", county: "", subCounty: "", estate: "", building: "", houseNumber: "", deliveryNotes: "", items: [], subtotal: d.total_amount, deliveryFee: 0, total: d.total_amount, paymentMethod: "mpesa_stk", paymentStatus: d.status, deliveryStatus: "pending", mpesaReceipt: "", createdAt: d.created_at
           }));
           setOrders(prev => {
-            // Merge logic to avoid overwriting dummy items completely, just prepend new DB items
             const newIds = new Set(mapped.map(m => m.id));
             const filteredPrev = prev.filter(p => !newIds.has(p.id));
             return [...mapped, ...filteredPrev];
           });
         }
+        
+        // Products
+        const { data: prodData, error: prodErr } = await supabase.from('products').select('*');
+        if (prodData && !prodErr && prodData.length > 0) {
+          const mappedProds: Product[] = prodData.map((p: any) => ({
+            id: p.id, name: p.name, description: p.description, price: p.price, costPrice: p.cost_price,
+            category: p.category as any, subCategory: p.sub_category, imageUrl: p.image_url, stock: p.stock,
+            safetyStock: p.safety_stock, reorderLevel: p.reorder_level, rating: p.rating, reviewsCount: p.reviews_count,
+            variants: p.variants, features: p.features, reviews: []
+          }));
+          setProducts(prev => {
+            const newIds = new Set(mappedProds.map(m => m.id));
+            const filteredPrev = prev.filter(p => !newIds.has(p.id));
+            return [...mappedProds, ...filteredPrev];
+          });
+        }
+
+        // CMS
+        const { data: cmsData, error: cmsErr } = await supabase.from('cms_posts').select('*').order('created_at', { ascending: false });
+        if (cmsData && !cmsErr && cmsData.length > 0) {
+          const mappedCms: CMSPost[] = cmsData.map((c: any) => ({
+            id: c.id, title: c.title, content: c.content, type: c.type, status: c.status, author: c.author,
+            imageUrl: c.image_url, createdAt: c.created_at, seoTitle: c.seo_title, seoDesc: c.seo_desc, seoKeywords: c.seo_keywords
+          }));
+          setCmsPosts(prev => {
+            const newIds = new Set(mappedCms.map(m => m.id));
+            const filteredPrev = prev.filter(p => !newIds.has(p.id));
+            return [...mappedCms, ...filteredPrev];
+          });
+        }
+
+        // Tickets
+        const { data: tktData, error: tktErr } = await supabase.from('support_tickets').select('*').order('created_at', { ascending: false });
+        if (tktData && !tktErr && tktData.length > 0) {
+          const mappedTkts: SupportTicket[] = tktData.map((t: any) => ({
+            id: t.id, customerName: t.customer_name, email: t.email, phone: t.phone, subject: t.subject,
+            message: t.message, status: t.status, createdAt: t.created_at, replies: t.replies || []
+          }));
+          setTickets(prev => {
+            const newIds = new Set(mappedTkts.map(m => m.id));
+            const filteredPrev = prev.filter(p => !newIds.has(p.id));
+            return [...mappedTkts, ...filteredPrev];
+          });
+        }
       } catch (err) { console.warn("Supabase not active", err); }
     };
     
-    fetchOrders();
-    const channel = supabase.channel('orders_updates')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => {
-        fetchOrders();
-      }).subscribe();
+    fetchAllData();
+    const channels = supabase.channel('custom-all-channel')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, fetchAllData)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, fetchAllData)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'cms_posts' }, fetchAllData)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'support_tickets' }, fetchAllData)
+      .subscribe();
       
-    return () => { supabase.removeChannel(channel); };
+    return () => { supabase.removeChannel(channels); };
   }, []);
 
   // Actions passed to children handlers
@@ -266,7 +312,7 @@ export default function App() {
             </div>
             <div className="text-left select-none hidden sm:block">
               <div className="text-sm font-extrabold tracking-tight text-emerald-800 dark:text-lime-400 block scale-y-105 leading-none uppercase">
-                ALOEFLORA
+                ALOEFLORA PRODUCTS
               </div>
               <div className="text-[9px] uppercase font-bold tracking-wider text-gray-400 mt-1 block font-mono leading-none">
                 Quality, Affordable & Natural
@@ -494,7 +540,7 @@ export default function App() {
                 <div className="bg-white p-0.5 rounded-xl shadow-sm border border-emerald-900/10">
                   <img src="/logo.jpeg" alt="ALOEFLORA Logo" className="h-12 w-auto object-contain rounded-lg" />
                 </div>
-                <span className="font-extrabold tracking-tight text-emerald-800 dark:text-lime-400 uppercase text-lg">ALOEFLORA</span>
+                <span className="font-extrabold tracking-tight text-emerald-800 dark:text-lime-400 uppercase text-lg">ALOEFLORA PRODUCTS</span>
               </div>
               <p className="text-xs text-emerald-100/70 leading-relaxed">
                 Quality, Affordable & Natural Products.<br/>

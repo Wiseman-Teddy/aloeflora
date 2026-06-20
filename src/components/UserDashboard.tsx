@@ -85,7 +85,7 @@ export default function UserDashboard({ orders, products, events = [], onAddTick
     }
   };
 
-  const handleSendSupport = (e: React.FormEvent) => {
+  const handleSendSupport = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!onAddTicket) return;
 
@@ -101,6 +101,12 @@ export default function UserDashboard({ orders, products, events = [], onAddTick
       replies: [{ sender: "customer", message: supportMessage, timestamp: new Date().toISOString() }]
     };
     
+    try {
+      await supabase.from("support_tickets").insert({
+        id: newTicket.id, customer_name: newTicket.customerName, email: newTicket.email, phone: newTicket.phone, subject: newTicket.subject, message: newTicket.message, status: newTicket.status, created_at: newTicket.createdAt, replies: newTicket.replies
+      });
+    } catch(err) { console.error("Ticket err", err); }
+
     onAddTicket(newTicket);
     setSupportMessage("");
     alert("Support ticket sent! Our team will contact you shortly.");
@@ -133,7 +139,7 @@ export default function UserDashboard({ orders, products, events = [], onAddTick
             <div className="bg-white p-0.5 rounded-xl shadow-sm border border-emerald-900/10 dark:border-gray-800">
               <img src="/logo.jpeg" alt="ALOEFLORA Logo" className="h-8 w-auto object-contain rounded-lg" />
             </div>
-            <span className="font-extrabold tracking-tight text-emerald-800 dark:text-lime-400 uppercase text-lg">ALOEFLORA</span>
+            <span className="font-extrabold tracking-tight text-emerald-800 dark:text-lime-400 uppercase text-lg">ALOEFLORA PRODUCTS</span>
           </div>
         </div>
         

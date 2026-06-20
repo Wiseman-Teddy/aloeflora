@@ -206,6 +206,15 @@ export default function AdminConsole({
       specifications: prodSpecs ? prodSpecs.split(",").map(s => s.trim()) : []
     };
 
+    try {
+      await supabase.from("products").insert({
+        id: newProduct.id, name: newProduct.name, description: newProduct.description, price: newProduct.price, cost_price: newProduct.costPrice,
+        category: newProduct.category, sub_category: newProduct.subCategory, image_url: newProduct.imageUrl, stock: newProduct.stock,
+        safety_stock: newProduct.safetyStock, reorder_level: newProduct.reorderLevel, rating: newProduct.rating, reviews_count: newProduct.reviewsCount,
+        variants: newProduct.variants, features: newProduct.features
+      });
+    } catch(err) { console.error("Supabase insert error", err); }
+
     onUpdateInventory([...products, newProduct]);
     setIsAddingProduct(false);
     resetProductForm();
@@ -266,6 +275,16 @@ export default function AdminConsole({
         }
         return p;
       });
+      
+      const modified = updatedPosts.find(p => p.id === editingCmsId);
+      if(modified) {
+        try {
+          await supabase.from("cms_posts").update({
+            title: modified.title, content: modified.content, type: modified.type, status: modified.status, image_url: modified.imageUrl
+          }).eq('id', editingCmsId);
+        } catch(err) { console.error(err); }
+      }
+
       onUpdateCMS(updatedPosts);
       setEditingCmsId(null);
       alert("CMS Article Updated Successfully!");
@@ -282,6 +301,14 @@ export default function AdminConsole({
         createdAt: new Date().toISOString().split("T")[0],
         imageUrl: finalImageUrl || undefined
       };
+      
+      try {
+        await supabase.from("cms_posts").insert({
+            id: newPost.id, title: newPost.title, content: newPost.content, type: newPost.type, status: newPost.status, author: newPost.author,
+            image_url: newPost.imageUrl, created_at: newPost.createdAt
+        });
+      } catch(err) { console.error(err); }
+
       onUpdateCMS([...cmsPosts, newPost]);
       alert("New CMS Article Published Successfully!");
     }
@@ -946,6 +973,8 @@ export default function AdminConsole({
               <form onSubmit={handleCmsSubmit} className="bg-gray-50 border p-5 rounded-2xl text-xs space-y-3 text-left">
                 <span className="font-bold uppercase text-emerald-800 block">Rich Draft editor</span>
                 
+
+
                 <div className="space-y-1">
                   <label className="font-bold">Publication headline title</label>
                   <input
@@ -981,7 +1010,16 @@ export default function AdminConsole({
 
                 <div className="space-y-1">
                   <label className="font-bold">Image Upload (for Hero/Award/Blog)</label>
-                  <input type="file" accept="image/*" onChange={(e) => setCmsImageFile(e.target.files?.[0] || null)} className="w-full p-2.5 bg-white border rounded-lg focus:outline-none" />
+                  <div className="flex gap-4 items-center">
+                    {cmsImageFile && (
+                      <div className="shrink-0 w-16 h-16 rounded-xl border overflow-hidden bg-gray-50">
+                        <img src={URL.createObjectURL(cmsImageFile)} alt="preview" className="w-full h-full object-cover" />
+                      </div>
+                    )}
+                    <div className="flex-1">
+                      <input type="file" accept="image/*" onChange={(e) => setCmsImageFile(e.target.files?.[0] || null)} className="w-full p-2.5 bg-white border rounded-lg focus:outline-none" />
+                    </div>
+                  </div>
                 </div>
 
                 <div className="space-y-1">
@@ -1139,11 +1177,49 @@ export default function AdminConsole({
                   <button
                     type="button"
                     onClick={() => alert('Profile updated successfully!')}
-                    className="w-full py-3 bg-emerald-800 hover:bg-emerald-700 text-white font-bold rounded-xl shadow transition mt-auto"
+                    className="w-full py-3 bg-emerald-800 hover:bg-emerald-700 text-white font-bold rounded-xl shadow transition mt-auto cursor-pointer"
                   >
                     Save Profile Changes
                   </button>
                 </div>
+              </div>
+            </div>
+
+            <div className="mb-4 mt-8">
+              <h3 className="text-lg font-bold text-gray-950 dark:text-white">Database Initialization</h3>
+              <p className="text-xs text-gray-500">Push default mock data directly to Supabase to initialize real-time synchronization.</p>
+              <div className="mt-3">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (window.confirm("This will push local mock data to Supabase. Make sure you have created the tables. Proceed?")) {
+                      try {
+                        for (const p of products) {
+                          await supabase.from("products").upsert({
+                            id: p.id, name: p.name, description: p.description, price: p.price, cost_price: p.costPrice,
+                            category: p.category, sub_category: p.subCategory, image_url: p.imageUrl, stock: p.stock,
+                            safety_stock: p.safetyStock, reorder_level: p.reorderLevel, rating: p.rating, reviews_count: p.reviewsCount,
+                            variants: p.variants, features: p.features
+                          });
+                        }
+                        for (const c of cmsPosts) {
+                          await supabase.from("cms_posts").upsert({
+                            id: c.id, title: c.title, content: c.content, type: c.type, status: c.status, author: c.author,
+                            image_url: c.imageUrl, created_at: c.createdAt, seo_title: c.seoTitle, seo_desc: c.seoDesc, seo_keywords: c.seoKeywords
+                          });
+                        }
+                        alert("Data successfully pushed to Supabase!");
+                      } catch (err: any) {
+                        console.error(err);
+                        alert("Error pushing data: " + err.message);
+                      }
+                    }
+                  }}
+                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold transition shadow-sm cursor-pointer"
+                >
+                  <Database className="w-4 h-4 inline-block mr-2" />
+                  Seed Database to Supabase
+                </button>
               </div>
             </div>
 
