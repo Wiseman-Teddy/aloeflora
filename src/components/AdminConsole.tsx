@@ -61,8 +61,8 @@ export default function AdminConsole({
   onResolveAnomaly
 }: AdminConsoleProps) {
   const { signOut } = useAuth();
-  const [adminName, setAdminName] = useState(storeSettings.adminName);
-  const [adminEmail, setAdminEmail] = useState(storeSettings.adminEmail);
+  const [adminName, setAdminName] = useState(storeSettings?.adminName || "");
+  const [adminEmail, setAdminEmail] = useState(storeSettings?.adminEmail || "");
   
   // Navigation
   const [activeModule, setActiveModule] = useState<string>("executive");
@@ -109,10 +109,10 @@ export default function AdminConsole({
   const [isUploadingCms, setIsUploadingCms] = useState(false);
 
   // SEO config fields
-  const [seoTitle, setSeoTitle] = useState<string>(storeSettings.seoTitle);
-  const [seoDesc, setSeoDesc] = useState<string>(storeSettings.seoDesc);
-  const [seoKey, setSeoKey] = useState<string>(storeSettings.seoKeywords);
-  const [seoRobots, setSeoRobots] = useState<string>(storeSettings.seoRobots);
+  const [seoTitle, setSeoTitle] = useState<string>(storeSettings?.seoTitle || "");
+  const [seoDesc, setSeoDesc] = useState<string>(storeSettings?.seoDesc || "");
+  const [seoKey, setSeoKey] = useState<string>(storeSettings?.seoKeywords || "");
+  const [seoRobots, setSeoRobots] = useState<string>(storeSettings?.seoRobots || "");
 
   // Marketing states
   const [promoCodeInput, setPromoCodeInput] = useState<string>("");
@@ -1333,7 +1333,7 @@ export default function AdminConsole({
             <div className="bg-zinc-50 border p-4 rounded-xl text-xs space-y-1">
               <span className="font-bold text-gray-400 uppercase text-[9px] block">Live XML Sitemap Generator Target</span>
               <div className="font-mono text-[10px] text-gray-500">
-                • sitemap_index.xml: /api/sitemap (Rebuilt successfully {storeSettings.sitemapGeneratedAt.split("T")[0]})
+                • sitemap_index.xml: /api/sitemap (Rebuilt successfully {storeSettings?.sitemapGeneratedAt?.split("T")[0] || "N/A"})
                 <br />
                 • Schema type definition: LocalBusiness & Product schemas verified OK.
               </div>
