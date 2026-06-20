@@ -25,6 +25,8 @@ export const INITIAL_PRODUCTS: Product[] = [
     reviewsCount: 124,
     variants: ["250ml", "500ml", "1 Liter"],
     features: ["85% Pure Aloe Vera Extract", "Organic Rosemary Oil", "Sulfate-Free", "Rich nourishing lather"],
+    mediaUrls: ["https://images.unsplash.com/photo-1535585209827-a15fcdbc4c2d?auto=format&fit=crop&q=80&w=600"],
+    specifications: ["pH: 5.5", "Scent: Rosemary", "Texture: Gel"],
     reviews: [
       { id: "r1", author: "Amani Wanjiku", rating: 5, comment: "This shampoo completely resolved my scalp itchiness within two washes. High quality African hair care!", date: "2026-06-10" },
       { id: "r2", author: "Derrick Kiprop", rating: 4, comment: "Smells wonderful and leaves natural curls soft. I pair it with the deep growth oil.", date: "2026-06-08" }
@@ -422,6 +424,26 @@ export const INITIAL_CMS: CMSPost[] = [
     status: "published",
     author: "Hair Care Team",
     createdAt: "2026-06-02"
+  },
+  {
+    id: "hero-1",
+    title: "Revitalize Your Hair",
+    content: "Discover the magic of pure Aloe Vera in our new collection.",
+    type: "hero",
+    status: "published",
+    author: "Admin Master",
+    createdAt: "2026-06-16",
+    imageUrl: "https://images.unsplash.com/photo-1596547609652-9cf5d8d76921?auto=format&fit=crop&q=80&w=1200"
+  },
+  {
+    id: "award-1",
+    title: "Best Eco Brand 2025",
+    content: "We are proud to be recognized as the top eco-friendly brand in Kenya.",
+    type: "award",
+    status: "published",
+    author: "Admin Master",
+    createdAt: "2026-06-17",
+    imageUrl: "https://images.unsplash.com/photo-1579546929518-9e396f3cc809?auto=format&fit=crop&q=80&w=600"
   }
 ];
 

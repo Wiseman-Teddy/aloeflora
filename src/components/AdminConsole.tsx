@@ -26,6 +26,7 @@ import { User, LogOut,
 import { Product, Order, SupportTicket, MarketingCampaign, CMSPost, AuditAnomaly, SEOConfig, SystemMetrics } from "../types";
 import { supabase } from "../lib/supabase";
 import { sanitizeInput } from "../utils/sanitize";
+import { uploadToSupabase } from "../utils/supabaseStorage";
 import { useAuth } from "../contexts/AuthContext";
 
 interface AdminConsoleProps {
@@ -84,6 +85,9 @@ export default function AdminConsole({
   const [prodReorderLevel, setProdReorderLevel] = useState<number>(15);
   const [prodVariants, setProdVariants] = useState<string>("");
   const [prodFeatures, setProdFeatures] = useState<string>("");
+  const [prodSpecs, setProdSpecs] = useState<string>("");
+  const [prodMediaFiles, setProdMediaFiles] = useState<File[]>([]);
+  const [isUploadingProduct, setIsUploadingProduct] = useState(false);
 
   // DevOps dynamic metrics
   const [metrics, setMetrics] = useState<SystemMetrics>({
@@ -99,8 +103,10 @@ export default function AdminConsole({
   const [editingCmsId, setEditingCmsId] = useState<string | null>(null);
   const [cmsTitle, setCmsTitle] = useState<string>("");
   const [cmsContent, setCmsContent] = useState<string>("");
-  const [cmsType, setCmsType] = useState<"blog" | "testimonial" | "policy" | "faq" | "promo">("blog");
+  const [cmsType, setCmsType] = useState<"blog" | "testimonial" | "policy" | "faq" | "promo" | "hero" | "award">("blog");
   const [cmsStatus, setCmsStatus] = useState<"draft" | "published">("published");
+  const [cmsImageFile, setCmsImageFile] = useState<File | null>(null);
+  const [isUploadingCms, setIsUploadingCms] = useState(false);
 
   // SEO config fields
   const [seoTitle, setSeoTitle] = useState<string>(seoConfig.metaTitle);
@@ -164,12 +170,20 @@ export default function AdminConsole({
   const mockNetProfit = mockGrossProfit - mockOperatingExpenses;
 
   // Handles Product Add
-  const handleAddProductSubmit = (e: React.FormEvent) => {
+  const handleAddProductSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!prodName || !prodDesc || !prodImageUrl) {
-      alert("Name, description, and image URL are required!");
+    if (!prodName || !prodDesc || (!prodImageUrl && prodMediaFiles.length === 0)) {
+      alert("Name, description, and at least one image URL/file are required!");
       return;
     }
+
+    setIsUploadingProduct(true);
+    const uploadedMediaUrls: string[] = [];
+    for (const file of prodMediaFiles) {
+      const url = await uploadToSupabase(file);
+      if (url) uploadedMediaUrls.push(url);
+    }
+    setIsUploadingProduct(false);
 
     const newProduct: Product = {
       id: "p" + (products.length + 1),
@@ -179,7 +193,7 @@ export default function AdminConsole({
       costPrice: prodCostPrice,
       category: prodCategory,
       subCategory: prodSubCategory,
-      imageUrl: prodImageUrl,
+      imageUrl: prodImageUrl || uploadedMediaUrls[0] || "",
       stock: prodStock,
       safetyStock: prodSafetyStock,
       reorderLevel: prodReorderLevel,
@@ -187,7 +201,9 @@ export default function AdminConsole({
       reviewsCount: 0,
       reviews: [],
       variants: prodVariants ? prodVariants.split(",").map(v => v.trim()) : ["Standard"],
-      features: prodFeatures ? prodFeatures.split(",").map(f => f.trim()) : ["Natural Ingredient"]
+      features: prodFeatures ? prodFeatures.split(",").map(f => f.trim()) : ["Natural Ingredient"],
+      mediaUrls: uploadedMediaUrls.length > 0 ? uploadedMediaUrls : (prodImageUrl ? [prodImageUrl] : []),
+      specifications: prodSpecs ? prodSpecs.split(",").map(s => s.trim()) : []
     };
 
     onUpdateInventory([...products, newProduct]);
@@ -208,6 +224,8 @@ export default function AdminConsole({
     setProdReorderLevel(15);
     setProdVariants("");
     setProdFeatures("");
+    setProdSpecs("");
+    setProdMediaFiles([]);
   };
 
   // Handles Inline Quantity Replenishment
@@ -229,14 +247,22 @@ export default function AdminConsole({
     alert(`Success: Coupon Code '${promoCodeInput.trim().toUpperCase()}' has been activated!`);
   };
 
-  const handleCmsSubmit = (e: React.FormEvent) => {
+  const handleCmsSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!cmsTitle || !cmsContent) return;
+
+    let finalImageUrl = "";
+    if (cmsImageFile) {
+      setIsUploadingCms(true);
+      const url = await uploadToSupabase(cmsImageFile);
+      if (url) finalImageUrl = url;
+      setIsUploadingCms(false);
+    }
 
     if (editingCmsId) {
       const updatedPosts = cmsPosts.map(p => {
         if (p.id === editingCmsId) {
-          return { ...p, title: sanitizeInput(cmsTitle), content: sanitizeInput(cmsContent), type: cmsType, status: cmsStatus };
+          return { ...p, title: sanitizeInput(cmsTitle), content: sanitizeInput(cmsContent), type: cmsType, status: cmsStatus, imageUrl: finalImageUrl || p.imageUrl };
         }
         return p;
       });
@@ -253,7 +279,8 @@ export default function AdminConsole({
         type: cmsType,
         status: cmsStatus,
         author: "Admin Master",
-        createdAt: new Date().toISOString().split("T")[0]
+        createdAt: new Date().toISOString().split("T")[0],
+        imageUrl: finalImageUrl || undefined
       };
       onUpdateCMS([...cmsPosts, newPost]);
       alert("New CMS Article Published Successfully!");
@@ -262,6 +289,7 @@ export default function AdminConsole({
     setIsAddingCms(false);
     setCmsTitle("");
     setCmsContent("");
+    setCmsImageFile(null);
   };
 
   const handleEditCMS = (post: CMSPost) => {
@@ -270,6 +298,7 @@ export default function AdminConsole({
     setCmsContent(post.content);
     setCmsType(post.type);
     setCmsStatus(post.status);
+    setCmsImageFile(null);
     setIsAddingCms(true);
   };
 
@@ -598,8 +627,12 @@ export default function AdminConsole({
                     <input type="text" value={prodName} onChange={(e) => setProdName(e.target.value)} placeholder="e.g. Aloeflora Tea Tree Cleanser" className="w-full p-2 border bg-white rounded-lg focus:outline-none" required />
                   </div>
                   <div className="space-y-1">
-                    <label className="font-bold">Image URL link</label>
-                    <input type="text" value={prodImageUrl} onChange={(e) => setProdImageUrl(e.target.value)} placeholder="Unsplash image link" className="w-full p-2 border bg-white rounded-lg focus:outline-none" required />
+                    <label className="font-bold">Primary Image URL (optional if uploading)</label>
+                    <input type="text" value={prodImageUrl} onChange={(e) => setProdImageUrl(e.target.value)} placeholder="Unsplash image link" className="w-full p-2 border bg-white rounded-lg focus:outline-none" />
+                  </div>
+                  <div className="space-y-1 md:col-span-2">
+                    <label className="font-bold">Media Upload (Select multiple files)</label>
+                    <input type="file" multiple accept="image/*" onChange={(e) => setProdMediaFiles(Array.from(e.target.files || []))} className="w-full p-2 border bg-white rounded-lg focus:outline-none" />
                   </div>
                 </div>
 
@@ -641,14 +674,18 @@ export default function AdminConsole({
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                   <div className="space-y-1">
                     <label className="font-bold">Variants (split by comma)</label>
                     <input type="text" value={prodVariants} onChange={(e) => setProdVariants(e.target.value)} placeholder="e.g. 250ml, 500ml" className="w-full p-2 border bg-white rounded-lg focus:outline-none" />
                   </div>
                   <div className="space-y-1">
-                    <label className="font-bold">Features description tags (split by comma)</label>
+                    <label className="font-bold">Features (split by comma)</label>
                     <input type="text" value={prodFeatures} onChange={(e) => setProdFeatures(e.target.value)} placeholder="e.g. Sulfate Free, Raw Aloe" className="w-full p-2 border bg-white rounded-lg focus:outline-none" />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="font-bold">Specifications (split by comma)</label>
+                    <input type="text" value={prodSpecs} onChange={(e) => setProdSpecs(e.target.value)} placeholder="e.g. pH: 5.5, Scent: Rosemary" className="w-full p-2 border bg-white rounded-lg focus:outline-none" />
                   </div>
                 </div>
 
@@ -657,8 +694,8 @@ export default function AdminConsole({
                   <textarea value={prodDesc} onChange={(e) => setProdDesc(e.target.value)} rows={3} className="w-full p-2 border bg-white rounded-lg focus:outline-none" placeholder="Explain the botanical advantages..." required></textarea>
                 </div>
 
-                <button type="submit" className="bg-emerald-800 text-white font-bold p-3 rounded-xl w-full uppercase cursor-pointer">
-                  Activate & Add to Web Catalog
+                <button type="submit" disabled={isUploadingProduct} className="bg-emerald-800 text-white font-bold p-3 rounded-xl w-full uppercase cursor-pointer disabled:opacity-50">
+                  {isUploadingProduct ? "Uploading Media & Saving..." : "Activate & Add to Web Catalog"}
                 </button>
               </form>
             )}
@@ -928,6 +965,8 @@ export default function AdminConsole({
                       <option value="blog">Scientific Blog</option>
                       <option value="policy">Terms and Policies</option>
                       <option value="faq">Customer FAQ item</option>
+                      <option value="hero">Hero Slide</option>
+                      <option value="award">Award Showcase</option>
                     </select>
                   </div>
 
@@ -938,6 +977,11 @@ export default function AdminConsole({
                       <option value="published">Publish instantly on live servers</option>
                     </select>
                   </div>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="font-bold">Image Upload (for Hero/Award/Blog)</label>
+                  <input type="file" accept="image/*" onChange={(e) => setCmsImageFile(e.target.files?.[0] || null)} className="w-full p-2.5 bg-white border rounded-lg focus:outline-none" />
                 </div>
 
                 <div className="space-y-1">
@@ -952,8 +996,8 @@ export default function AdminConsole({
                   ></textarea>
                 </div>
 
-                <button type="submit" className="bg-emerald-800 hover:bg-emerald-800 text-white font-bold p-3 rounded-xl w-full uppercase cursor-pointer">
-                  Seal and Deploy Draft
+                <button type="submit" disabled={isUploadingCms} className="bg-emerald-800 hover:bg-emerald-800 text-white font-bold p-3 rounded-xl w-full uppercase cursor-pointer disabled:opacity-50">
+                  {isUploadingCms ? "Uploading Media & Saving..." : "Seal and Deploy Draft"}
                 </button>
               </form>
             )}

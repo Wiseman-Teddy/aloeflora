@@ -82,7 +82,8 @@ export default function CustomerStore({
   const [compareProducts, setCompareProducts] = useState<Product[]>([]);
   const [isCompareOpen, setIsCompareOpen] = useState<boolean>(false);
 
-  // Hero Slider (10 image slider)
+  // Hero Slider
+  const heroSlides = cmsPosts.filter((p) => p.type === "hero" && p.status === "published");
   const [heroIndex, setHeroIndex] = useState<number>(0);
   const heroRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -133,15 +134,17 @@ export default function CustomerStore({
     localStorage.setItem("aloeflora_wishlist", JSON.stringify(wishlist));
   }, [wishlist]);
 
-  // Auto-rotate 10-product hero slide every 5 seconds
+  // Auto-rotate hero slide every 5 seconds
   useEffect(() => {
-    heroRef.current = setInterval(() => {
-      setHeroIndex((prev) => (prev + 1) % Math.min(products.length, 10));
-    }, 5500);
-    return () => {
-      if (heroRef.current) clearInterval(heroRef.current);
-    };
-  }, [products]);
+    if (heroSlides.length > 0) {
+      heroRef.current = setInterval(() => {
+        setHeroIndex((prev) => (prev + 1) % heroSlides.length);
+      }, 5500);
+      return () => {
+        if (heroRef.current) clearInterval(heroRef.current);
+      };
+    }
+  }, [heroSlides.length]);
 
   // Add Item to cart
   const addToCart = (product: Product, variant?: string) => {
@@ -454,79 +457,66 @@ export default function CustomerStore({
             </div>
           </div>
 
-          {/* 10 Image / Product Carousel Section */}
+          {/* CMS Hero Slider Section */}
           <div className="lg:col-span-7 flex flex-col justify-center h-full relative">
             <span className="text-[10px] uppercase tracking-widest text-emerald-300 text-right font-mono mb-2">
-              ALOEFLORA PRODUCTS Showcase (Products {heroIndex + 1}/10)
+              ALOEFLORA PRODUCTS Showcase (Slides {heroIndex + 1}/{heroSlides.length || 1})
             </span>
             <div className="relative bg-white/5 backdrop-blur-md border border-white/10 rounded-3xl p-6 shadow-2xl overflow-hidden min-h-[300px] flex items-center">
               
-              <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-center w-full">
-                <div className="md:col-span-5 h-48 md:h-56 rounded-2xl overflow-hidden shadow-lg border border-white/10 relative bg-emerald-950 flex items-center justify-center">
-                  <img 
-                    src={products[heroIndex]?.imageUrl || "https://images.unsplash.com/photo-1526947425960-945c6e72858f"} 
-                    alt={products[heroIndex]?.name} 
-                    className="w-full h-full object-cover select-none"
-                    referrerPolicy="no-referrer"
-                  />
-                  <span className="absolute top-2 left-2 text-[10px] font-bold text-emerald-950 bg-lime-400 px-2 py-0.5 rounded-full">
-                    Ksh {products[heroIndex]?.price}
-                  </span>
-                </div>
+              {heroSlides.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-center w-full">
+                  <div className="md:col-span-5 h-48 md:h-56 rounded-2xl overflow-hidden shadow-lg border border-white/10 relative bg-emerald-950 flex items-center justify-center">
+                    <img 
+                      src={heroSlides[heroIndex]?.imageUrl || "https://images.unsplash.com/photo-1596547609652-9cf5d8d76921"} 
+                      alt={heroSlides[heroIndex]?.title} 
+                      className="w-full h-full object-cover select-none"
+                      referrerPolicy="no-referrer"
+                    />
+                  </div>
 
-                <div className="md:col-span-7 space-y-3.5 text-left">
-                  <span className="text-xs font-bold text-lime-300 uppercase tracking-widest block font-mono">
-                    {products[heroIndex]?.subCategory}
-                  </span>
-                  <h3 className="text-lg md:text-xl font-bold font-sans tracking-tight line-clamp-2">
-                    {products[heroIndex]?.name}
-                  </h3>
-                  <p className="text-xs text-emerald-100/90 line-clamp-3 leading-relaxed">
-                    {products[heroIndex]?.description}
-                  </p>
-                  
-                  <div className="flex items-center justify-between pt-1">
-                    <button 
-                      onClick={() => addToCart(products[heroIndex])}
-                      className="bg-lime-500 hover:bg-lime-400 text-emerald-950 font-extrabold text-xs px-4 py-2 rounded-xl transition cursor-pointer flex items-center gap-1.5 shadow"
-                    >
-                      <ShoppingCart className="w-3.5 h-3.5" /> Instant Add
-                    </button>
-                    <button 
-                      onClick={() => setSelectedProduct(products[heroIndex])}
-                      className="text-xs hover:underline text-emerald-300 flex items-center gap-1 cursor-pointer"
-                    >
-                      Full specs <ArrowRight className="w-3 h-3" />
-                    </button>
+                  <div className="md:col-span-7 space-y-3.5 text-left">
+                    <span className="text-xs font-bold text-lime-300 uppercase tracking-widest block font-mono">
+                      Featured Update
+                    </span>
+                    <h3 className="text-lg md:text-xl font-bold font-sans tracking-tight line-clamp-2">
+                      {heroSlides[heroIndex]?.title}
+                    </h3>
+                    <p className="text-xs text-emerald-100/90 line-clamp-3 leading-relaxed">
+                      {heroSlides[heroIndex]?.content}
+                    </p>
                   </div>
                 </div>
-              </div>
+              ) : (
+                <div className="text-center w-full text-emerald-200">No Hero Slides configured.</div>
+              )}
 
               {/* Slider Controls */}
-              <button 
-                onClick={() => setHeroIndex((prev) => (prev - 1 + Math.min(products.length, 10)) % Math.min(products.length, 10))}
-                className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/40 hover:bg-black/60 p-2 rounded-full cursor-pointer transition select-none text-white border border-white/5"
-              >
-                <ChevronLeft className="w-4 h-4" />
-              </button>
-              <button 
-                onClick={() => setHeroIndex((prev) => (prev + 1) % Math.min(products.length, 10))}
-                className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/40 hover:bg-black/60 p-2 rounded-full cursor-pointer transition select-none text-white border border-white/5"
-              >
-                <ChevronRight className="w-4 h-4" />
-              </button>
+              {heroSlides.length > 1 && (
+                <>
+                  <button 
+                    onClick={() => setHeroIndex((prev) => (prev - 1 + heroSlides.length) % heroSlides.length)}
+                    className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/40 hover:bg-black/60 p-2 rounded-full cursor-pointer transition select-none text-white border border-white/5"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </button>
+                  <button 
+                    onClick={() => setHeroIndex((prev) => (prev + 1) % heroSlides.length)}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/40 hover:bg-black/60 p-2 rounded-full cursor-pointer transition select-none text-white border border-white/5"
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                </>
+              )}
             </div>
 
             {/* Progress indicators */}
-            <div className="flex justify-center gap-1.5 mt-4">
-              {Array.from({ length: Math.min(products.length, 10) }).map((_, i) => (
-                <button
-                  key={i}
-                  onClick={() => setHeroIndex(i)}
-                  className={`h-1.5 rounded-full transition-all duration-300 cursor-pointer ${
-                    heroIndex === i ? "w-6 bg-lime-400" : "w-1.5 bg-emerald-800"
-                  }`}
-                ></button>
+            <div className="flex gap-1.5 justify-center mt-4">
+              {heroSlides.map((_, idx) => (
+                <div 
+                  key={idx} 
+                  className={`h-1.5 rounded-full transition-all duration-300 ${idx === heroIndex ? "bg-lime-400 w-6" : "bg-white/20 w-1.5"}`}
+                ></div>
               ))}
             </div>
           </div>
@@ -708,6 +698,30 @@ export default function CustomerStore({
         )}
       </section>
 
+      {/* 2.5 AWARDS SHOWCASE SECTION */}
+      {cmsPosts.filter(p => p.type === "award" && p.status === "published").length > 0 && (
+        <section id="awards-section" className="mb-12 text-left">
+          <div className="flex items-center justify-between pb-4 border-b border-gray-100 dark:border-gray-800 mb-6">
+            <div>
+              <span className="text-[10px] text-emerald-800 dark:text-emerald-400 uppercase font-bold tracking-widest">Excellence</span>
+              <h3 className="text-lg font-bold text-gray-900 dark:text-white mt-1">Awards & Recognition</h3>
+            </div>
+            <Award className="w-5 h-5 text-emerald-800" />
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {cmsPosts.filter(p => p.type === "award" && p.status === "published").map(award => (
+              <div key={award.id} className="bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-2xl overflow-hidden shadow-sm flex flex-col items-center text-center p-6">
+                {award.imageUrl && (
+                  <img src={award.imageUrl} alt={award.title} className="w-24 h-24 object-cover rounded-full border-4 border-lime-100 mb-4" />
+                )}
+                <h4 className="font-bold text-sm text-gray-900 dark:text-white mb-2">{award.title}</h4>
+                <p className="text-xs text-gray-500 leading-relaxed">{award.content}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
       {/* 3. INFORMATION EVENTS / PROMOTIONS NEWSLETTER SECTION */}
       <section id="events-marketing-section" className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         
@@ -761,7 +775,34 @@ export default function CustomerStore({
         </div>
 
         {/* Blogs Articles Column / Social Links / Contact Card */}
-        <div className="lg:col-span-4 space-y-6 text-left">
+        <div className="lg:col-span-12 text-left mt-8">
+          <div className="flex items-center justify-between pb-4 border-b border-gray-100 dark:border-gray-800 mb-6">
+            <div>
+              <span className="text-[10px] text-emerald-800 dark:text-emerald-400 uppercase font-bold tracking-widest">Education</span>
+              <h3 className="text-lg font-bold text-gray-900 dark:text-white mt-1">Scientific Blog & Insights</h3>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {cmsPosts.filter(p => p.type === "blog" && p.status === "published").map(blog => (
+              <div key={blog.id} className="bg-zinc-50 dark:bg-gray-800/10 border border-zinc-100 dark:border-gray-800 rounded-2xl p-5 hover:shadow-md transition">
+                {blog.imageUrl && (
+                  <div className="h-40 mb-4 rounded-xl overflow-hidden">
+                    <img src={blog.imageUrl} alt={blog.title} className="w-full h-full object-cover" />
+                  </div>
+                )}
+                <h4 className="font-bold text-gray-900 dark:text-white text-sm line-clamp-2">{blog.title}</h4>
+                <p className="text-xs text-gray-500 mt-2 line-clamp-3 leading-relaxed">{blog.content}</p>
+                <div className="mt-4 pt-4 border-t border-gray-100 dark:border-gray-800 flex justify-between items-center text-[10px] text-gray-400 font-bold">
+                  <span>{blog.author}</span>
+                  <span>{blog.createdAt}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Social Links / Contact Card */}
+        <div className="lg:col-span-12 space-y-6 text-left mt-8 grid grid-cols-1 lg:grid-cols-2 gap-8">
           
           {/* Dr Dorcas Obondo contact Info Card */}
           <div className="bg-emerald-950 text-white rounded-3xl p-6 relative overflow-hidden shadow">
@@ -912,9 +953,18 @@ export default function CustomerStore({
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start mt-4">
               <div className="space-y-4">
-                <div className="h-52 md:h-64 rounded-2xl overflow-hidden shadow-md bg-emerald-950/20">
-                  <img src={selectedProduct.imageUrl} alt={selectedProduct.name} className="w-full h-full object-cover" />
+                <div className="h-52 md:h-64 rounded-2xl overflow-hidden shadow-md bg-emerald-950/20 mb-2">
+                  <img src={selectedProduct.mediaUrls && selectedProduct.mediaUrls.length > 0 ? selectedProduct.mediaUrls[0] : selectedProduct.imageUrl} alt={selectedProduct.name} className="w-full h-full object-cover" />
                 </div>
+                {selectedProduct.mediaUrls && selectedProduct.mediaUrls.length > 1 && (
+                  <div className="flex gap-2 overflow-x-auto pb-2">
+                    {selectedProduct.mediaUrls.map((url, idx) => (
+                      <div key={idx} className="w-16 h-16 rounded-lg overflow-hidden flex-shrink-0 border border-gray-200">
+                        <img src={url} alt={`${selectedProduct.name} ${idx}`} className="w-full h-full object-cover" />
+                      </div>
+                    ))}
+                  </div>
+                )}
                 <div className="flex flex-wrap gap-1">
                   {selectedProduct.features?.map((fit, idx) => (
                     <span key={idx} className="bg-emerald-50 dark:bg-emerald-950/40 text-[10px] font-medium text-emerald-800 dark:text-emerald-400 px-2 py-1 rounded">
@@ -948,6 +998,17 @@ export default function CustomerStore({
                         </span>
                       ))}
                     </div>
+                  </div>
+                )}
+
+                {selectedProduct.specifications && selectedProduct.specifications.length > 0 && (
+                  <div className="space-y-1.5 mt-4">
+                    <span className="text-[10px] uppercase font-bold text-gray-400">Specifications</span>
+                    <ul className="text-xs text-gray-600 list-disc pl-4 space-y-1">
+                      {selectedProduct.specifications.map((spec, idx) => (
+                        <li key={idx}>{spec}</li>
+                      ))}
+                    </ul>
                   </div>
                 )}
 
@@ -1350,7 +1411,7 @@ export default function CustomerStore({
                           checkoutConsent ? 'bg-emerald-800 hover:bg-emerald-700 text-white cursor-pointer' : 'bg-gray-200 text-gray-400 cursor-not-allowed'
                         }`}
                       >
-                        Trigger Lipa Na M-Pesa STK Push
+                        Make Payment
                       </button>
                     </div>
                   </div>

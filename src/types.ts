@@ -15,6 +15,8 @@ export interface Product {
   reviews: ProductReview[];
   variants?: string[];
   features?: string[];
+  mediaUrls?: string[];
+  specifications?: string[];
 }
 
 export interface ProductReview {
@@ -113,8 +115,9 @@ export interface CMSPost {
   id: string;
   title: string;
   content: string;
-  type: "blog" | "testimonial" | "policy" | "faq" | "promo";
+  type: "blog" | "testimonial" | "policy" | "faq" | "promo" | "hero" | "award";
   status: "draft" | "published";
+  imageUrl?: string;
   author: string;
   createdAt: string;
   seoTitle?: string;
