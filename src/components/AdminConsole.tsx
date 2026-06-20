@@ -21,7 +21,8 @@ import { User, LogOut,
   Heart,
   Loader2,
   Lock,
-  MessageSquare
+  MessageSquare,
+  Database
 } from "lucide-react";
 import { Product, Order, SupportTicket, MarketingCampaign, CMSPost, AuditAnomaly, StoreSettings, SystemMetrics } from "../types";
 import { supabase } from "../lib/supabase";
