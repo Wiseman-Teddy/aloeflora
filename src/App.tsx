@@ -28,7 +28,7 @@ import { useAuth } from "./contexts/AuthContext";
 import ProtectedRoute from "./components/ProtectedRoute";
 import Auth from "./components/Auth";
 
-import { Product, Order, SupportTicket, MarketingCampaign, BookingEvent, CMSPost, DevOpsLog, AuditAnomaly, SEOConfig } from "./types";
+import { Product, Order, SupportTicket, MarketingCampaign, BookingEvent, CMSPost, DevOpsLog, AuditAnomaly, StoreSettings } from "./types";
 import { 
   INITIAL_PRODUCTS, 
   INITIAL_ORDERS, 
@@ -38,7 +38,7 @@ import {
   INITIAL_CMS, 
   INITIAL_DEV_LOGS, 
   INITIAL_AUDIT_ANOMALIES, 
-  DEFAULT_SEO_CONFIG 
+  DEFAULT_STORE_SETTINGS 
 } from "./data/mockData";
 
 const CustomerStore = lazy(() => import("./components/CustomerStore"));
@@ -93,9 +93,9 @@ export default function App() {
     return saved ? JSON.parse(saved) : INITIAL_AUDIT_ANOMALIES;
   });
 
-  const [seoConfig, setSeoConfig] = useState<SEOConfig>(() => {
-    const saved = localStorage.getItem("aloeflora_db_seo");
-    return saved ? JSON.parse(saved) : DEFAULT_SEO_CONFIG;
+  const [storeSettings, setStoreSettings] = useState<StoreSettings>(() => {
+    const saved = localStorage.getItem("aloeflora_db_store_settings");
+    return saved ? JSON.parse(saved) : DEFAULT_STORE_SETTINGS;
   });
 
   // Mobile menu visibility
@@ -133,8 +133,22 @@ export default function App() {
   }, [anomalies]);
 
   useEffect(() => {
-    localStorage.setItem("aloeflora_db_seo", JSON.stringify(seoConfig));
-  }, [seoConfig]);
+    localStorage.setItem("aloeflora_db_store_settings", JSON.stringify(storeSettings));
+    
+    // Update global document metadata
+    if (storeSettings) {
+      document.title = storeSettings.seoTitle || "ALOEFLORA PRODUCTS";
+      const metaDesc = document.querySelector('meta[name="description"]');
+      if (metaDesc) {
+        metaDesc.setAttribute("content", storeSettings.seoDesc || "");
+      } else {
+        const meta = document.createElement('meta');
+        meta.name = "description";
+        meta.content = storeSettings.seoDesc || "";
+        document.head.appendChild(meta);
+      }
+    }
+  }, [storeSettings]);
 
   // Apply visual theme tags
   useEffect(() => {
@@ -207,6 +221,22 @@ export default function App() {
             return [...mappedTkts, ...filteredPrev];
           });
         }
+        // Store Settings
+        const { data: stData, error: stErr } = await supabase.from('store_settings').select('*').eq('id', 'global').single();
+        if (stData && !stErr) {
+          setStoreSettings({
+            id: stData.id,
+            adminName: stData.admin_name,
+            adminEmail: stData.admin_email,
+            seoTitle: stData.seo_title,
+            seoDesc: stData.seo_desc,
+            seoKeywords: stData.seo_keywords,
+            seoRobots: stData.seo_robots,
+            sitemapGeneratedAt: stData.sitemap_generated_at,
+            updatedAt: stData.updated_at
+          });
+        }
+
       } catch (err) { console.warn("Supabase not active", err); }
     };
     
@@ -216,6 +246,7 @@ export default function App() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, fetchAllData)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'cms_posts' }, fetchAllData)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'support_tickets' }, fetchAllData)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'store_settings' }, fetchAllData)
       .subscribe();
       
     return () => { supabase.removeChannel(channels); };
@@ -501,12 +532,12 @@ export default function App() {
                     campaigns={campaigns}
                     cmsPosts={cmsPosts}
                     anomalies={anomalies}
-                    seoConfig={seoConfig}
+                    storeSettings={storeSettings}
                     onUpdateInventory={setProducts}
                     onUpdateOrders={setOrders}
                     onUpdateCampaigns={setCampaigns}
                     onUpdateCMS={setCmsPosts}
-                    onUpdateSEO={setSeoConfig}
+                    onUpdateSettings={setStoreSettings}
                     onResolveAnomaly={handleResolveAnomaly}
                   />
                 </ProtectedRoute>

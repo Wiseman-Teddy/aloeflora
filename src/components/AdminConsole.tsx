@@ -23,7 +23,7 @@ import { User, LogOut,
   Lock,
   MessageSquare
 } from "lucide-react";
-import { Product, Order, SupportTicket, MarketingCampaign, CMSPost, AuditAnomaly, SEOConfig, SystemMetrics } from "../types";
+import { Product, Order, SupportTicket, MarketingCampaign, CMSPost, AuditAnomaly, StoreSettings, SystemMetrics } from "../types";
 import { supabase } from "../lib/supabase";
 import { sanitizeInput } from "../utils/sanitize";
 import { uploadToSupabase } from "../utils/supabaseStorage";
@@ -36,12 +36,12 @@ interface AdminConsoleProps {
   campaigns: MarketingCampaign[];
   cmsPosts: CMSPost[];
   anomalies: AuditAnomaly[];
-  seoConfig: SEOConfig;
+  storeSettings: StoreSettings;
   onUpdateInventory: (updatedProducts: Product[]) => void;
   onUpdateOrders: (updatedOrders: Order[]) => void;
   onUpdateCampaigns: (updatedCampaigns: MarketingCampaign[]) => void;
   onUpdateCMS: (updatedCMS: CMSPost[]) => void;
-  onUpdateSEO: (updatedSEO: SEOConfig) => void;
+  onUpdateSettings: (updatedSettings: StoreSettings) => void;
   onResolveAnomaly: (anomalyId: string) => void;
 }
 
@@ -52,17 +52,17 @@ export default function AdminConsole({
   campaigns,
   cmsPosts,
   anomalies,
-  seoConfig,
+  storeSettings,
   onUpdateInventory,
   onUpdateOrders,
   onUpdateCampaigns,
   onUpdateCMS,
-  onUpdateSEO,
+  onUpdateSettings,
   onResolveAnomaly
 }: AdminConsoleProps) {
   const { signOut } = useAuth();
-  const [adminName, setAdminName] = useState("Admin User");
-  const [adminEmail, setAdminEmail] = useState("admin@aloeflora.com");
+  const [adminName, setAdminName] = useState(storeSettings.adminName);
+  const [adminEmail, setAdminEmail] = useState(storeSettings.adminEmail);
   
   // Navigation
   const [activeModule, setActiveModule] = useState<string>("executive");
@@ -109,10 +109,10 @@ export default function AdminConsole({
   const [isUploadingCms, setIsUploadingCms] = useState(false);
 
   // SEO config fields
-  const [seoTitle, setSeoTitle] = useState<string>(seoConfig.metaTitle);
-  const [seoDesc, setSeoDesc] = useState<string>(seoConfig.metaDescription);
-  const [seoKey, setSeoKey] = useState<string>(seoConfig.keywords);
-  const [seoRobots, setSeoRobots] = useState<string>(seoConfig.robotsText);
+  const [seoTitle, setSeoTitle] = useState<string>(storeSettings.seoTitle);
+  const [seoDesc, setSeoDesc] = useState<string>(storeSettings.seoDesc);
+  const [seoKey, setSeoKey] = useState<string>(storeSettings.seoKeywords);
+  const [seoRobots, setSeoRobots] = useState<string>(storeSettings.seoRobots);
 
   // Marketing states
   const [promoCodeInput, setPromoCodeInput] = useState<string>("");
@@ -335,16 +335,62 @@ export default function AdminConsole({
     }
   };
 
-  const saveSeoFields = () => {
-    onUpdateSEO({
-      ...seoConfig,
-      metaTitle: seoTitle,
-      metaDescription: seoDesc,
-      keywords: seoKey,
-      robotsText: seoRobots,
+  const saveSeoFields = async () => {
+    const updatedSettings = {
+      ...storeSettings,
+      seoTitle,
+      seoDesc,
+      seoKeywords: seoKey,
+      seoRobots,
       sitemapGeneratedAt: new Date().toISOString()
-    });
-    alert("SEO Meta Tags & Sitemap Indexes updated on Aloeflora CDN.");
+    };
+    
+    try {
+      const { error } = await supabase.from('store_settings').upsert({
+        id: 'global',
+        admin_name: updatedSettings.adminName,
+        admin_email: updatedSettings.adminEmail,
+        seo_title: updatedSettings.seoTitle,
+        seo_desc: updatedSettings.seoDesc,
+        seo_keywords: updatedSettings.seoKeywords,
+        seo_robots: updatedSettings.seoRobots,
+        sitemap_generated_at: updatedSettings.sitemapGeneratedAt,
+        updated_at: new Date().toISOString()
+      });
+      if (error) throw error;
+      onUpdateSettings(updatedSettings);
+      alert("SEO Meta Tags & Sitemap Indexes updated on Aloeflora CDN and Database.");
+    } catch (err: any) {
+      alert("Error saving SEO settings: " + err.message);
+    }
+  };
+
+  const saveAdminProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const updatedSettings = {
+      ...storeSettings,
+      adminName,
+      adminEmail
+    };
+
+    try {
+      const { error } = await supabase.from('store_settings').upsert({
+        id: 'global',
+        admin_name: updatedSettings.adminName,
+        admin_email: updatedSettings.adminEmail,
+        seo_title: updatedSettings.seoTitle,
+        seo_desc: updatedSettings.seoDesc,
+        seo_keywords: updatedSettings.seoKeywords,
+        seo_robots: updatedSettings.seoRobots,
+        sitemap_generated_at: updatedSettings.sitemapGeneratedAt,
+        updated_at: new Date().toISOString()
+      });
+      if (error) throw error;
+      onUpdateSettings(updatedSettings);
+      alert("Admin Profile updated successfully.");
+    } catch (err: any) {
+      alert("Error saving profile: " + err.message);
+    }
   };
 
   const triggerAuditReportGen = () => {
@@ -1287,7 +1333,7 @@ export default function AdminConsole({
             <div className="bg-zinc-50 border p-4 rounded-xl text-xs space-y-1">
               <span className="font-bold text-gray-400 uppercase text-[9px] block">Live XML Sitemap Generator Target</span>
               <div className="font-mono text-[10px] text-gray-500">
-                • sitemap_index.xml: /api/sitemap (Rebuilt successfully {seoConfig.sitemapGeneratedAt.split("T")[0]})
+                • sitemap_index.xml: /api/sitemap (Rebuilt successfully {storeSettings.sitemapGeneratedAt.split("T")[0]})
                 <br />
                 • Schema type definition: LocalBusiness & Product schemas verified OK.
               </div>
@@ -1303,14 +1349,14 @@ export default function AdminConsole({
               <p className="text-xs text-gray-500 mt-0.5">Manage administrative credentials and system configuration.</p>
             </div>
             
-            <form onSubmit={(e) => { e.preventDefault(); alert('Profile updated!'); }} className="bg-zinc-50/50 p-6 border rounded-2xl space-y-4">
+            <form onSubmit={saveAdminProfile} className="bg-zinc-50/50 p-6 border rounded-2xl space-y-4">
               <div className="space-y-1">
                 <label className="text-[10px] uppercase font-bold text-gray-500">Admin Name</label>
-                <input type="text" defaultValue="Master Admin" required className="w-full p-3 bg-white border border-gray-200 rounded-xl focus:outline-none focus:border-emerald-600 text-xs" />
+                <input type="text" value={adminName} onChange={e => setAdminName(e.target.value)} required className="w-full p-3 bg-white border border-gray-200 rounded-xl focus:outline-none focus:border-emerald-600 text-xs" />
               </div>
               <div className="space-y-1">
                 <label className="text-[10px] uppercase font-bold text-gray-500">Admin Email</label>
-                <input type="email" defaultValue="aganyawiseman@gmail.com" required className="w-full p-3 bg-white border border-gray-200 rounded-xl focus:outline-none focus:border-emerald-600 text-xs" />
+                <input type="email" value={adminEmail} onChange={e => setAdminEmail(e.target.value)} required className="w-full p-3 bg-white border border-gray-200 rounded-xl focus:outline-none focus:border-emerald-600 text-xs" />
               </div>
               
               <button type="submit" className="w-full bg-emerald-800 text-white font-bold py-3 rounded-xl hover:bg-emerald-700 transition cursor-pointer text-xs shadow-md mt-4">

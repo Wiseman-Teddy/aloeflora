@@ -151,11 +151,15 @@ export interface AuditAnomaly {
   resolvedBy?: string;
 }
 
-export interface SEOConfig {
-  metaTitle: string;
-  metaDescription: string;
-  keywords: string;
-  structuredDataJson: string;
-  robotsText: string;
+export interface StoreSettings {
+  id?: string;
+  adminName: string;
+  adminEmail: string;
+  seoTitle: string;
+  seoDesc: string;
+  seoKeywords: string;
+  seoRobots: string;
   sitemapGeneratedAt: string;
+  updatedAt?: string;
 }
+

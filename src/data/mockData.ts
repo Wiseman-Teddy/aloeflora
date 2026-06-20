@@ -1,4 +1,4 @@
-import { Product, Order, SupportTicket, MarketingCampaign, BookingEvent, CMSPost, DevOpsLog, AuditAnomaly, SEOConfig } from "../types";
+import { Product, Order, SupportTicket, MarketingCampaign, BookingEvent, CMSPost, DevOpsLog, AuditAnomaly, StoreSettings } from "../types";
 
 export const CUSTOMER_RATING_ACCENTS = [
   "Deep forest fragrance",
@@ -474,27 +474,13 @@ export const INITIAL_AUDIT_ANOMALIES: AuditAnomaly[] = [
   }
 ];
 
-export const DEFAULT_SEO_CONFIG: SEOConfig = {
-  metaTitle: "ALOEFLORA PRODUCTS | Quality, Affordable & Natural Hair, Body, Home Care Kenya",
-  metaDescription: "Welcome to ALOEFLORA PRODUCTS Kenya. We offer premium, natural, organic hair care, skin care, and non-toxic home care solutions locally crafted and shipped in Nairobi, Kenya.",
-  keywords: "Best Hair Products Nairobi, Natural Hair Products Kenya, Affordable Hair Care Products, Natural Body Products Kenya, Affordable Home Care Products, Best Quality Natural Products Nairobi",
-  structuredDataJson: `{
-  "@context": "https://schema.org",
-  "@type": "Store",
-  "name": "ALOEFLORA PRODUCTS",
-  "image": "https://images.unsplash.com/photo-1526947425960-945c6e72858f",
-  "description": "Quality, Affordable & Natural Products in Nairobi Kenya",
-  "telephone": "+254702283637",
-  "address": {
-    "@type": "PostalAddress",
-    "streetAddress": "Nairobi CBD",
-    "addressLocality": "Nairobi",
-    "addressCountry": "KE"
-  },
-  "url": "https://aloeflora.co.ke",
-  "priceRange": "KES 350 - KES 1200"
-}`,
-  robotsText: `User-agent: *
+export const DEFAULT_STORE_SETTINGS: StoreSettings = {
+  adminName: "Master Admin",
+  adminEmail: "aganyawiseman@gmail.com",
+  seoTitle: "ALOEFLORA PRODUCTS | Quality, Affordable & Natural Hair, Body, Home Care Kenya",
+  seoDesc: "Welcome to ALOEFLORA PRODUCTS Kenya. We offer premium, natural, organic hair care, skin care, and non-toxic home care solutions locally crafted and shipped in Nairobi, Kenya.",
+  seoKeywords: "Best Hair Products Nairobi, Natural Hair Products Kenya, Affordable Hair Care Products, Natural Body Products Kenya, Affordable Home Care Products, Best Quality Natural Products Nairobi",
+  seoRobots: `User-agent: *
 Allow: /
 Disallow: /admin
 Sitemap: https://aloeflora.co.ke/sitemap.xml`,

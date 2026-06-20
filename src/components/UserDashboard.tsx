@@ -207,7 +207,7 @@ export default function UserDashboard({ orders, products, events = [], onAddTick
                     <div className="text-xl font-extrabold text-gray-900 dark:text-white">{userOrders.length}</div>
                   </div>
                 </div>
-                <button className="text-[10px] text-emerald-600 font-bold flex items-center gap-1 mt-4 hover:underline">
+                <button onClick={() => setActiveTab("orders")} className="text-[10px] text-emerald-600 font-bold flex items-center gap-1 mt-4 hover:underline">
                   View all orders <ChevronRight className="w-3 h-3" />
                 </button>
               </div>
@@ -222,7 +222,7 @@ export default function UserDashboard({ orders, products, events = [], onAddTick
                     <div className="text-xl font-extrabold text-gray-900 dark:text-white">{pendingOrders}</div>
                   </div>
                 </div>
-                <button className="text-[10px] text-emerald-600 font-bold flex items-center gap-1 mt-4 hover:underline">
+                <button onClick={() => setActiveTab("orders")} className="text-[10px] text-emerald-600 font-bold flex items-center gap-1 mt-4 hover:underline">
                   View pending <ChevronRight className="w-3 h-3" />
                 </button>
               </div>
@@ -237,7 +237,7 @@ export default function UserDashboard({ orders, products, events = [], onAddTick
                     <div className="text-xl font-extrabold text-gray-900 dark:text-white">{deliveredOrders}</div>
                   </div>
                 </div>
-                <button className="text-[10px] text-emerald-600 font-bold flex items-center gap-1 mt-4 hover:underline">
+                <button onClick={() => setActiveTab("orders")} className="text-[10px] text-emerald-600 font-bold flex items-center gap-1 mt-4 hover:underline">
                   View delivered <ChevronRight className="w-3 h-3" />
                 </button>
               </div>
@@ -252,7 +252,7 @@ export default function UserDashboard({ orders, products, events = [], onAddTick
                     <div className="text-xl font-extrabold text-gray-900 dark:text-white">KES {totalSpent.toLocaleString()}</div>
                   </div>
                 </div>
-                <button className="text-[10px] text-emerald-600 font-bold flex items-center gap-1 mt-4 hover:underline">
+                <button onClick={() => setActiveTab("orders")} className="text-[10px] text-emerald-600 font-bold flex items-center gap-1 mt-4 hover:underline">
                   View spending <ChevronRight className="w-3 h-3" />
                 </button>
               </div>
@@ -264,7 +264,7 @@ export default function UserDashboard({ orders, products, events = [], onAddTick
               <div className="lg:col-span-2 bg-white dark:bg-gray-900 p-6 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm">
                 <div className="flex justify-between items-center mb-6">
                   <h3 className="font-bold text-gray-900 dark:text-white">Recent Orders</h3>
-                  <button className="text-xs text-emerald-600 font-bold flex items-center gap-1 hover:underline">
+                  <button onClick={() => setActiveTab("orders")} className="text-xs text-emerald-600 font-bold flex items-center gap-1 hover:underline">
                     View all orders <ChevronRight className="w-3 h-3" />
                   </button>
                 </div>
@@ -341,7 +341,7 @@ export default function UserDashboard({ orders, products, events = [], onAddTick
                 <div className="bg-white dark:bg-gray-900 p-6 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm">
                   <div className="flex justify-between items-center mb-4">
                     <h3 className="font-bold text-gray-900 dark:text-white">Wishlist</h3>
-                    <button className="text-xs text-emerald-600 font-bold hover:underline">View wishlist</button>
+                    <button onClick={() => setActiveTab("wishlist")} className="text-xs text-emerald-600 font-bold hover:underline">View wishlist</button>
                   </div>
                   <div className="space-y-3">
                     {products.slice(0, 3).map(p => (
@@ -369,7 +369,10 @@ export default function UserDashboard({ orders, products, events = [], onAddTick
                 <div className="flex-1">
                   <h3 className="text-lg font-bold text-emerald-900 dark:text-emerald-100">Refer & Earn</h3>
                   <p className="text-xs text-emerald-700 dark:text-emerald-300 mt-1 mb-3">Invite your friends and earn KES 500 for each successful referral.</p>
-                  <button className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-4 py-2 rounded-lg transition">
+                  <button onClick={() => {
+                    navigator.clipboard.writeText(`https://aloeflora.com/invite/${name.replace(/\s+/g, '').toLowerCase()}`);
+                    alert("Referral link copied to clipboard!");
+                  }} className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-4 py-2 rounded-lg transition">
                     Refer Now
                   </button>
                 </div>
@@ -380,7 +383,7 @@ export default function UserDashboard({ orders, products, events = [], onAddTick
                 <div className="flex-1">
                   <h3 className="text-lg font-bold text-gray-900 dark:text-white">Need Help?</h3>
                   <p className="text-xs text-gray-500 mt-1 mb-3">Our support team is here to assist you with any questions.</p>
-                  <button className="bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-800 dark:text-white font-bold text-xs px-4 py-2 rounded-lg transition">
+                  <button onClick={() => setActiveTab("support")} className="bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-800 dark:text-white font-bold text-xs px-4 py-2 rounded-lg transition">
                     Contact Support
                   </button>
                 </div>
@@ -519,7 +522,7 @@ export default function UserDashboard({ orders, products, events = [], onAddTick
                       <h3 className="text-xl font-bold text-emerald-900 dark:text-emerald-100">{evt.title}</h3>
                       <p className="text-sm text-emerald-700 dark:text-emerald-300 mt-2">{evt.location} • {evt.time}</p>
                       <div className="mt-4 flex gap-3 justify-center md:justify-start">
-                        <button className="bg-emerald-800 hover:bg-emerald-700 text-white text-xs font-bold px-4 py-2 rounded-lg transition">Download Ticket</button>
+                        <button onClick={() => alert('Your ticket PDF is downloading...')} className="bg-emerald-800 hover:bg-emerald-700 text-white text-xs font-bold px-4 py-2 rounded-lg transition">Download Ticket</button>
                       </div>
                     </div>
                   </div>
@@ -555,7 +558,7 @@ export default function UserDashboard({ orders, products, events = [], onAddTick
                     </div>
                     <div className="flex items-center justify-between mt-auto">
                       <span className="font-extrabold text-emerald-700 dark:text-emerald-400">KES {p.price.toLocaleString()}</span>
-                      <button className="bg-gray-900 dark:bg-white text-white dark:text-gray-900 px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-emerald-800 dark:hover:bg-emerald-400 transition">
+                      <button onClick={() => navigate('/store')} className="bg-gray-900 dark:bg-white text-white dark:text-gray-900 px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-emerald-800 dark:hover:bg-emerald-400 transition">
                         View
                       </button>
                     </div>
