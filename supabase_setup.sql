@@ -80,11 +80,21 @@ ALTER TABLE orders ENABLE ROW LEVEL SECURITY;
 
 -- Drop any existing permissive policies if they exist (good practice)
 DROP POLICY IF EXISTS "Public can view CMS posts" ON cms_posts;
+DROP POLICY IF EXISTS "Public can view published CMS posts" ON cms_posts;
 DROP POLICY IF EXISTS "Public can view Events" ON events;
+DROP POLICY IF EXISTS "Public can view Products" ON products;
+DROP POLICY IF EXISTS "Public can view Store Settings" ON store_settings;
+DROP POLICY IF EXISTS "Customers can view their orders" ON orders;
+DROP POLICY IF EXISTS "Customers can create orders" ON orders;
+DROP POLICY IF EXISTS "Customers can view their tickets" ON support_tickets;
+DROP POLICY IF EXISTS "Customers can create tickets" ON support_tickets;
 DROP POLICY IF EXISTS "Admins full access CMS" ON cms_posts;
 DROP POLICY IF EXISTS "Admins full access Tickets" ON support_tickets;
 DROP POLICY IF EXISTS "Admins full access Events" ON events;
 DROP POLICY IF EXISTS "Admins full access Campaigns" ON campaigns;
+DROP POLICY IF EXISTS "Admins full access Products" ON products;
+DROP POLICY IF EXISTS "Admins full access Orders" ON orders;
+DROP POLICY IF EXISTS "Admins full access Store Settings" ON store_settings;
 
 -- Public access policies (Reads only)
 CREATE POLICY "Public can view published CMS posts" ON cms_posts FOR SELECT USING (status = 'published');
