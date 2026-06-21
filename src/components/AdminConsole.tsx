@@ -112,7 +112,7 @@ export default function AdminConsole({
   const [cmsContent, setCmsContent] = useState<string>("");
   const [cmsType, setCmsType] = useState<"blog" | "testimonial" | "policy" | "faq" | "promo" | "hero" | "award">("blog");
   const [cmsStatus, setCmsStatus] = useState<"draft" | "published">("published");
-  const [cmsImageUrl, setCmsImageUrl] = useState<string>("");
+  const [cmsImageUrls, setCmsImageUrls] = useState<string[]>([]);
   const [isUploadingCms, setIsUploadingCms] = useState(false);
 
   // SEO config fields
@@ -317,7 +317,7 @@ export default function AdminConsole({
     e.preventDefault();
     if (!cmsTitle || !cmsContent) return;
 
-    let finalImageUrl = cmsImageUrl;
+    let finalImageUrl = cmsImageUrls.join(',');
 
     if (editingCmsId) {
       const updatedPosts = cmsPosts.map(p => {
@@ -367,7 +367,7 @@ export default function AdminConsole({
     setIsAddingCms(false);
     setCmsTitle("");
     setCmsContent("");
-    setCmsImageUrl("");
+    setCmsImageUrls([]);
   };
 
   const handleEditCMS = (post: CMSPost) => {
@@ -376,7 +376,7 @@ export default function AdminConsole({
     setCmsContent(post.content);
     setCmsType(post.type);
     setCmsStatus(post.status);
-    setCmsImageUrl(post.imageUrl || "");
+    setCmsImageUrls(post.imageUrl ? post.imageUrl.split(',') : []);
     setIsAddingCms(true);
   };
 
@@ -1263,7 +1263,7 @@ export default function AdminConsole({
 
                 <div className="space-y-1">
                   <label className="font-bold">Image Upload (for Hero/Award/Blog)</label>
-                  <MediaUploader urls={cmsImageUrl ? [cmsImageUrl] : []} onChange={(urls) => setCmsImageUrl(urls[0] || "")} multiple={false} bucket="images" />
+                  <MediaUploader urls={cmsImageUrls} onChange={setCmsImageUrls} multiple={true} maxFiles={10} bucket="images" />
                 </div>
 
                 <div className="space-y-1">

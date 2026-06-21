@@ -83,7 +83,12 @@ export default function CustomerStore({
   const [isCompareOpen, setIsCompareOpen] = useState<boolean>(false);
 
   // Hero Slider
-  const heroSlides = cmsPosts.filter((p) => p.type === "hero" && p.status === "published");
+  const heroSlides = cmsPosts
+    .filter((p) => p.type === "hero" && p.status === "published")
+    .flatMap((p) => {
+      const urls = p.imageUrl ? p.imageUrl.split(',') : [];
+      return urls.map(url => ({ ...p, imageUrl: url }));
+    });
   const [heroIndex, setHeroIndex] = useState<number>(0);
   const heroRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -712,7 +717,7 @@ export default function CustomerStore({
             {cmsPosts.filter(p => p.type === "award" && p.status === "published").map(award => (
               <div key={award.id} className="bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-2xl overflow-hidden shadow-sm flex flex-col items-center text-center p-6">
                 {award.imageUrl && (
-                  <img src={award.imageUrl} alt={award.title} className="w-24 h-24 object-cover rounded-full border-4 border-lime-100 mb-4" />
+                  <img src={award.imageUrl.split(',')[0]} alt={award.title} className="w-24 h-24 object-cover rounded-full border-4 border-lime-100 mb-4" />
                 )}
                 <h4 className="font-bold text-sm text-gray-900 dark:text-white mb-2">{award.title}</h4>
                 <p className="text-xs text-gray-500 leading-relaxed">{award.content}</p>
@@ -787,7 +792,7 @@ export default function CustomerStore({
               <div key={blog.id} className="bg-zinc-50 dark:bg-gray-800/10 border border-zinc-100 dark:border-gray-800 rounded-2xl p-5 hover:shadow-md transition">
                 {blog.imageUrl && (
                   <div className="h-40 mb-4 rounded-xl overflow-hidden">
-                    <img src={blog.imageUrl} alt={blog.title} className="w-full h-full object-cover" />
+                    <img src={blog.imageUrl.split(',')[0]} alt={blog.title} className="w-full h-full object-cover" />
                   </div>
                 )}
                 <h4 className="font-bold text-gray-900 dark:text-white text-sm line-clamp-2">{blog.title}</h4>
