@@ -177,11 +177,7 @@ export default function App() {
           const mapped: Order[] = ordData.map((d: any) => ({
             id: d.id, customerName: d.customer_name, phone: d.phone, email: "", county: "", subCounty: "", estate: "", building: "", houseNumber: "", deliveryNotes: "", items: [], subtotal: d.total_amount, deliveryFee: 0, total: d.total_amount, paymentMethod: "mpesa_stk", paymentStatus: d.status, deliveryStatus: "pending", mpesaReceipt: "", createdAt: d.created_at
           }));
-          setOrders(prev => {
-            const newIds = new Set(mapped.map(m => m.id));
-            const filteredPrev = prev.filter(p => !newIds.has(p.id));
-            return [...mapped, ...filteredPrev];
-          });
+          setOrders(mapped);
         }
         
         // Products
@@ -193,11 +189,7 @@ export default function App() {
             safetyStock: p.safety_stock, reorderLevel: p.reorder_level, rating: p.rating, reviewsCount: p.reviews_count,
             variants: p.variants, features: p.features, reviews: []
           }));
-          setProducts(prev => {
-            const newIds = new Set(mappedProds.map(m => m.id));
-            const filteredPrev = prev.filter(p => !newIds.has(p.id));
-            return [...mappedProds, ...filteredPrev];
-          });
+          setProducts(mappedProds);
         }
 
         // CMS
@@ -207,11 +199,7 @@ export default function App() {
             id: c.id, title: c.title, content: c.content, type: c.type, status: c.status, author: c.author,
             imageUrl: c.image_url, createdAt: c.created_at, seoTitle: c.seo_title, seoDesc: c.seo_desc, seoKeywords: c.seo_keywords
           }));
-          setCmsPosts(prev => {
-            const newIds = new Set(mappedCms.map(m => m.id));
-            const filteredPrev = prev.filter(p => !newIds.has(p.id));
-            return [...mappedCms, ...filteredPrev];
-          });
+          setCmsPosts(mappedCms);
         }
 
         // Tickets
@@ -221,11 +209,7 @@ export default function App() {
             id: t.id, customerName: t.customer_name, email: t.email, phone: t.phone, subject: t.subject,
             message: t.message, status: t.status, createdAt: t.created_at, replies: t.replies || []
           }));
-          setTickets(prev => {
-            const newIds = new Set(mappedTkts.map(m => m.id));
-            const filteredPrev = prev.filter(p => !newIds.has(p.id));
-            return [...mappedTkts, ...filteredPrev];
-          });
+          setTickets(mappedTkts);
         }
         // Store Settings
         const { data: stData, error: stErr } = await supabase.from('store_settings').select('*').eq('id', 'global').single();
