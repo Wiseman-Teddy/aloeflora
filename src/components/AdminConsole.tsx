@@ -142,6 +142,10 @@ export default function AdminConsole({
   const [emailCampaignAudience, setEmailCampaignAudience] = useState("all");
   const [isSendingEmail, setIsSendingEmail] = useState(false);
 
+  // Media Library State
+  const [mediaFiles, setMediaFiles] = useState<{name: string, url: string}[]>([]);
+  const [isMediaLoading, setIsMediaLoading] = useState(false);
+
   // Live interval ticker simulating DevOps process fluctuations
   useEffect(() => {
     const timer = setInterval(() => {
@@ -155,6 +159,46 @@ export default function AdminConsole({
     }, 4000);
     return () => clearInterval(timer);
   }, []);
+
+  const loadMediaFiles = async () => {
+    setIsMediaLoading(true);
+    try {
+      const { data, error } = await supabase.storage.from("images").list("", { limit: 100, sortBy: { column: 'created_at', order: 'desc' } });
+      if (error) throw error;
+      if (data) {
+        const filesWithUrl = data.filter(d => d.name !== ".emptyFolderPlaceholder").map(file => {
+          const { data: publicUrlData } = supabase.storage.from("images").getPublicUrl(file.name);
+          return {
+            name: file.name,
+            url: publicUrlData.publicUrl
+          };
+        });
+        setMediaFiles(filesWithUrl);
+      }
+    } catch (err: any) {
+      console.error(err);
+    } finally {
+      setIsMediaLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeModule === "media") {
+      loadMediaFiles();
+    }
+  }, [activeModule]);
+
+  const handleDeleteMedia = async (fileName: string) => {
+    if(!confirm("Are you sure you want to permanently delete this media file? It might break existing links.")) return;
+    try {
+      const { error } = await supabase.storage.from("images").remove([fileName]);
+      if(error) throw error;
+      setMediaFiles(prev => prev.filter(f => f.name !== fileName));
+      alert("Media deleted successfully.");
+    } catch(err) {
+      console.error(err);
+    }
+  };
 
   // Compute key executive sales aggregates
   const totalPaidRevenue = orders
@@ -552,6 +596,7 @@ export default function AdminConsole({
                 { id: "users", label: "User Management", icon: Users },
                 { id: "support", label: "Support Tickets", icon: MessageSquare },
                 { id: "cms", label: "CMS Web Editor", icon: PenTool },
+                { id: "media", label: "Media Library", icon: Database },
               ].map(item => (
                 <button
                   key={item.id}
@@ -1543,7 +1588,75 @@ export default function AdminConsole({
           </div>
         )}
 
-        {/* TAB 10: SETTINGS & PROFILE */}
+        {/* TAB 11: MEDIA LIBRARY */}
+        {activeModule === "media" && (
+          <div className="space-y-6 animate-in fade-in duration-150 text-left">
+            <div className="flex justify-between items-center">
+              <div>
+                <h3 className="text-lg font-bold text-gray-950">Media Library</h3>
+                <p className="text-xs text-gray-500 mt-0.5">Manage all images uploaded to your store's cloud storage.</p>
+              </div>
+              <button onClick={loadMediaFiles} className="bg-white border border-gray-200 p-2 rounded-lg text-gray-500 hover:text-emerald-800 transition shadow-sm">
+                <RefreshCw className={`w-4 h-4 ${isMediaLoading ? "animate-spin" : ""}`} />
+              </button>
+            </div>
+            
+            <div className="bg-white border border-gray-100 p-6 rounded-2xl shadow-sm">
+              <div className="mb-6 space-y-2">
+                <h4 className="font-bold text-sm">Upload New Media</h4>
+                {/* Reusing existing uploader but not tying it to a single string so we just reload list */}
+                <MediaUploader 
+                  urls={[]} 
+                  onChange={() => loadMediaFiles()} 
+                  multiple={true} 
+                  maxFiles={10} 
+                  bucket="images" 
+                />
+              </div>
+
+              <h4 className="font-bold text-sm mb-4 border-b pb-2">Uploaded Files ({mediaFiles.length})</h4>
+              {isMediaLoading ? (
+                <div className="flex items-center justify-center p-12 text-gray-400">
+                  <Loader2 className="w-8 h-8 animate-spin" />
+                </div>
+              ) : mediaFiles.length === 0 ? (
+                <div className="text-center py-10 bg-gray-50 rounded-xl border border-dashed border-gray-200">
+                  <Database className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+                  <p className="text-sm text-gray-500 font-medium">No media files found</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                  {mediaFiles.map((file, idx) => (
+                    <div key={idx} className="group relative rounded-xl border overflow-hidden bg-gray-50 aspect-square">
+                      <img src={file.url} alt={file.name} className="w-full h-full object-cover" />
+                      <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2 p-4">
+                        <p className="text-[9px] text-white font-mono break-all text-center leading-tight line-clamp-3">{file.name}</p>
+                        <div className="flex gap-2">
+                          <button 
+                            onClick={() => { navigator.clipboard.writeText(file.url); alert("URL Copied to clipboard!"); }}
+                            className="bg-white/20 hover:bg-white/40 text-white p-2 rounded-full text-xs transition"
+                            title="Copy URL"
+                          >
+                            <ArrowUpRight className="w-3.5 h-3.5" />
+                          </button>
+                          <button 
+                            onClick={() => handleDeleteMedia(file.name)}
+                            className="bg-red-500/80 hover:bg-red-600 text-white p-2 rounded-full text-xs transition"
+                            title="Delete File"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* TAB 12: SETTINGS & PROFILE */}
         {activeModule === "settings" && (
           <div className="space-y-6 animate-in fade-in duration-150 text-left max-w-2xl mx-auto">
             <div>
