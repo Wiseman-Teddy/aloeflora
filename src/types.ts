@@ -82,7 +82,7 @@ export interface MarketingCampaign {
   id: string;
   name: string;
   platform: "Google Ads" | "Meta Ads" | "Instagram Ads" | "Facebook Ads" | "Email";
-  status: "active" | "scheduled" | "paused" | "completed";
+  status: "active" | "scheduled" | "paused" | "completed" | "draft";
   budget: number;
   impressions: number;
   clicks: number;
@@ -90,6 +90,11 @@ export interface MarketingCampaign {
   startDate: string;
   endDate: string;
   roi: number; // calculated as (revenue - budget) / budget * 100
+  subject?: string;
+  audience?: string;
+  openRate?: number;
+  sentCount?: number;
+  deliveryRate?: number;
 }
 
 export interface BookingEvent {
@@ -163,3 +168,22 @@ export interface StoreSettings {
   updatedAt?: string;
 }
 
+export interface UserProfile {
+  id: string;
+  fullName: string;
+  email: string;
+  phone?: string;
+  avatarUrl?: string;
+  role: "admin" | "customer" | "moderator";
+  accountStatus: "active" | "suspended" | "locked";
+  createdAt: string;
+  lastLogin?: string;
+  totalSpending: number;
+  orderCount: number;
+}
+
+export interface ReportExportData {
+  title: string;
+  columns: string[];
+  rows: any[][];
+}

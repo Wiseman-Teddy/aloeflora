@@ -496,15 +496,15 @@ export default function CustomerStore({
                 <>
                   <button 
                     onClick={() => setHeroIndex((prev) => (prev - 1 + heroSlides.length) % heroSlides.length)}
-                    className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/40 hover:bg-black/60 p-2 rounded-full cursor-pointer transition select-none text-white border border-white/5"
+                    className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/40 hover:bg-black/60 p-3 rounded-full cursor-pointer transition select-none text-white border border-white/5 min-h-[44px] min-w-[44px] flex items-center justify-center"
                   >
-                    <ChevronLeft className="w-4 h-4" />
+                    <ChevronLeft className="w-5 h-5" />
                   </button>
                   <button 
                     onClick={() => setHeroIndex((prev) => (prev + 1) % heroSlides.length)}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/40 hover:bg-black/60 p-2 rounded-full cursor-pointer transition select-none text-white border border-white/5"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/40 hover:bg-black/60 p-3 rounded-full cursor-pointer transition select-none text-white border border-white/5 min-h-[44px] min-w-[44px] flex items-center justify-center"
                   >
-                    <ChevronRight className="w-4 h-4" />
+                    <ChevronRight className="w-5 h-5" />
                   </button>
                 </>
               )}
@@ -618,11 +618,11 @@ export default function CustomerStore({
 
                   <button 
                     onClick={() => toggleWishlist(p.id)}
-                    className={`absolute top-6 right-6 z-10 bg-white/80 dark:bg-gray-800/80 p-2 rounded-full shadow hover:scale-105 cursor-pointer transition ${
+                    className={`absolute top-6 right-6 z-10 bg-white/80 dark:bg-gray-800/80 p-3 rounded-full shadow hover:scale-105 cursor-pointer transition min-h-[44px] min-w-[44px] flex items-center justify-center ${
                       inWishlist ? "text-red-500" : "text-gray-400"
                     }`}
                   >
-                    <Heart className="w-4 h-4 fill-current" />
+                    <Heart className="w-5 h-5 fill-current" />
                   </button>
 
                   {/* Thumbnail */}
@@ -672,20 +672,20 @@ export default function CustomerStore({
                           <button
                             onClick={() => toggleCompare(p)}
                             title="Compare specifications"
-                            className={`p-1.5 rounded-lg border transition cursor-pointer ${
+                            className={`p-2 rounded-lg border transition cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center ${
                               compareSelected
                                 ? "bg-emerald-50 border-emerald-300 text-emerald-800"
                                 : "bg-gray-50 border-gray-200 text-gray-500 hover:bg-gray-100"
                             }`}
                           >
-                            <Layers className="w-3.5 h-3.5" />
+                            <Layers className="w-4 h-4" />
                           </button>
                           <button
                             onClick={() => addToCart(p)}
                             disabled={p.stock === 0}
-                            className="bg-emerald-800 hover:bg-emerald-700 disabled:bg-gray-200 disabled:text-gray-400 text-white p-2 rounded-xl text-xs font-bold shadow transition cursor-pointer flex items-center justify-center"
+                            className="bg-emerald-800 hover:bg-emerald-700 disabled:bg-gray-200 disabled:text-gray-400 text-white p-2 md:p-3 rounded-xl text-xs font-bold shadow transition cursor-pointer flex items-center justify-center min-h-[44px] min-w-[44px]"
                           >
-                            <ShoppingCart className="w-4 h-4" />
+                            <ShoppingCart className="w-5 h-5 md:w-4 md:h-4" />
                           </button>
                         </div>
                       </div>
@@ -764,7 +764,7 @@ export default function CustomerStore({
                   </span>
                   <button 
                     onClick={() => setRegEventId(evt.id)}
-                    className="text-xs font-bold text-emerald-800 underline hover:text-emerald-700 cursor-pointer"
+                    className="text-xs font-bold text-emerald-800 underline hover:text-emerald-700 cursor-pointer p-2 min-h-[44px] flex items-center"
                   >
                     Register Seat
                   </button>

@@ -24,11 +24,13 @@ import { User, LogOut,
   MessageSquare,
   Database
 } from "lucide-react";
-import { Product, Order, SupportTicket, MarketingCampaign, CMSPost, AuditAnomaly, StoreSettings, SystemMetrics } from "../types";
+import { Product, Order, SupportTicket, MarketingCampaign, CMSPost, AuditAnomaly, StoreSettings, SystemMetrics, UserProfile } from "../types";
 import { supabase } from "../lib/supabase";
 import { sanitizeInput } from "../utils/sanitize";
 import { uploadToSupabase } from "../utils/supabaseStorage";
+import MediaUploader from "./MediaUploader";
 import { useAuth } from "../contexts/AuthContext";
+import { exportToCSV, exportToPDF } from "../utils/exportUtils";
 
 interface AdminConsoleProps {
   products: Product[];
@@ -44,6 +46,8 @@ interface AdminConsoleProps {
   onUpdateCMS: (updatedCMS: CMSPost[]) => void;
   onUpdateSettings: (updatedSettings: StoreSettings) => void;
   onResolveAnomaly: (anomalyId: string) => void;
+  users: UserProfile[];
+  onUpdateUsers: (users: UserProfile[]) => void;
 }
 
 export default function AdminConsole({
@@ -59,7 +63,9 @@ export default function AdminConsole({
   onUpdateCampaigns,
   onUpdateCMS,
   onUpdateSettings,
-  onResolveAnomaly
+  onResolveAnomaly,
+  users,
+  onUpdateUsers
 }: AdminConsoleProps) {
   const { signOut } = useAuth();
   const [adminName, setAdminName] = useState(storeSettings?.adminName || "");
@@ -87,7 +93,7 @@ export default function AdminConsole({
   const [prodVariants, setProdVariants] = useState<string>("");
   const [prodFeatures, setProdFeatures] = useState<string>("");
   const [prodSpecs, setProdSpecs] = useState<string>("");
-  const [prodMediaFiles, setProdMediaFiles] = useState<File[]>([]);
+  const [prodMediaUrls, setProdMediaUrls] = useState<string[]>([]);
   const [isUploadingProduct, setIsUploadingProduct] = useState(false);
 
   // DevOps dynamic metrics
@@ -106,7 +112,7 @@ export default function AdminConsole({
   const [cmsContent, setCmsContent] = useState<string>("");
   const [cmsType, setCmsType] = useState<"blog" | "testimonial" | "policy" | "faq" | "promo" | "hero" | "award">("blog");
   const [cmsStatus, setCmsStatus] = useState<"draft" | "published">("published");
-  const [cmsImageFile, setCmsImageFile] = useState<File | null>(null);
+  const [cmsImageUrl, setCmsImageUrl] = useState<string>("");
   const [isUploadingCms, setIsUploadingCms] = useState(false);
 
   // SEO config fields
@@ -126,6 +132,15 @@ export default function AdminConsole({
   // Support Tiketing responses state
   const [replyTicketId, setReplyTicketId] = useState<string | null>(null);
   const [replyMessage, setReplyMessage] = useState<string>("");
+
+  // Users Module State
+  const [editingUserId, setEditingUserId] = useState<string | null>(null);
+
+  // Email Campaign State
+  const [emailCampaignSubject, setEmailCampaignSubject] = useState("");
+  const [emailCampaignBody, setEmailCampaignBody] = useState("");
+  const [emailCampaignAudience, setEmailCampaignAudience] = useState("all");
+  const [isSendingEmail, setIsSendingEmail] = useState(false);
 
   // Live interval ticker simulating DevOps process fluctuations
   useEffect(() => {
@@ -173,17 +188,14 @@ export default function AdminConsole({
   // Handles Product Add
   const handleAddProductSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!prodName || !prodDesc || (!prodImageUrl && prodMediaFiles.length === 0)) {
+    if (!prodName || !prodDesc || (!prodImageUrl && prodMediaUrls.length === 0)) {
       alert("Name, description, and at least one image URL/file are required!");
       return;
     }
 
     setIsUploadingProduct(true);
-    const uploadedMediaUrls: string[] = [];
-    for (const file of prodMediaFiles) {
-      const url = await uploadToSupabase(file);
-      if (url) uploadedMediaUrls.push(url);
-    }
+    // MediaUploader handles the file upload to Supabase directly
+    const uploadedMediaUrls: string[] = prodMediaUrls;
     setIsUploadingProduct(false);
 
     const newProduct: Product = {
@@ -235,7 +247,7 @@ export default function AdminConsole({
     setProdVariants("");
     setProdFeatures("");
     setProdSpecs("");
-    setProdMediaFiles([]);
+    setProdMediaUrls([]);
   };
 
   // Handles Inline Quantity Replenishment
@@ -261,13 +273,7 @@ export default function AdminConsole({
     e.preventDefault();
     if (!cmsTitle || !cmsContent) return;
 
-    let finalImageUrl = "";
-    if (cmsImageFile) {
-      setIsUploadingCms(true);
-      const url = await uploadToSupabase(cmsImageFile);
-      if (url) finalImageUrl = url;
-      setIsUploadingCms(false);
-    }
+    let finalImageUrl = cmsImageUrl;
 
     if (editingCmsId) {
       const updatedPosts = cmsPosts.map(p => {
@@ -317,7 +323,7 @@ export default function AdminConsole({
     setIsAddingCms(false);
     setCmsTitle("");
     setCmsContent("");
-    setCmsImageFile(null);
+    setCmsImageUrl("");
   };
 
   const handleEditCMS = (post: CMSPost) => {
@@ -326,7 +332,7 @@ export default function AdminConsole({
     setCmsContent(post.content);
     setCmsType(post.type);
     setCmsStatus(post.status);
-    setCmsImageFile(null);
+    setCmsImageUrl(post.imageUrl || "");
     setIsAddingCms(true);
   };
 
@@ -419,6 +425,96 @@ export default function AdminConsole({
     }
   };
 
+  // --- NEW MODULE HANDLERS ---
+  const handleEmailCampaignSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!emailCampaignSubject || !emailCampaignBody) return;
+    setIsSendingEmail(true);
+
+    try {
+      // Simulate calling backend for sending email
+      const response = await fetch('/api/send-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          subject: emailCampaignSubject,
+          body: emailCampaignBody,
+          audience: emailCampaignAudience,
+        })
+      });
+
+      if (!response.ok) throw new Error("Failed to send campaign");
+
+      // Log the campaign to DB
+      const newCamp: MarketingCampaign = {
+        id: `c_${Date.now()}`,
+        name: emailCampaignSubject,
+        platform: "Email",
+        status: "active",
+        budget: 0,
+        impressions: 0,
+        clicks: 0,
+        conversions: 0,
+        startDate: new Date().toISOString().split("T")[0],
+        endDate: new Date().toISOString().split("T")[0],
+        roi: 0,
+        subject: emailCampaignSubject,
+        audience: emailCampaignAudience,
+        openRate: 0,
+        sentCount: users.length,
+        deliveryRate: 100
+      };
+
+      await supabase.from("campaigns").insert({
+        id: newCamp.id, name: newCamp.name, platform: newCamp.platform, status: newCamp.status, budget: newCamp.budget,
+        impressions: newCamp.impressions, clicks: newCamp.clicks, conversions: newCamp.conversions,
+        roi_percent: newCamp.roi, start_date: newCamp.startDate, end_date: newCamp.endDate
+      });
+
+      onUpdateCampaigns([...campaigns, newCamp]);
+      alert("Email Campaign Sent successfully!");
+      setEmailCampaignSubject("");
+      setEmailCampaignBody("");
+    } catch (err: any) {
+      alert("Error sending email campaign: " + err.message);
+    } finally {
+      setIsSendingEmail(false);
+    }
+  };
+
+  const generateReportsCSV = (type: "sales" | "orders") => {
+    if (type === "sales") {
+      const rows = products.map(p => [p.name, p.category, p.stock, p.price]);
+      exportToCSV("Sales_Report", rows, ["Product", "Category", "Stock", "Price"]);
+    } else {
+      const rows = orders.map(o => [o.id, o.customerName, o.total, o.paymentStatus, o.createdAt.split("T")[0]]);
+      exportToCSV("Orders_Report", rows, ["Order ID", "Customer", "Total", "Status", "Date"]);
+    }
+  };
+
+  const generateReportsPDF = (type: "sales" | "orders") => {
+    if (type === "sales") {
+      const rows = products.map(p => [p.name, p.category, String(p.stock), `KES ${p.price}`]);
+      exportToPDF("Sales_Report", "Product Inventory & Sales Overview", ["Product", "Category", "Stock", "Price"], rows);
+    } else {
+      const rows = orders.map(o => [o.id, o.customerName, `KES ${o.total}`, o.paymentStatus, o.createdAt.split("T")[0]]);
+      exportToPDF("Orders_Report", "Customer Orders Master List", ["Order ID", "Customer", "Total", "Status", "Date"], rows);
+    }
+  };
+
+  const handleToggleUserStatus = async (userId: string, currentStatus: string) => {
+    const newStatus = currentStatus === "active" ? "suspended" : "active";
+    try {
+      const { error } = await supabase.from('profiles').update({ account_status: newStatus }).eq('id', userId);
+      if (error) throw error;
+      const updated = users.map(u => u.id === userId ? { ...u, accountStatus: newStatus as any } : u);
+      onUpdateUsers(updated);
+      alert(`User status updated to ${newStatus}`);
+    } catch (err: any) {
+      alert("Failed to update user: " + err.message);
+    }
+  };
+
   return (
     <div id="admin-unified-console-wrapper" className="flex flex-col lg:flex-row gap-6 text-left min-h-screen -mt-2">
       
@@ -453,6 +549,7 @@ export default function AdminConsole({
               <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 px-2">Management</div>
               {[
                 { id: "inventory", label: "Inventory", icon: ShoppingBag },
+                { id: "users", label: "User Management", icon: Users },
                 { id: "support", label: "Support Tickets", icon: MessageSquare },
                 { id: "cms", label: "CMS Web Editor", icon: PenTool },
               ].map(item => (
@@ -474,6 +571,7 @@ export default function AdminConsole({
             <div>
               <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 px-2">Analytics & Sales</div>
               {[
+                { id: "reports", label: "Advanced Reports", icon: FileText },
                 { id: "financial", label: "P&L Reports", icon: TrendingUp },
                 { id: "marketing", label: "Marketing", icon: Percent },
               ].map(item => (
@@ -706,7 +804,7 @@ export default function AdminConsole({
                   </div>
                   <div className="space-y-1 md:col-span-2">
                     <label className="font-bold">Media Upload (Select multiple files)</label>
-                    <input type="file" multiple accept="image/*" onChange={(e) => setProdMediaFiles(Array.from(e.target.files || []))} className="w-full p-2 border bg-white rounded-lg focus:outline-none" />
+                    <MediaUploader urls={prodMediaUrls} onChange={setProdMediaUrls} multiple maxFiles={5} bucket="images" />
                   </div>
                 </div>
 
@@ -775,7 +873,7 @@ export default function AdminConsole({
             )}
 
             {/* Structured Table Inventory */}
-            <div className="border border-gray-100 rounded-2xl overflow-hidden mt-4">
+            <div className="border border-gray-100 rounded-2xl overflow-x-auto mt-4">
               <table className="w-full text-xs">
                 <thead className="bg-zinc-50 border-b border-gray-100 font-bold uppercase text-gray-400 text-[10px]">
                   <tr>
@@ -845,6 +943,42 @@ export default function AdminConsole({
           </div>
         )}
 
+        {/* TAB 2.5: ADVANCED REPORTS MODULE */}
+        {activeModule === "reports" && (
+          <div className="space-y-6 animate-in fade-in duration-150 text-left">
+            <div className="flex items-center justify-between pb-4 border-b">
+              <div>
+                <h3 className="text-lg font-bold text-gray-950">Advanced Reporting</h3>
+                <p className="text-xs text-gray-500">Download formatted PDF and CSV reports for business intelligence.</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="bg-zinc-50 border p-6 rounded-2xl space-y-4">
+                <div className="flex items-center gap-2 text-emerald-800 font-bold">
+                  <ShoppingBag className="w-5 h-5" /> Product Sales & Inventory
+                </div>
+                <p className="text-xs text-gray-500">Includes stock levels, categories, and pricing points.</p>
+                <div className="flex gap-2">
+                  <button onClick={() => generateReportsPDF("sales")} className="bg-emerald-800 text-white font-bold text-xs py-2 px-4 rounded-xl hover:bg-emerald-700 cursor-pointer">Export PDF</button>
+                  <button onClick={() => generateReportsCSV("sales")} className="bg-gray-200 text-gray-800 font-bold text-xs py-2 px-4 rounded-xl hover:bg-gray-300 cursor-pointer">Export CSV</button>
+                </div>
+              </div>
+
+              <div className="bg-zinc-50 border p-6 rounded-2xl space-y-4">
+                <div className="flex items-center gap-2 text-emerald-800 font-bold">
+                  <Layers className="w-5 h-5" /> Customer Orders
+                </div>
+                <p className="text-xs text-gray-500">Export completed orders, payment status, and order values.</p>
+                <div className="flex gap-2">
+                  <button onClick={() => generateReportsPDF("orders")} className="bg-emerald-800 text-white font-bold text-xs py-2 px-4 rounded-xl hover:bg-emerald-700 cursor-pointer">Export PDF</button>
+                  <button onClick={() => generateReportsCSV("orders")} className="bg-gray-200 text-gray-800 font-bold text-xs py-2 px-4 rounded-xl hover:bg-gray-300 cursor-pointer">Export CSV</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* TAB 3: FINANCIAL REPORTING & AUDITING */}
         {activeModule === "financial" && (
           <div className="space-y-6 animate-in fade-in duration-150 text-left">
@@ -907,8 +1041,35 @@ export default function AdminConsole({
         {activeModule === "marketing" && (
           <div className="space-y-6 animate-in fade-in duration-150">
             <div>
-              <h3 className="text-lg font-bold text-gray-950">Advertising Campains and Coupons Generator</h3>
-              <p className="text-xs text-gray-500 mt-0.5">Configure live discount coupons and crawl Google / Meta pixel performance metrics.</p>
+              <h3 className="text-lg font-bold text-gray-950">Marketing & Campaign Center</h3>
+              <p className="text-xs text-gray-500 mt-0.5">Manage digital ad metrics, coupons, and email campaigns.</p>
+            </div>
+
+            {/* Email Campaign Builder */}
+            <div className="bg-emerald-900 text-white rounded-2xl p-6 text-left space-y-4">
+              <h4 className="font-bold flex items-center gap-2"><MessageSquare className="w-4 h-4" /> Email Blast Campaign</h4>
+              <form onSubmit={handleEmailCampaignSubmit} className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-1 text-xs">
+                    <label className="font-bold text-emerald-100">Subject Line</label>
+                    <input type="text" value={emailCampaignSubject} onChange={e => setEmailCampaignSubject(e.target.value)} className="w-full p-2 bg-emerald-800/50 border border-emerald-700 rounded focus:outline-none" required />
+                  </div>
+                  <div className="space-y-1 text-xs">
+                    <label className="font-bold text-emerald-100">Target Audience</label>
+                    <select value={emailCampaignAudience} onChange={e => setEmailCampaignAudience(e.target.value)} className="w-full p-2 bg-emerald-800/50 border border-emerald-700 rounded focus:outline-none">
+                      <option value="all">All Customers</option>
+                      <option value="active">Active Buyers (Spent &gt; 0)</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="space-y-1 text-xs">
+                  <label className="font-bold text-emerald-100">Email Body</label>
+                  <textarea value={emailCampaignBody} onChange={e => setEmailCampaignBody(e.target.value)} rows={3} className="w-full p-2 bg-emerald-800/50 border border-emerald-700 rounded focus:outline-none" required></textarea>
+                </div>
+                <button type="submit" disabled={isSendingEmail} className="bg-white text-emerald-900 font-bold px-4 py-2 rounded-xl text-xs hover:bg-gray-100 cursor-pointer disabled:opacity-50">
+                  {isSendingEmail ? "Sending..." : "Send Campaign Blast"}
+                </button>
+              </form>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -1057,16 +1218,7 @@ export default function AdminConsole({
 
                 <div className="space-y-1">
                   <label className="font-bold">Image Upload (for Hero/Award/Blog)</label>
-                  <div className="flex gap-4 items-center">
-                    {cmsImageFile && (
-                      <div className="shrink-0 w-16 h-16 rounded-xl border overflow-hidden bg-gray-50">
-                        <img src={URL.createObjectURL(cmsImageFile)} alt="preview" className="w-full h-full object-cover" />
-                      </div>
-                    )}
-                    <div className="flex-1">
-                      <input type="file" accept="image/*" onChange={(e) => setCmsImageFile(e.target.files?.[0] || null)} className="w-full p-2.5 bg-white border rounded-lg focus:outline-none" />
-                    </div>
-                  </div>
+                  <MediaUploader urls={cmsImageUrl ? [cmsImageUrl] : []} onChange={(urls) => setCmsImageUrl(urls[0] || "")} multiple={false} bucket="images" />
                 </div>
 
                 <div className="space-y-1">
@@ -1107,6 +1259,55 @@ export default function AdminConsole({
                   </div>
                 </div>
               ))}
+            </div>
+          </div>
+        )}
+
+        {/* TAB 5.5: USER MANAGEMENT */}
+        {activeModule === "users" && (
+          <div className="space-y-6 animate-in fade-in duration-150 text-left">
+            <div>
+              <h3 className="text-lg font-bold text-gray-950">User Management</h3>
+              <p className="text-xs text-gray-500 mt-0.5">Control customer access and monitor user statistics.</p>
+            </div>
+            
+            <div className="bg-white border rounded-2xl overflow-x-auto">
+              <table className="w-full text-xs whitespace-nowrap md:whitespace-normal">
+                <thead className="bg-gray-50 border-b text-gray-500 text-left">
+                  <tr>
+                    <th className="p-3">User</th>
+                    <th className="p-3">Role</th>
+                    <th className="p-3">Total Spend</th>
+                    <th className="p-3">Status</th>
+                    <th className="p-3 text-center">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {users.map(u => (
+                    <tr key={u.id} className="hover:bg-gray-50">
+                      <td className="p-3">
+                        <div className="font-bold text-gray-900">{u.fullName || "Unnamed User"}</div>
+                        <div className="text-gray-400">{u.email}</div>
+                      </td>
+                      <td className="p-3 uppercase font-bold text-[9px] text-emerald-800">{u.role}</td>
+                      <td className="p-3 font-bold text-gray-700">KES {u.totalSpending}</td>
+                      <td className="p-3">
+                        <span className={`px-2 py-1 rounded text-[10px] font-bold ${u.accountStatus === 'active' ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'}`}>
+                          {u.accountStatus}
+                        </span>
+                      </td>
+                      <td className="p-3 text-center">
+                        <button
+                          onClick={() => handleToggleUserStatus(u.id, u.accountStatus)}
+                          className="bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold px-3 py-1 rounded text-[10px] cursor-pointer"
+                        >
+                          {u.accountStatus === "active" ? "Suspend" : "Activate"}
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </div>
         )}

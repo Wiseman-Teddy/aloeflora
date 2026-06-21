@@ -1,4 +1,5 @@
 import { IncomingMessage, ServerResponse } from 'http';
+import { applyCors, checkRateLimit } from '../utils/security';
 
 // Helper to read body if Vercel doesn't parse it (though Vercel does parse it for POST requests)
 async function getRequestBody(req: IncomingMessage): Promise<any> {
@@ -7,6 +8,10 @@ async function getRequestBody(req: IncomingMessage): Promise<any> {
     let body = '';
     req.on('data', chunk => {
       body += chunk.toString();
+      // Payload size validation (limit 100KB)
+      if (body.length > 100000) {
+        reject(new Error('Payload too large'));
+      }
     });
     req.on('end', () => {
       try {
@@ -36,16 +41,11 @@ async function getMpesaToken(consumerKey: string, consumerSecret: string) {
 }
 
 export default async function handler(req: IncomingMessage, res: ServerResponse) {
-  // Add CORS headers for cross-platform/Vercel support
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  // Apply Strict CORS
+  if (applyCors(req, res)) return;
 
-  if (req.method === 'OPTIONS') {
-    res.statusCode = 200;
-    res.end();
-    return;
-  }
+  // Apply Strict Rate Limiting (max 5 requests per minute for STK Push)
+  if (checkRateLimit(req, res, 5, 60000)) return;
 
   if (req.method !== 'POST') {
     res.statusCode = 405;

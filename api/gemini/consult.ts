@@ -1,5 +1,6 @@
 import { IncomingMessage, ServerResponse } from 'http';
 import { GoogleGenAI } from '@google/genai';
+import { applyCors, checkRateLimit } from '../utils/security';
 
 async function getRequestBody(req: IncomingMessage): Promise<any> {
   if ((req as any).body) return (req as any).body;
@@ -7,6 +8,10 @@ async function getRequestBody(req: IncomingMessage): Promise<any> {
     let body = '';
     req.on('data', chunk => {
       body += chunk.toString();
+      // Payload size validation (Strict limit of 500KB to prevent memory exhaustion)
+      if (body.length > 500000) {
+        reject(new Error('Payload too large'));
+      }
     });
     req.on('end', () => {
       try {
@@ -19,16 +24,11 @@ async function getRequestBody(req: IncomingMessage): Promise<any> {
 }
 
 export default async function handler(req: IncomingMessage, res: ServerResponse) {
-  // CORS Headers
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  // Apply Strict CORS
+  if (applyCors(req, res)) return;
 
-  if (req.method === 'OPTIONS') {
-    res.statusCode = 200;
-    res.end();
-    return;
-  }
+  // Apply Strict Rate Limiting (max 10 requests per minute)
+  if (checkRateLimit(req, res, 10, 60000)) return;
 
   if (req.method !== 'POST') {
     res.statusCode = 405;
@@ -41,10 +41,10 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
     const body = await getRequestBody(req);
     const { prompt, catalog } = body;
 
-    if (!prompt) {
+    if (!prompt || typeof prompt !== 'string' || prompt.length > 2000) {
       res.statusCode = 400;
       res.setHeader('Content-Type', 'application/json');
-      res.end(JSON.stringify({ error: 'Prompt is required' }));
+      res.end(JSON.stringify({ error: 'Prompt is required and must be under 2000 characters' }));
       return;
     }
 

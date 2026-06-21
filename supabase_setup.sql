@@ -69,6 +69,37 @@ Allow: /',
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
+-- NEW: User profiles table to synchronize with Supabase Auth
+CREATE TABLE IF NOT EXISTS profiles (
+    id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+    full_name VARCHAR(255),
+    email VARCHAR(255) UNIQUE NOT NULL,
+    phone VARCHAR(50),
+    role VARCHAR(50) DEFAULT 'customer',
+    account_status VARCHAR(50) DEFAULT 'active',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    last_login TIMESTAMP WITH TIME ZONE,
+    total_spending DECIMAL(12,2) DEFAULT 0.00,
+    order_count INTEGER DEFAULT 0
+);
+
+-- Function to handle new user inserts automatically
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS TRIGGER AS $$
+BEGIN
+  INSERT INTO public.profiles (id, full_name, email, role)
+  VALUES (new.id, new.raw_user_meta_data->>'full_name', new.email, COALESCE(new.raw_user_meta_data->>'role', 'customer'));
+  RETURN new;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Trigger to call the function when a user is created
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE PROCEDURE public.handle_new_user();
+
+
 -- Enable RLS
 ALTER TABLE cms_posts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE support_tickets ENABLE ROW LEVEL SECURITY;
@@ -77,6 +108,7 @@ ALTER TABLE campaigns ENABLE ROW LEVEL SECURITY;
 ALTER TABLE store_settings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE products ENABLE ROW LEVEL SECURITY;
 ALTER TABLE orders ENABLE ROW LEVEL SECURITY;
+ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
 
 -- Drop any existing permissive policies if they exist (good practice)
 DROP POLICY IF EXISTS "Public can view CMS posts" ON cms_posts;
@@ -95,6 +127,10 @@ DROP POLICY IF EXISTS "Admins full access Campaigns" ON campaigns;
 DROP POLICY IF EXISTS "Admins full access Products" ON products;
 DROP POLICY IF EXISTS "Admins full access Orders" ON orders;
 DROP POLICY IF EXISTS "Admins full access Store Settings" ON store_settings;
+DROP POLICY IF EXISTS "Public can view Profiles" ON profiles;
+DROP POLICY IF EXISTS "Admins full access Profiles" ON profiles;
+DROP POLICY IF EXISTS "Users can view their own profile" ON profiles;
+DROP POLICY IF EXISTS "Users can update their own profile" ON profiles;
 
 -- Public access policies (Reads only)
 CREATE POLICY "Public can view published CMS posts" ON cms_posts FOR SELECT USING (status = 'published');
@@ -103,8 +139,6 @@ CREATE POLICY "Public can view Products" ON products FOR SELECT USING (true);
 CREATE POLICY "Public can view Store Settings" ON store_settings FOR SELECT USING (true);
 
 -- Customer access policies
--- Assuming orders and support_tickets have email fields we can match, or user_id. 
--- In our mock, auth doesn't link exactly to user_id yet, but we can match auth.jwt()->>'email'.
 CREATE POLICY "Customers can view their orders" ON orders FOR SELECT USING (
     customer_id = auth.uid() OR (auth.jwt() ->> 'role') = 'admin'
 );
@@ -118,6 +152,10 @@ CREATE POLICY "Customers can create tickets" ON support_tickets FOR INSERT WITH 
     email = (auth.jwt() ->> 'email') OR (auth.jwt() ->> 'email') IS NULL -- Allow anon for demo
 );
 
+-- Profiles access policies
+CREATE POLICY "Users can view their own profile" ON profiles FOR SELECT USING (auth.uid() = id);
+CREATE POLICY "Users can update their own profile" ON profiles FOR UPDATE USING (auth.uid() = id);
+
 -- Admin access policies (Full access for roles with 'admin')
 CREATE POLICY "Admins full access CMS" ON cms_posts FOR ALL USING ((auth.jwt() ->> 'role') = 'admin');
 CREATE POLICY "Admins full access Tickets" ON support_tickets FOR ALL USING ((auth.jwt() ->> 'role') = 'admin');
@@ -126,3 +164,46 @@ CREATE POLICY "Admins full access Campaigns" ON campaigns FOR ALL USING ((auth.j
 CREATE POLICY "Admins full access Products" ON products FOR ALL USING ((auth.jwt() ->> 'role') = 'admin');
 CREATE POLICY "Admins full access Orders" ON orders FOR ALL USING ((auth.jwt() ->> 'role') = 'admin');
 CREATE POLICY "Admins full access Store Settings" ON store_settings FOR ALL USING ((auth.jwt() ->> 'role') = 'admin');
+CREATE POLICY "Admins full access Profiles" ON profiles FOR ALL USING ((auth.jwt() ->> 'role') = 'admin');
+
+-- ==========================================
+-- STORAGE POLICIES
+-- ==========================================
+
+-- Enable RLS for the storage.objects table
+-- ALTER TABLE storage.objects ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Public Access" ON storage.objects;
+DROP POLICY IF EXISTS "Auth Insert Images" ON storage.objects;
+DROP POLICY IF EXISTS "Owner or Admin Update Delete" ON storage.objects;
+DROP POLICY IF EXISTS "Owner or Admin Delete" ON storage.objects;
+DROP POLICY IF EXISTS "Public Avatar Access" ON storage.objects;
+DROP POLICY IF EXISTS "Auth Insert Avatars" ON storage.objects;
+DROP POLICY IF EXISTS "Owner Update Delete Avatars" ON storage.objects;
+DROP POLICY IF EXISTS "Owner Delete Avatars" ON storage.objects;
+
+-- Images Bucket Policies
+-- 1. Public can read images
+CREATE POLICY "Public Access" ON storage.objects FOR SELECT USING ( bucket_id = 'images' );
+-- 2. Authenticated users can insert images
+CREATE POLICY "Auth Insert Images" ON storage.objects FOR INSERT WITH CHECK ( bucket_id = 'images' AND auth.role() = 'authenticated' );
+-- 3. Users can update/delete their own images OR admins can do anything
+CREATE POLICY "Owner or Admin Update Delete" ON storage.objects FOR UPDATE USING ( 
+    bucket_id = 'images' AND (auth.uid() = owner OR (auth.jwt() ->> 'role') = 'admin') 
+);
+CREATE POLICY "Owner or Admin Delete" ON storage.objects FOR DELETE USING ( 
+    bucket_id = 'images' AND (auth.uid() = owner OR (auth.jwt() ->> 'role') = 'admin') 
+);
+
+-- Avatars Bucket Policies
+-- 1. Public can read avatars
+CREATE POLICY "Public Avatar Access" ON storage.objects FOR SELECT USING ( bucket_id = 'avatars' );
+-- 2. Authenticated users can insert their own avatar
+CREATE POLICY "Auth Insert Avatars" ON storage.objects FOR INSERT WITH CHECK ( bucket_id = 'avatars' AND auth.role() = 'authenticated' );
+-- 3. Users can update/delete their own avatars
+CREATE POLICY "Owner Update Delete Avatars" ON storage.objects FOR UPDATE USING ( 
+    bucket_id = 'avatars' AND auth.uid() = owner 
+);
+CREATE POLICY "Owner Delete Avatars" ON storage.objects FOR DELETE USING ( 
+    bucket_id = 'avatars' AND auth.uid() = owner 
+);

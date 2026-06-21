@@ -16,11 +16,16 @@ import {
   Gift,
   HeadphonesIcon,
   Calendar,
-  MessageSquare
+  MessageSquare,
+  FileText,
+  TrendingUp,
+  Download
 } from "lucide-react";
+import { exportToPDF } from "../utils/exportUtils";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
 import { Order, Product, BookingEvent, SupportTicket } from "../types";
+import MediaUploader from "./MediaUploader";
 
 interface UserDashboardProps {
   orders: Order[];
@@ -41,6 +46,7 @@ export default function UserDashboard({ orders, products, events = [], onAddTick
   const [address, setAddress] = useState(user?.user_metadata?.address || '');
   const [hairType, setHairType] = useState(user?.user_metadata?.hair_type || 'Type 4C');
   const [skinType, setSkinType] = useState(user?.user_metadata?.skin_type || 'Combination');
+  const [avatarUrl, setAvatarUrl] = useState<string>(user?.user_metadata?.avatar_url || '');
 
   // Wishlist State
   const [wishlistIds, setWishlistIds] = useState<string[]>(user?.user_metadata?.wishlist || []);
@@ -63,7 +69,8 @@ export default function UserDashboard({ orders, products, events = [], onAddTick
           phone: phone,
           address: address,
           hair_type: hairType,
-          skin_type: skinType
+          skin_type: skinType,
+          avatar_url: avatarUrl
         }
       });
       if (error) throw error;
@@ -110,6 +117,39 @@ export default function UserDashboard({ orders, products, events = [], onAddTick
     onAddTicket(newTicket);
     setSupportMessage("");
     alert("Support ticket sent! Our team will contact you shortly.");
+  };
+
+  const handleDownloadInvoice = (order: Order) => {
+    const rows = order.items.map(item => [
+      item.productName,
+      `KES ${item.price}`,
+      String(item.quantity),
+      `KES ${item.price * item.quantity}`
+    ]);
+    rows.push(["", "", "Total", `KES ${order.total}`]);
+
+    exportToPDF(
+      `Invoice_${order.id}`,
+      `Invoice - ALOEFLORA Order #${order.id.slice(0, 8).toUpperCase()}`,
+      ["Product", "Unit Price", "Quantity", "Subtotal"],
+      rows
+    );
+  };
+
+  const handleDownloadSpendingReport = () => {
+    const rows = userOrders.map(o => [
+      o.id.slice(0, 8).toUpperCase(),
+      new Date(o.createdAt).toLocaleDateString(),
+      `${o.items.length} items`,
+      `KES ${o.total}`,
+      o.deliveryStatus
+    ]);
+    exportToPDF(
+      `Spending_Report_${name.replace(/\s+/g, '_')}`,
+      `Spending Report - ${name}`,
+      ["Order ID", "Date", "Items", "Amount", "Status"],
+      rows
+    );
   };
 
   // Derived Data
@@ -357,6 +397,20 @@ export default function UserDashboard({ orders, products, events = [], onAddTick
                   </div>
                 </div>
 
+                {/* My Reports Section */}
+                <div className="bg-emerald-50 dark:bg-emerald-900/10 p-6 rounded-2xl border border-emerald-100 dark:border-emerald-800/30">
+                  <div className="flex items-center gap-2 mb-4">
+                    <TrendingUp className="w-5 h-5 text-emerald-600" />
+                    <h3 className="font-bold text-gray-900 dark:text-white">My Reports</h3>
+                  </div>
+                  <p className="text-xs text-gray-600 dark:text-gray-400 mb-4">
+                    Generate a PDF report of your historical spending trends and saved addresses.
+                  </p>
+                  <button onClick={handleDownloadSpendingReport} className="w-full bg-emerald-800 hover:bg-emerald-700 text-white font-bold text-xs py-2.5 rounded-xl transition flex items-center justify-center gap-2 cursor-pointer shadow-sm">
+                    <Download className="w-4 h-4" /> Download Report
+                  </button>
+                </div>
+
               </div>
             </div>
 
@@ -402,6 +456,19 @@ export default function UserDashboard({ orders, products, events = [], onAddTick
             <p className="text-sm text-gray-500 mb-8">Personalize your ALOEFLORA experience for better product recommendations.</p>
 
             <form onSubmit={handleSaveProfile} className="space-y-5">
+              <div className="space-y-1.5 flex flex-col items-center sm:items-start pb-4 border-b border-gray-100 dark:border-gray-800">
+                <label className="text-xs font-bold text-gray-500 uppercase">Profile Picture</label>
+                <div className="w-full max-w-xs">
+                  <MediaUploader
+                    urls={avatarUrl ? [avatarUrl] : []}
+                    onChange={(urls) => setAvatarUrl(urls[0] || '')}
+                    multiple={false}
+                    bucket="avatars"
+                    label="Upload Avatar"
+                  />
+                </div>
+              </div>
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold text-gray-500 uppercase">Full Name</label>
@@ -486,6 +553,16 @@ export default function UserDashboard({ orders, products, events = [], onAddTick
                     </div>
                     <div className="text-sm font-extrabold text-gray-900 dark:text-white">
                       KES {order.total.toLocaleString()}
+                    </div>
+                    <div className="ml-2">
+                      <button 
+                        onClick={() => handleDownloadInvoice(order)}
+                        className="bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-800 dark:text-gray-200 px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer"
+                        title="Download Invoice PDF"
+                      >
+                        <FileText className="w-3.5 h-3.5" />
+                        <span className="hidden md:inline">Invoice</span>
+                      </button>
                     </div>
                   </div>
                 </div>

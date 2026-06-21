@@ -29,7 +29,7 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import CustomerAuth from "./components/auth/CustomerAuth";
 import AdminAuth from "./components/auth/AdminAuth";
 
-import { Product, Order, SupportTicket, MarketingCampaign, BookingEvent, CMSPost, DevOpsLog, AuditAnomaly, StoreSettings } from "./types";
+import { Product, Order, SupportTicket, MarketingCampaign, BookingEvent, CMSPost, DevOpsLog, AuditAnomaly, StoreSettings, UserProfile } from "./types";
 import { 
   INITIAL_PRODUCTS, 
   INITIAL_ORDERS, 
@@ -97,6 +97,11 @@ export default function App() {
   const [storeSettings, setStoreSettings] = useState<StoreSettings>(() => {
     const saved = localStorage.getItem("aloeflora_db_store_settings");
     return saved ? JSON.parse(saved) : DEFAULT_STORE_SETTINGS;
+  });
+
+  const [users, setUsers] = useState<UserProfile[]>(() => {
+    const saved = localStorage.getItem("aloeflora_db_users");
+    return saved ? JSON.parse(saved) : [];
   });
 
   // Mobile menu visibility
@@ -238,6 +243,26 @@ export default function App() {
           });
         }
 
+        // Profiles / Users
+        const { data: profData, error: profErr } = await supabase.from('profiles').select('*');
+        if (profData && !profErr && profData.length > 0) {
+          const mappedUsers: UserProfile[] = profData.map((u: any) => ({
+            id: u.id, fullName: u.full_name, email: u.email, phone: u.phone, role: u.role, accountStatus: u.account_status,
+            createdAt: u.created_at, lastLogin: u.last_login, totalSpending: u.total_spending, orderCount: u.order_count
+          }));
+          setUsers(mappedUsers);
+        }
+
+        // Campaigns
+        const { data: campData, error: campErr } = await supabase.from('campaigns').select('*');
+        if (campData && !campErr && campData.length > 0) {
+          const mappedCamp: MarketingCampaign[] = campData.map((c: any) => ({
+            id: c.id, name: c.name, platform: c.platform, status: c.status, budget: c.budget, impressions: c.impressions,
+            clicks: c.clicks, conversions: c.conversions, roi: c.roi_percent, startDate: c.start_date, endDate: c.end_date
+          }));
+          setCampaigns(mappedCamp);
+        }
+
       } catch (err) { console.warn("Supabase not active", err); }
     };
     
@@ -248,6 +273,8 @@ export default function App() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'cms_posts' }, fetchAllData)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'support_tickets' }, fetchAllData)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'store_settings' }, fetchAllData)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, fetchAllData)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'campaigns' }, fetchAllData)
       .subscribe();
       
     return () => { supabase.removeChannel(channels); };
@@ -538,11 +565,13 @@ export default function App() {
                     cmsPosts={cmsPosts}
                     anomalies={anomalies}
                     storeSettings={storeSettings}
+                    users={users}
                     onUpdateInventory={setProducts}
                     onUpdateOrders={setOrders}
                     onUpdateCampaigns={setCampaigns}
                     onUpdateCMS={setCmsPosts}
                     onUpdateSettings={setStoreSettings}
+                    onUpdateUsers={setUsers}
                     onResolveAnomaly={handleResolveAnomaly}
                   />
                 </ProtectedRoute>
