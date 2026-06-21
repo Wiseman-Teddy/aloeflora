@@ -96,23 +96,23 @@ CREATE POLICY "Public can view Store Settings" ON store_settings FOR SELECT USIN
 -- Assuming orders and support_tickets have email fields we can match, or user_id. 
 -- In our mock, auth doesn't link exactly to user_id yet, but we can match auth.jwt()->>'email'.
 CREATE POLICY "Customers can view their orders" ON orders FOR SELECT USING (
-    customer_id = auth.uid() OR (auth.jwt() ->> 'email') = 'aganyawiseman@gmail.com'
+    customer_id = auth.uid() OR (auth.jwt() ->> 'role') = 'admin'
 );
 CREATE POLICY "Customers can create orders" ON orders FOR INSERT WITH CHECK (
     customer_id = auth.uid() OR auth.uid() IS NULL -- Allow anon for demo
 );
 CREATE POLICY "Customers can view their tickets" ON support_tickets FOR SELECT USING (
-    email = (auth.jwt() ->> 'email') OR (auth.jwt() ->> 'email') = 'aganyawiseman@gmail.com'
+    email = (auth.jwt() ->> 'email') OR (auth.jwt() ->> 'role') = 'admin'
 );
 CREATE POLICY "Customers can create tickets" ON support_tickets FOR INSERT WITH CHECK (
     email = (auth.jwt() ->> 'email') OR (auth.jwt() ->> 'email') IS NULL -- Allow anon for demo
 );
 
--- Admin access policies (Full access for aganyawiseman@gmail.com)
-CREATE POLICY "Admins full access CMS" ON cms_posts FOR ALL USING ((auth.jwt() ->> 'email') = 'aganyawiseman@gmail.com');
-CREATE POLICY "Admins full access Tickets" ON support_tickets FOR ALL USING ((auth.jwt() ->> 'email') = 'aganyawiseman@gmail.com');
-CREATE POLICY "Admins full access Events" ON events FOR ALL USING ((auth.jwt() ->> 'email') = 'aganyawiseman@gmail.com');
-CREATE POLICY "Admins full access Campaigns" ON campaigns FOR ALL USING ((auth.jwt() ->> 'email') = 'aganyawiseman@gmail.com');
-CREATE POLICY "Admins full access Products" ON products FOR ALL USING ((auth.jwt() ->> 'email') = 'aganyawiseman@gmail.com');
-CREATE POLICY "Admins full access Orders" ON orders FOR ALL USING ((auth.jwt() ->> 'email') = 'aganyawiseman@gmail.com');
-CREATE POLICY "Admins full access Store Settings" ON store_settings FOR ALL USING ((auth.jwt() ->> 'email') = 'aganyawiseman@gmail.com');
+-- Admin access policies (Full access for roles with 'admin')
+CREATE POLICY "Admins full access CMS" ON cms_posts FOR ALL USING ((auth.jwt() ->> 'role') = 'admin');
+CREATE POLICY "Admins full access Tickets" ON support_tickets FOR ALL USING ((auth.jwt() ->> 'role') = 'admin');
+CREATE POLICY "Admins full access Events" ON events FOR ALL USING ((auth.jwt() ->> 'role') = 'admin');
+CREATE POLICY "Admins full access Campaigns" ON campaigns FOR ALL USING ((auth.jwt() ->> 'role') = 'admin');
+CREATE POLICY "Admins full access Products" ON products FOR ALL USING ((auth.jwt() ->> 'role') = 'admin');
+CREATE POLICY "Admins full access Orders" ON orders FOR ALL USING ((auth.jwt() ->> 'role') = 'admin');
+CREATE POLICY "Admins full access Store Settings" ON store_settings FOR ALL USING ((auth.jwt() ->> 'role') = 'admin');
