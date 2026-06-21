@@ -21,13 +21,19 @@ export default function ProtectedRoute({ children, requiredRole }: ProtectedRout
   }
 
   if (!user) {
-    // Redirect unauthenticated users to login page
-    return <Navigate to="/auth" state={{ from: location }} replace />;
+    // Redirect unauthenticated users
+    if (requiredRole === 'admin') {
+      return <Navigate to="/admin/login" state={{ from: location }} replace />;
+    }
+    return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
   if (requiredRole && role !== requiredRole) {
-    // If the user does not have the required role, redirect to store
-    return <Navigate to="/store" replace />;
+    // If the user does not have the required role, redirect quietly to their respective dashboard
+    if (role === 'admin') {
+      return <Navigate to="/admin/dashboard" replace />;
+    }
+    return <Navigate to="/customer/dashboard" replace />;
   }
 
   return <>{children}</>;

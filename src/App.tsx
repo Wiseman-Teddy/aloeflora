@@ -26,7 +26,8 @@ import {
 import { supabase } from "./lib/supabase";
 import { useAuth } from "./contexts/AuthContext";
 import ProtectedRoute from "./components/ProtectedRoute";
-import Auth from "./components/Auth";
+import CustomerAuth from "./components/auth/CustomerAuth";
+import AdminAuth from "./components/auth/AdminAuth";
 
 import { Product, Order, SupportTicket, MarketingCampaign, BookingEvent, CMSPost, DevOpsLog, AuditAnomaly, StoreSettings } from "./types";
 import { 
@@ -388,7 +389,7 @@ export default function App() {
               <div className="hidden lg:flex items-center gap-3">
                 {role === 'admin' && (
                   <Link
-                    to="/admin"
+                    to="/admin/dashboard"
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-100 hover:bg-emerald-200 text-emerald-800 text-xs font-bold transition"
                   >
                     <Lock className="w-3.5 h-3.5" /> Admin Console
@@ -402,7 +403,7 @@ export default function App() {
                 </div>
                 {role === 'customer' && (
                   <Link
-                    to="/dashboard"
+                    to="/customer/dashboard"
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-100 hover:bg-emerald-200 text-emerald-800 text-xs font-bold transition"
                     title="My Dashboard"
                   >
@@ -420,7 +421,7 @@ export default function App() {
             ) : (
               <div className="hidden lg:flex items-center gap-2">
                 <Link
-                  to="/auth"
+                  to="/login"
                   className="px-4 py-1.5 rounded-full bg-emerald-800 hover:bg-emerald-700 text-white text-xs font-semibold transition flex items-center gap-1.5"
                 >
                   <UserIcon className="w-3.5 h-3.5" /> Sign In
@@ -464,7 +465,7 @@ export default function App() {
             </a>
             {role === 'admin' && (
               <Link
-                to="/admin"
+                to="/admin/dashboard"
                 onClick={() => setIsMobileMenuOpen(false)}
                 className="p-3 rounded-xl font-bold flex items-center gap-2 text-emerald-700 bg-emerald-50 dark:bg-emerald-900/30"
               >
@@ -475,7 +476,7 @@ export default function App() {
               <>
                 {role === 'customer' && (
                   <Link
-                    to="/dashboard"
+                    to="/customer/dashboard"
                     onClick={() => setIsMobileMenuOpen(false)}
                     className="p-3 rounded-xl font-bold flex items-center gap-2 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800"
                   >
@@ -491,7 +492,7 @@ export default function App() {
               </>
             ) : (
               <Link
-                to="/auth"
+                to="/login"
                 onClick={() => setIsMobileMenuOpen(false)}
                 className="p-3 rounded-xl font-bold flex items-center gap-2 text-emerald-800 dark:text-lime-400"
               >
@@ -507,7 +508,11 @@ export default function App() {
         <Suspense fallback={<div className="flex items-center justify-center py-20"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-800"></div></div>}>
           <Routes>
             <Route path="/" element={<Navigate to="/store" replace />} />
-            <Route path="/auth" element={<Auth />} />
+            <Route path="/login" element={<CustomerAuth initialMode="login" />} />
+            <Route path="/register" element={<CustomerAuth initialMode="register" />} />
+            <Route path="/forgot-password" element={<CustomerAuth initialMode="forgot-password" />} />
+            <Route path="/admin/login" element={<AdminAuth initialMode="login" />} />
+            <Route path="/admin/forgot-password" element={<AdminAuth initialMode="forgot-password" />} />
             <Route 
               path="/store/*" 
               element={
@@ -522,7 +527,7 @@ export default function App() {
               } 
             />
             <Route 
-              path="/admin/*" 
+              path="/admin/dashboard/*" 
               element={
                 <ProtectedRoute requiredRole="admin">
                   <AdminConsole 
@@ -545,7 +550,7 @@ export default function App() {
             />
             <Route path="/docs" element={<ArchitectureDocs />} />
             <Route 
-              path="/dashboard/*" 
+              path="/customer/dashboard/*" 
               element={
                 <ProtectedRoute requiredRole="customer">
                   <UserDashboard 
