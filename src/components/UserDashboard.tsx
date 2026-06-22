@@ -24,6 +24,7 @@ import {
 import { exportToPDF } from "../utils/exportUtils";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
+import { toast } from "react-hot-toast";
 import { Order, Product, BookingEvent, SupportTicket } from "../types";
 import MediaUploader from "./MediaUploader";
 
@@ -74,9 +75,9 @@ export default function UserDashboard({ orders, products, events = [], onAddTick
         }
       });
       if (error) throw error;
-      alert('Beauty Profile updated and synced securely!');
+      toast.success('Beauty Profile updated and synced securely!');
     } catch (err: any) {
-      alert(`Error updating profile: ${err.message}`);
+      toast.error(`Error updating profile: ${err.message}`);
     }
   };
 
@@ -116,7 +117,17 @@ export default function UserDashboard({ orders, products, events = [], onAddTick
 
     onAddTicket(newTicket);
     setSupportMessage("");
-    alert("Support ticket sent! Our team will contact you shortly.");
+    toast.success("Support ticket sent! Our team will contact you shortly.");
+  };
+
+  const handleDownloadTicket = (evt: BookingEvent) => {
+    exportToPDF(
+      `Event_Ticket_${evt.id}`,
+      `Ticket - ${evt.title}`,
+      ["Attendee Name", "Event Date", "Event Time", "Location"],
+      [[name, evt.date, evt.time, evt.location]]
+    );
+    toast.success("Your ticket PDF has been downloaded successfully!");
   };
 
   const handleDownloadInvoice = (order: Order) => {
@@ -425,7 +436,7 @@ export default function UserDashboard({ orders, products, events = [], onAddTick
                   <p className="text-xs text-emerald-700 dark:text-emerald-300 mt-1 mb-3">Invite your friends and earn KES 500 for each successful referral.</p>
                   <button onClick={() => {
                     navigator.clipboard.writeText(`https://aloeflora.com/invite/${name.replace(/\s+/g, '').toLowerCase()}`);
-                    alert("Referral link copied to clipboard!");
+                    toast.success("Referral link copied to clipboard!");
                   }} className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-4 py-2 rounded-lg transition">
                     Refer Now
                   </button>
@@ -599,7 +610,7 @@ export default function UserDashboard({ orders, products, events = [], onAddTick
                       <h3 className="text-xl font-bold text-emerald-900 dark:text-emerald-100">{evt.title}</h3>
                       <p className="text-sm text-emerald-700 dark:text-emerald-300 mt-2">{evt.location} • {evt.time}</p>
                       <div className="mt-4 flex gap-3 justify-center md:justify-start">
-                        <button onClick={() => alert('Your ticket PDF is downloading...')} className="bg-emerald-800 hover:bg-emerald-700 text-white text-xs font-bold px-4 py-2 rounded-lg transition">Download Ticket</button>
+                        <button onClick={() => handleDownloadTicket(evt)} className="bg-emerald-800 hover:bg-emerald-700 text-white text-xs font-bold px-4 py-2 rounded-lg transition">Download Ticket</button>
                       </div>
                     </div>
                   </div>

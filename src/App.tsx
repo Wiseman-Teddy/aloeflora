@@ -28,7 +28,9 @@ import { useAuth } from "./contexts/AuthContext";
 import ProtectedRoute from "./components/ProtectedRoute";
 import CustomerAuth from "./components/auth/CustomerAuth";
 import AdminAuth from "./components/auth/AdminAuth";
-
+import UserDashboard from './components/UserDashboard';
+import NotFound from './components/NotFound';
+import { Toaster, toast } from 'react-hot-toast';
 import { Product, Order, SupportTicket, MarketingCampaign, BookingEvent, CMSPost, DevOpsLog, AuditAnomaly, StoreSettings, UserProfile } from "./types";
 import { 
   INITIAL_PRODUCTS, 
@@ -319,7 +321,7 @@ export default function App() {
             ]
           };
         } else {
-          alert("Sorry, this event has reached full seating capacity.");
+          toast.error("Sorry, this event has reached full seating capacity.");
         }
       }
       return evt;
@@ -344,6 +346,7 @@ export default function App() {
     <div className={`min-h-screen transition duration-300 font-sans ${
       darkMode ? "bg-gray-950 text-white" : "bg-neutral-50/50 text-gray-900"
     }`}>
+      <Toaster position="top-right" />
       
       {/* GLOBAL ENTERPRISE SUPERIOR NAVIGATION HEADER */}
       <header id="enterprise-header" className="sticky top-0 z-50 bg-white/90 dark:bg-gray-950/90 backdrop-blur-md border-b border-gray-100 dark:border-gray-900 shadow-sm">
@@ -575,7 +578,7 @@ export default function App() {
                 </ProtectedRoute>
               } 
             />
-            <Route path="*" element={<Navigate to="/store" replace />} />
+            <Route path="*" element={<NotFound />} />
           </Routes>
         </Suspense>
       </main>
@@ -602,8 +605,8 @@ export default function App() {
               <ul className="space-y-2 text-xs text-emerald-100/70">
                 <li><Link to="/store" className="hover:text-emerald-600 transition">Shop Products</Link></li>
                 <li><a href="#events-marketing-section" className="hover:text-emerald-600 transition">Events & Workshops</a></li>
-                <li><button className="hover:text-emerald-600 transition">Track Order</button></li>
-                <li><button className="hover:text-emerald-600 transition">Return Policy</button></li>
+                <li><button onClick={() => toast.success('Track Order portal coming soon!')} className="hover:text-emerald-600 transition cursor-pointer">Track Order</button></li>
+                <li><button onClick={() => toast.success('Return Policy documentation is being updated.')} className="hover:text-emerald-600 transition cursor-pointer">Return Policy</button></li>
               </ul>
             </div>
 

@@ -33,6 +33,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { exportToCSV, exportToPDF } from "../utils/exportUtils";
 import AdvancedReports from "./admin/AdvancedReports";
 import UserManagement from "./admin/UserManagement";
+import { toast } from "react-hot-toast";
 
 interface AdminConsoleProps {
   products: Product[];
@@ -196,7 +197,7 @@ export default function AdminConsole({
       const { error } = await supabase.storage.from("images").remove([fileName]);
       if(error) throw error;
       setMediaFiles(prev => prev.filter(f => f.name !== fileName));
-      alert("Media deleted successfully.");
+      toast.success("Media deleted successfully.");
     } catch(err) {
       console.error(err);
     }
@@ -235,7 +236,7 @@ export default function AdminConsole({
   const handleAddProductSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!prodName || !prodDesc || (!prodImageUrl && prodMediaUrls.length === 0)) {
-      alert("Name, description, and at least one image URL/file are required!");
+      toast.error("Name, description, and at least one image URL/file are required!");
       return;
     }
 
@@ -312,7 +313,7 @@ export default function AdminConsole({
     if (!promoCodeInput) return;
     setPromosList((prev) => [...prev, { code: promoCodeInput.trim().toUpperCase(), discountPercent: promoValueInput }]);
     setPromoCodeInput("");
-    alert(`Success: Coupon Code '${promoCodeInput.trim().toUpperCase()}' has been activated!`);
+    toast.success(`Success: Coupon Code '${promoCodeInput.trim().toUpperCase()}' has been activated!`);
   };
 
   const handleCmsSubmit = async (e: React.FormEvent) => {
@@ -340,7 +341,7 @@ export default function AdminConsole({
 
       onUpdateCMS(updatedPosts);
       setEditingCmsId(null);
-      alert("CMS Article Updated Successfully!");
+      toast.success("CMS Article Updated Successfully!");
     } else {
       let safeId = cmsTitle.toLowerCase().replace(/[^a-z0-9]+/g, '-');
       if(cmsPosts.some(p => p.id === safeId)) safeId += "-" + Math.floor(Math.random() * 1000);
@@ -363,7 +364,7 @@ export default function AdminConsole({
       } catch(err) { console.error(err); }
 
       onUpdateCMS([...cmsPosts, newPost]);
-      alert("New CMS Article Published Successfully!");
+      toast.success("New CMS Article Published Successfully!");
     }
     
     setIsAddingCms(false);
@@ -412,9 +413,9 @@ export default function AdminConsole({
       });
       if (error) throw error;
       onUpdateSettings(updatedSettings);
-      alert("SEO Meta Tags & Sitemap Indexes updated on Aloeflora CDN and Database.");
+      toast.success("SEO Meta Tags & Sitemap Indexes updated on Aloeflora CDN and Database.");
     } catch (err: any) {
-      alert("Error saving SEO settings: " + err.message);
+      toast.error("Error saving SEO settings: " + err.message);
     }
   };
 
@@ -440,14 +441,27 @@ export default function AdminConsole({
       });
       if (error) throw error;
       onUpdateSettings(updatedSettings);
-      alert("Admin Profile updated successfully.");
+      toast.success("Admin Profile updated successfully.");
     } catch (err: any) {
-      alert("Error saving profile: " + err.message);
+      toast.error("Error saving profile: " + err.message);
     }
   };
 
   const triggerAuditReportGen = () => {
-    alert("Enterprise Financial Audit PDF generated successfully. Downloading to browser...");
+    const rows = orders.map(o => [
+      o.id.slice(0, 8).toUpperCase(),
+      new Date(o.createdAt).toLocaleDateString(),
+      o.customerName,
+      o.paymentStatus.toUpperCase(),
+      `KES ${o.total.toLocaleString()}`
+    ]);
+    exportToPDF(
+      "Financial_Audit_Report",
+      "Enterprise Financial Audit",
+      ["Order ID", "Date", "Customer", "Payment Status", "Total"],
+      rows
+    );
+    toast.success("Enterprise Financial Audit PDF generated successfully. Downloading...");
   };
 
   const handleTicketReplySubmit = (e: React.FormEvent, ticketId: string) => {
@@ -465,7 +479,7 @@ export default function AdminConsole({
       };
       
       // Save it
-      alert(`Reply fired successfully to customer. Ticket resolved.`);
+      toast.success(`Reply fired successfully to customer. Ticket resolved.`);
       setReplyTicketId(null);
       setReplyMessage("");
     }
@@ -478,18 +492,16 @@ export default function AdminConsole({
     setIsSendingEmail(true);
 
     try {
-      // Simulate calling backend for sending email
-      const response = await fetch('/api/send-email', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+      // Invoke Supabase Edge Function for sending email
+      const { data: functionData, error: functionError } = await supabase.functions.invoke('send-email', {
+        body: {
           subject: emailCampaignSubject,
           body: emailCampaignBody,
           audience: emailCampaignAudience,
-        })
+        }
       });
 
-      if (!response.ok) throw new Error("Failed to send campaign");
+      if (functionError) throw new Error("Failed to send campaign: " + functionError.message);
 
       // Log the campaign to DB
       const newCamp: MarketingCampaign = {
@@ -518,11 +530,11 @@ export default function AdminConsole({
       });
 
       onUpdateCampaigns([...campaigns, newCamp]);
-      alert("Email Campaign Sent successfully!");
+      toast.success("Email Campaign Sent successfully!");
       setEmailCampaignSubject("");
       setEmailCampaignBody("");
     } catch (err: any) {
-      alert("Error sending email campaign: " + err.message);
+      toast.error("Error sending email campaign: " + err.message);
     } finally {
       setIsSendingEmail(false);
     }
@@ -555,9 +567,9 @@ export default function AdminConsole({
       if (error) throw error;
       const updated = users.map(u => u.id === userId ? { ...u, accountStatus: newStatus as any } : u);
       onUpdateUsers(updated);
-      alert(`User status updated to ${newStatus}`);
+      toast.success(`User status updated to ${newStatus}`);
     } catch (err: any) {
-      alert("Failed to update user: " + err.message);
+      toast.error("Failed to update user: " + err.message);
     }
   };
 
@@ -973,7 +985,7 @@ export default function AdminConsole({
                           <button
                             onClick={() => {
                               onUpdateInventory(products.filter(item => item.id !== p.id));
-                              alert("Product removed from storefront!");
+                              toast.success("Product removed from storefront!");
                             }}
                             className="bg-rose-50 border text-rose-600 p-1.5 rounded hover:bg-rose-100 tooltip cursor-pointer"
                             title="Remove listing"
@@ -1404,7 +1416,7 @@ export default function AdminConsole({
                   </div>
                   <button
                     type="button"
-                    onClick={() => alert('Profile updated successfully!')}
+                    onClick={() => toast.success('Profile updated successfully!')}
                     className="w-full py-3 bg-emerald-800 hover:bg-emerald-700 text-white font-bold rounded-xl shadow transition mt-auto cursor-pointer"
                   >
                     Save Profile Changes
@@ -1436,10 +1448,10 @@ export default function AdminConsole({
                             image_url: c.imageUrl, created_at: c.createdAt, seo_title: c.seoTitle, seo_desc: c.seoDesc, seo_keywords: c.seoKeywords
                           });
                         }
-                        alert("Data successfully pushed to Supabase!");
+                        toast.success("Data successfully pushed to Supabase!");
                       } catch (err: any) {
                         console.error(err);
-                        alert("Error pushing data: " + err.message);
+                        toast.error("Error pushing data: " + err.message);
                       }
                     }
                   }}
@@ -1568,7 +1580,7 @@ export default function AdminConsole({
                         <p className="text-[9px] text-white font-mono break-all text-center leading-tight line-clamp-3">{file.name}</p>
                         <div className="flex gap-2">
                           <button 
-                            onClick={() => { navigator.clipboard.writeText(file.url); alert("URL Copied to clipboard!"); }}
+                            onClick={() => { navigator.clipboard.writeText(file.url); toast.success("URL Copied to clipboard!"); }}
                             className="bg-white/20 hover:bg-white/40 text-white p-2 rounded-full text-xs transition"
                             title="Copy URL"
                           >

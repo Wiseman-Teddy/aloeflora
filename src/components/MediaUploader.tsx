@@ -1,6 +1,7 @@
 import React, { useState, useRef, useCallback } from 'react';
 import { Upload, X, RefreshCw, Image as ImageIcon, AlertCircle } from 'lucide-react';
 import { uploadWithProgressToSupabase, deleteFromSupabase } from '../utils/supabaseStorage';
+import { toast } from 'react-hot-toast';
 
 interface MediaUploaderProps {
   urls: string[];
@@ -79,7 +80,7 @@ export default function MediaUploader({
     const allowed = multiple ? Math.max(0, maxFiles - currentTotal) : 1;
     
     if (allowed === 0) {
-      alert(`You can only upload up to ${maxFiles} files.`);
+      toast.error(`You can only upload up to ${maxFiles} files.`);
       return;
     }
 

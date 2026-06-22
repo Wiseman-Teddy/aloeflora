@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { BookOpen, Database, Cpu, Terminal, Shield, BarChart3, ListChecks } from "lucide-react";
+import { toast } from "react-hot-toast";
 
 export default function ArchitectureDocs() {
   const [activeTab, setActiveTab] = useState<string>("system");
@@ -10,7 +11,7 @@ export default function ArchitectureDocs() {
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
-    alert("Copied to clipboard!");
+    toast.success("Copied to clipboard!");
   };
 
   const sqlSchema = `-- ==========================================

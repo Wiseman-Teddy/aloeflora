@@ -34,6 +34,7 @@ import { Product, CartItem, Order, BookingEvent, CMSPost } from "../types";
 import { CUSTOMER_RATING_ACCENTS } from "../data/mockData";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
+import { toast } from "react-hot-toast";
 
 interface CustomerStoreProps {
   products: Product[];
@@ -220,7 +221,7 @@ export default function CustomerStore({
         return prev.filter((p) => p.id !== product.id);
       }
       if (prev.length >= 3) {
-        alert("You can compare up to 3 products at a time!");
+        toast.error("You can compare up to 3 products at a time!");
         return prev;
       }
       return [...prev, product];
@@ -352,7 +353,7 @@ export default function CustomerStore({
   // Launch STK simulation initial signal
   const handleInitiateSTK = async () => {
     if (!checkoutName || !checkoutPhone || !checkoutEmail || !checkoutEstate) {
-      alert("Please fill in all standard delivery details first!");
+      toast.error("Please fill in all standard delivery details first!");
       return;
     }
     setStkStatus("verifying");
@@ -385,12 +386,12 @@ export default function CustomerStore({
   const handleRegister = (e: React.FormEvent, eventId: string) => {
     e.preventDefault();
     if (!regName || !regEmail || !regPhone) {
-      alert("Fields cannot be empty!");
+      toast.error("Fields cannot be empty!");
       return;
     }
     const success = onRegisterEvent(eventId, { name: regName, email: regEmail, phone: regPhone });
     if (success) {
-      alert(`Successfully registered ${regName} for the event! A confirmation email and SMS has been fired to ${regPhone}. See you at the botanical gardens!`);
+      toast.success(`Successfully registered ${regName} for the event! A confirmation email and SMS has been fired to ${regPhone}. See you at the botanical gardens!`);
       setRegEventId(null);
       setRegName("");
       setRegEmail("");
@@ -1290,7 +1291,7 @@ export default function CustomerStore({
                   <button 
                     onClick={() => {
                       if (!checkoutName || !checkoutEmail || !checkoutPhone) {
-                        alert("Please fill in all personal credentials!");
+                        toast.error("Please fill in all personal credentials!");
                         return;
                       }
                       setCheckoutStep(2);
@@ -1580,11 +1581,11 @@ export default function CustomerStore({
                         />
                         <button 
                           onClick={async () => {
-                            if(!guestPassword) return alert("Please enter a password.");
+                            if(!guestPassword) return toast.error("Please enter a password.");
                             setIsRegistering(true);
                             const { error } = await supabase.auth.signUp({ email: checkoutEmail, password: guestPassword });
                             setIsRegistering(false);
-                            if(error) alert(error.message);
+                            if(error) toast.error(error.message);
                             else setRegistrationSuccess(true);
                           }}
                           disabled={isRegistering}

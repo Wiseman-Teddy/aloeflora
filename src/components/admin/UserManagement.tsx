@@ -2,6 +2,7 @@ import React, { useState, useMemo } from "react";
 import { Users, Search, Edit2, Trash2, UserPlus, Shield, X, Check } from "lucide-react";
 import { UserProfile } from "../../types";
 import { supabase } from "../../lib/supabase";
+import { toast } from "react-hot-toast";
 
 interface UserManagementProps {
   users: UserProfile[];
@@ -83,7 +84,7 @@ export default function UserManagement({ users, onUpdateUsers }: UserManagementP
         } : u);
         
         onUpdateUsers(updatedUsers);
-        alert("User updated successfully.");
+        toast.success("User updated successfully.");
       } else {
         // Mock create user in profiles directly (since client can't create auth user securely)
         const mockId = "usr_" + Math.random().toString(36).substring(2, 9);
@@ -99,7 +100,7 @@ export default function UserManagement({ users, onUpdateUsers }: UserManagementP
         if (error) {
             // Because profiles relies on auth.users(id), inserting a mock UUID might fail depending on foreign key constraints.
             // In development, if foreign keys are enforced, this will fail.
-            alert("Note: Inserting directly into profiles without an auth user may fail if FK constraints are strictly enforced. \nFor local testing, we will update the state directly.");
+            toast.error("Note: Inserting directly into profiles without an auth user may fail if FK constraints are strictly enforced. \nFor local testing, we will update the state directly.");
         }
         
         const newUser: UserProfile = {
@@ -119,7 +120,7 @@ export default function UserManagement({ users, onUpdateUsers }: UserManagementP
       setIsModalOpen(false);
     } catch (err: any) {
       console.error(err);
-      alert("Error saving user: " + err.message);
+      toast.error("Error saving user: " + err.message);
     } finally {
       setIsSaving(false);
     }
@@ -134,10 +135,10 @@ export default function UserManagement({ users, onUpdateUsers }: UserManagementP
       if (error) console.warn("Supabase delete failed, it may require backend admin key: ", error);
       
       onUpdateUsers(users.filter(u => u.id !== userId));
-      alert("User removed from profile registry.");
+      toast.success("User removed from profile registry.");
     } catch (err: any) {
       console.error(err);
-      alert("Failed to delete user: " + err.message);
+      toast.error("Failed to delete user: " + err.message);
     }
   };
 
@@ -149,7 +150,7 @@ export default function UserManagement({ users, onUpdateUsers }: UserManagementP
       const updated = users.map(u => u.id === userId ? { ...u, accountStatus: newStatus as any } : u);
       onUpdateUsers(updated);
     } catch (err: any) {
-      alert("Failed to update user: " + err.message);
+      toast.error("Failed to update user: " + err.message);
     }
   };
 
