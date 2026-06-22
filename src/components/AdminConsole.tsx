@@ -31,6 +31,8 @@ import { uploadToSupabase } from "../utils/supabaseStorage";
 import MediaUploader from "./MediaUploader";
 import { useAuth } from "../contexts/AuthContext";
 import { exportToCSV, exportToPDF } from "../utils/exportUtils";
+import AdvancedReports from "./admin/AdvancedReports";
+import UserManagement from "./admin/UserManagement";
 
 interface AdminConsoleProps {
   products: Product[];
@@ -990,38 +992,12 @@ export default function AdminConsole({
 
         {/* TAB 2.5: ADVANCED REPORTS MODULE */}
         {activeModule === "reports" && (
-          <div className="space-y-6 animate-in fade-in duration-150 text-left">
-            <div className="flex items-center justify-between pb-4 border-b">
-              <div>
-                <h3 className="text-lg font-bold text-gray-950">Advanced Reporting</h3>
-                <p className="text-xs text-gray-500">Download formatted PDF and CSV reports for business intelligence.</p>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="bg-zinc-50 border p-6 rounded-2xl space-y-4">
-                <div className="flex items-center gap-2 text-emerald-800 font-bold">
-                  <ShoppingBag className="w-5 h-5" /> Product Sales & Inventory
-                </div>
-                <p className="text-xs text-gray-500">Includes stock levels, categories, and pricing points.</p>
-                <div className="flex gap-2">
-                  <button onClick={() => generateReportsPDF("sales")} className="bg-emerald-800 text-white font-bold text-xs py-2 px-4 rounded-xl hover:bg-emerald-700 cursor-pointer">Export PDF</button>
-                  <button onClick={() => generateReportsCSV("sales")} className="bg-gray-200 text-gray-800 font-bold text-xs py-2 px-4 rounded-xl hover:bg-gray-300 cursor-pointer">Export CSV</button>
-                </div>
-              </div>
-
-              <div className="bg-zinc-50 border p-6 rounded-2xl space-y-4">
-                <div className="flex items-center gap-2 text-emerald-800 font-bold">
-                  <Layers className="w-5 h-5" /> Customer Orders
-                </div>
-                <p className="text-xs text-gray-500">Export completed orders, payment status, and order values.</p>
-                <div className="flex gap-2">
-                  <button onClick={() => generateReportsPDF("orders")} className="bg-emerald-800 text-white font-bold text-xs py-2 px-4 rounded-xl hover:bg-emerald-700 cursor-pointer">Export PDF</button>
-                  <button onClick={() => generateReportsCSV("orders")} className="bg-gray-200 text-gray-800 font-bold text-xs py-2 px-4 rounded-xl hover:bg-gray-300 cursor-pointer">Export CSV</button>
-                </div>
-              </div>
-            </div>
-          </div>
+          <AdvancedReports 
+            orders={orders} 
+            products={products} 
+            generateReportsPDF={generateReportsPDF} 
+            generateReportsCSV={generateReportsCSV} 
+          />
         )}
 
         {/* TAB 3: FINANCIAL REPORTING & AUDITING */}
@@ -1310,51 +1286,10 @@ export default function AdminConsole({
 
         {/* TAB 5.5: USER MANAGEMENT */}
         {activeModule === "users" && (
-          <div className="space-y-6 animate-in fade-in duration-150 text-left">
-            <div>
-              <h3 className="text-lg font-bold text-gray-950">User Management</h3>
-              <p className="text-xs text-gray-500 mt-0.5">Control customer access and monitor user statistics.</p>
-            </div>
-            
-            <div className="bg-white border rounded-2xl overflow-x-auto">
-              <table className="w-full text-xs whitespace-nowrap md:whitespace-normal">
-                <thead className="bg-gray-50 border-b text-gray-500 text-left">
-                  <tr>
-                    <th className="p-3">User</th>
-                    <th className="p-3">Role</th>
-                    <th className="p-3">Total Spend</th>
-                    <th className="p-3">Status</th>
-                    <th className="p-3 text-center">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {users.map(u => (
-                    <tr key={u.id} className="hover:bg-gray-50">
-                      <td className="p-3">
-                        <div className="font-bold text-gray-900">{u.fullName || "Unnamed User"}</div>
-                        <div className="text-gray-400">{u.email}</div>
-                      </td>
-                      <td className="p-3 uppercase font-bold text-[9px] text-emerald-800">{u.role}</td>
-                      <td className="p-3 font-bold text-gray-700">KES {u.totalSpending}</td>
-                      <td className="p-3">
-                        <span className={`px-2 py-1 rounded text-[10px] font-bold ${u.accountStatus === 'active' ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'}`}>
-                          {u.accountStatus}
-                        </span>
-                      </td>
-                      <td className="p-3 text-center">
-                        <button
-                          onClick={() => handleToggleUserStatus(u.id, u.accountStatus)}
-                          className="bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold px-3 py-1 rounded text-[10px] cursor-pointer"
-                        >
-                          {u.accountStatus === "active" ? "Suspend" : "Activate"}
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
+          <UserManagement 
+            users={users} 
+            onUpdateUsers={onUpdateUsers} 
+          />
         )}
 
         {/* TAB 6: SUPPORT TICKETS LIST PANEL */}
