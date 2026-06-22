@@ -325,7 +325,7 @@ export default function UserDashboard({ orders, products, events = [], onAddTick
                     <div key={order.id} className="flex items-center justify-between p-2 hover:bg-gray-50 dark:hover:bg-gray-800/50 rounded-xl transition cursor-pointer">
                       <div className="flex items-center gap-4">
                         <div className="w-12 h-12 bg-gray-100 dark:bg-gray-800 rounded-lg flex items-center justify-center overflow-hidden shrink-0">
-                          {/* Mock image placeholder if real items exist */}
+                          {/* Image placeholder */}
                           {order.items.length > 0 && products.find(p => p.id === order.items[0].productId) ? (
                             <img src={products.find(p => p.id === order.items[0].productId)?.imageUrl} alt="" className="w-full h-full object-cover" />
                           ) : (
@@ -365,16 +365,16 @@ export default function UserDashboard({ orders, products, events = [], onAddTick
               {/* Sidebar Modules within Dashboard */}
               <div className="space-y-6">
                 
-                {/* Order Status Overview (Mocked visual) */}
+                {/* Order Status Overview */}
                 <div className="bg-white dark:bg-gray-900 p-6 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm">
                   <h3 className="font-bold text-gray-900 dark:text-white mb-6">Order Status Overview</h3>
                   <div className="flex items-center justify-center gap-6">
-                    {/* SVG Donut Chart Mockup */}
+                    {/* SVG Donut Chart */}
                     <div className="relative w-24 h-24 shrink-0">
                       <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
                         <circle cx="50" cy="50" r="40" className="fill-none stroke-gray-100 dark:stroke-gray-800 stroke-[15]" />
-                        <circle cx="50" cy="50" r="40" className="fill-none stroke-emerald-500 stroke-[15]" strokeDasharray="251.2" strokeDashoffset={251.2 * 0.3} />
-                        <circle cx="50" cy="50" r="40" className="fill-none stroke-amber-400 stroke-[15]" strokeDasharray="251.2" strokeDashoffset={251.2 * 0.8} />
+                        <circle cx="50" cy="50" r="40" className="fill-none stroke-emerald-500 stroke-[15]" strokeDasharray="251.2" strokeDashoffset={251.2 * (1 - (deliveredOrders / Math.max(1, userOrders.length)))} />
+                        <circle cx="50" cy="50" r="40" className="fill-none stroke-amber-400 stroke-[15]" strokeDasharray="251.2" strokeDashoffset={251.2 * (1 - (pendingOrders / Math.max(1, userOrders.length)))} />
                       </svg>
                       <div className="absolute inset-0 flex items-center justify-center">
                         <span className="text-xs font-bold text-gray-400">{userOrders.length}</span>
@@ -388,14 +388,14 @@ export default function UserDashboard({ orders, products, events = [], onAddTick
                   </div>
                 </div>
 
-                {/* Wishlist Mock */}
+                {/* Wishlist */}
                 <div className="bg-white dark:bg-gray-900 p-6 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm">
                   <div className="flex justify-between items-center mb-4">
                     <h3 className="font-bold text-gray-900 dark:text-white">Wishlist</h3>
                     <button onClick={() => setActiveTab("wishlist")} className="text-xs text-emerald-600 font-bold hover:underline">View wishlist</button>
                   </div>
                   <div className="space-y-3">
-                    {products.slice(0, 3).map(p => (
+                    {wishedProducts.slice(0, 3).map(p => (
                       <div key={p.id} className="flex items-center gap-3 border-b border-gray-50 dark:border-gray-800 pb-2 last:border-0 last:pb-0">
                         <img src={p.imageUrl} alt={p.name} className="w-10 h-10 rounded border object-cover" />
                         <div className="flex-1">

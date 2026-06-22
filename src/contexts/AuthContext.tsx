@@ -27,18 +27,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     // Fetch initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
       const currentUser = session?.user ?? null;
       setUser(currentUser);
-      determineRole(currentUser);
+      await determineRole(currentUser);
       setLoading(false);
     });
 
     // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
       const currentUser = session?.user ?? null;
       setUser(currentUser);
-      determineRole(currentUser);
+      await determineRole(currentUser);
       setLoading(false);
     });
 
@@ -47,16 +47,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, []);
 
-  const determineRole = (currentUser: User | null) => {
+  const determineRole = async (currentUser: User | null) => {
     if (!currentUser) {
       setRole(null);
       return;
     }
-    // Hardcoded admin emails for simplicity
-    const adminEmails = ['aganyawiseman@gmail.com'];
-    if (currentUser.email && adminEmails.includes(currentUser.email)) {
-      setRole('admin');
-    } else {
+    
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', currentUser.id)
+        .single();
+        
+      if (!error && data && data.role === 'admin') {
+        setRole('admin');
+      } else {
+        setRole('customer');
+      }
+    } catch (err) {
+      console.error("Error fetching user role:", err);
       setRole('customer');
     }
   };

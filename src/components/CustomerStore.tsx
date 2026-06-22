@@ -31,7 +31,7 @@ import {
   Trash2
 } from "lucide-react";
 import { Product, CartItem, Order, BookingEvent, CMSPost } from "../types";
-import { CUSTOMER_RATING_ACCENTS } from "../data/mockData";
+
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
 import { toast } from "react-hot-toast";
@@ -112,7 +112,7 @@ export default function CustomerStore({
   const [generatedOrderId, setGeneratedOrderId] = useState<string>("");
 
   // Loyalty Referral Engine
-  const [loyaltyPoints, setLoyaltyPoints] = useState<number>(280);
+  const [loyaltyPoints, setLoyaltyPoints] = useState<number>(0);
   const [referralCodeInput, setReferralCodeInput] = useState<string>("");
   const [referralMessage, setReferralMessage] = useState<string>("");
 
@@ -265,12 +265,12 @@ export default function CustomerStore({
       const data = await response.json();
       setAiChatHistory((prev) => [...prev, { role: "assistant", text: data.response }]);
     } catch (err) {
-      // Graceful fallback if server-side Gemini credentials aren't completed yet
+      // Graceful error message
       setAiChatHistory((prev) => [
         ...prev,
         { 
           role: "assistant", 
-          text: `Thank you for your inquiry about "${userMessage}". Since our live server-side AI connection is warm-up caching, here is ALOEFLORA PRODUCTS's expert recommendation: For absolute scalp nourishment, combine our Pure Aloe Vera Gel Shampoo (KES 850) with regular applications of Aloe & Castor Growth Hair Oil (KES 1,200). Organic Rosemary and Peppermint extracts work efficiently to thicken natural curls, sealed off by our West African Shea leaves!` 
+          text: "I'm sorry, our AI consultation service is currently unavailable. Please try again later or contact our support team." 
         }
       ]);
     } finally {
@@ -376,10 +376,9 @@ export default function CustomerStore({
         throw new Error(data.error || "STK Failed");
       }
     } catch (err) {
-      console.error("Backend unavailable, falling back to simulation.", err);
-      // Fallback for demo
-      setStkStatus("waiting_pin");
-      setMpesaPinInput("");
+      console.error("Backend unavailable.", err);
+      toast.error("Payment service is currently unavailable. Please try again later.");
+      setStkStatus("failed");
     }
   };
 
@@ -399,13 +398,9 @@ export default function CustomerStore({
     }
   };
 
-  const applyReferral = () => {
-    if (referralCodeInput.toUpperCase() === "ALOE20") {
-      setReferralMessage("Referral Approved! KES 300 discount has been applied to your loyalty balance!");
-      setLoyaltyPoints((prev) => prev + 150);
-    } else {
-      setReferralMessage("Code not active in Nairobi currently. Try 'ALOE20'.");
-    }
+  const applyReferral = async () => {
+    // In production, this should call an API endpoint to validate the referral code.
+    setReferralMessage("Referral validation service is currently offline.");
   };
 
   return (

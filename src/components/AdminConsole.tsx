@@ -127,10 +127,7 @@ export default function AdminConsole({
   // Marketing states
   const [promoCodeInput, setPromoCodeInput] = useState<string>("");
   const [promoValueInput, setPromoValueInput] = useState<number>(10);
-  const [promosList, setPromosList] = useState<{ code: string; discountPercent: number }[]>([
-    { code: "ALOE20", discountPercent: 20 },
-    { code: "NAIROBI5", discountPercent: 5 }
-  ]);
+  const [promosList, setPromosList] = useState<{ code: string; discountPercent: number }[]>([]);
 
   // Support Tiketing responses state
   const [replyTicketId, setReplyTicketId] = useState<string | null>(null);
@@ -215,10 +212,10 @@ export default function AdminConsole({
     .reduce((sum, o) => sum + o.items.reduce((acc, item) => acc + item.quantity, 0), 0);
 
   // Execute true profit calculations dynamically
-  const mockOperatingExpenses = 4200; // Logistics fuel, internet servers etc.
+  const operatingExpenses = 0; // Set to 0 until actual expenses are tracked in DB
   
   // Calculate total COGS strictly from sold items matching the product catalog cost prices
-  const mockCogs = orders
+  const totalCogs = orders
     .filter((o) => o.paymentStatus === "paid")
     .reduce((totalCost, order) => {
       const orderCosts = order.items.reduce((acc, item) => {
@@ -229,8 +226,8 @@ export default function AdminConsole({
       return totalCost + orderCosts;
     }, 0);
 
-  const mockGrossProfit = totalPaidRevenue - mockCogs;
-  const mockNetProfit = mockGrossProfit - mockOperatingExpenses;
+  const grossProfit = totalPaidRevenue - totalCogs;
+  const netProfit = grossProfit - operatingExpenses;
 
   // Handles Product Add
   const handleAddProductSubmit = async (e: React.FormEvent) => {
@@ -728,10 +725,10 @@ export default function AdminConsole({
               <div className="bg-gray-50/50 p-4 border rounded-xl">
                 <span className="text-[10px] uppercase font-bold text-gray-400">P&L Project Margin</span>
                 <div className="text-lg font-extrabold text-emerald-800 mt-1">
-                  Ksh {mockNetProfit > 0 ? mockNetProfit : 0}
+                  Ksh {netProfit > 0 ? netProfit : 0}
                 </div>
                 <span className="text-[9px] bg-emerald-50 text-emerald-800 font-bold px-1.5 py-0.5 rounded mt-1.5 inline-block">
-                  Net {Math.round((mockNetProfit / (totalPaidRevenue || 1)) * 100)}% Margin
+                  Net {Math.round((netProfit / (totalPaidRevenue || 1)) * 100)}% Margin
                 </span>
               </div>
             </div>
@@ -1044,12 +1041,12 @@ export default function AdminConsole({
 
                 <div className="flex justify-between items-center text-gray-500 pl-4">
                   <span>- Total Product Costs (Money out for items)</span>
-                  <span>KES {mockCogs}</span>
+                  <span>KES {totalCogs}</span>
                 </div>
 
                 <div className="flex justify-between items-center text-gray-800 font-bold border-t pt-2">
                   <span>Gross Profit</span>
-                  <span className="text-emerald-800">KES {mockGrossProfit}</span>
+                  <span className="text-emerald-800">KES {grossProfit}</span>
                 </div>
 
                 <div className="flex justify-between items-center text-gray-500 pl-4">

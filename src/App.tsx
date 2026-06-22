@@ -32,17 +32,6 @@ import UserDashboard from './components/UserDashboard';
 import NotFound from './components/NotFound';
 import { Toaster, toast } from 'react-hot-toast';
 import { Product, Order, SupportTicket, MarketingCampaign, BookingEvent, CMSPost, DevOpsLog, AuditAnomaly, StoreSettings, UserProfile } from "./types";
-import { 
-  INITIAL_PRODUCTS, 
-  INITIAL_ORDERS, 
-  INITIAL_TICKETS, 
-  INITIAL_CAMPAIGNS, 
-  INITIAL_EVENTS, 
-  INITIAL_CMS, 
-  INITIAL_DEV_LOGS, 
-  INITIAL_AUDIT_ANOMALIES, 
-  DEFAULT_STORE_SETTINGS 
-} from "./data/mockData";
 
 const CustomerStore = lazy(() => import("./components/CustomerStore"));
 const AdminConsole = lazy(() => import("./components/AdminConsole"));
@@ -60,51 +49,15 @@ export default function App() {
   });
 
   // ERP Centralized Database States
-  const [products, setProducts] = useState<Product[]>(() => {
-    const saved = localStorage.getItem("aloeflora_db_products");
-    return saved ? JSON.parse(saved) : INITIAL_PRODUCTS;
-  });
-
-  const [orders, setOrders] = useState<Order[]>(() => {
-    const saved = localStorage.getItem("aloeflora_db_orders");
-    return saved ? JSON.parse(saved) : INITIAL_ORDERS;
-  });
-
-  const [tickets, setTickets] = useState<SupportTicket[]>(() => {
-    const saved = localStorage.getItem("aloeflora_db_tickets");
-    return saved ? JSON.parse(saved) : INITIAL_TICKETS;
-  });
-
-  const [campaigns, setCampaigns] = useState<MarketingCampaign[]>(() => {
-    const saved = localStorage.getItem("aloeflora_db_campaigns");
-    return saved ? JSON.parse(saved) : INITIAL_CAMPAIGNS;
-  });
-
-  const [events, setEvents] = useState<BookingEvent[]>(() => {
-    const saved = localStorage.getItem("aloeflora_db_events");
-    return saved ? JSON.parse(saved) : INITIAL_EVENTS;
-  });
-
-  const [cmsPosts, setCmsPosts] = useState<CMSPost[]>(() => {
-    const saved = localStorage.getItem("aloeflora_db_cms");
-    return saved ? JSON.parse(saved) : INITIAL_CMS;
-  });
-
-
-  const [anomalies, setAnomalies] = useState<AuditAnomaly[]>(() => {
-    const saved = localStorage.getItem("aloeflora_db_anomalies");
-    return saved ? JSON.parse(saved) : INITIAL_AUDIT_ANOMALIES;
-  });
-
-  const [storeSettings, setStoreSettings] = useState<StoreSettings>(() => {
-    const saved = localStorage.getItem("aloeflora_db_store_settings");
-    return saved ? JSON.parse(saved) : DEFAULT_STORE_SETTINGS;
-  });
-
-  const [users, setUsers] = useState<UserProfile[]>(() => {
-    const saved = localStorage.getItem("aloeflora_db_users");
-    return saved ? JSON.parse(saved) : [];
-  });
+  const [products, setProducts] = useState<Product[]>([]);
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [tickets, setTickets] = useState<SupportTicket[]>([]);
+  const [campaigns, setCampaigns] = useState<MarketingCampaign[]>([]);
+  const [events, setEvents] = useState<BookingEvent[]>([]);
+  const [cmsPosts, setCmsPosts] = useState<CMSPost[]>([]);
+  const [anomalies, setAnomalies] = useState<AuditAnomaly[]>([]);
+  const [storeSettings, setStoreSettings] = useState<StoreSettings>({} as StoreSettings);
+  const [users, setUsers] = useState<UserProfile[]>([]);
 
   // Mobile menu visibility
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
@@ -144,7 +97,7 @@ export default function App() {
     localStorage.setItem("aloeflora_db_store_settings", JSON.stringify(storeSettings));
     
     // Update global document metadata
-    if (storeSettings) {
+    if (storeSettings && storeSettings.seoTitle) {
       document.title = storeSettings.seoTitle || "ALOEFLORA PRODUCTS";
       const metaDesc = document.querySelector('meta[name="description"]');
       if (metaDesc) {
