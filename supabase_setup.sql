@@ -156,14 +156,14 @@ CREATE POLICY "Customers can create tickets" ON support_tickets FOR INSERT WITH 
 CREATE POLICY "Users can view their own profile" ON profiles FOR SELECT USING (auth.uid() = id);
 CREATE POLICY "Users can update their own profile" ON profiles FOR UPDATE USING (auth.uid() = id);
 
--- Admin access policies (Full access for roles with 'admin')
-CREATE POLICY "Admins full access CMS" ON cms_posts FOR ALL USING ((auth.jwt() ->> 'role') = 'admin');
-CREATE POLICY "Admins full access Tickets" ON support_tickets FOR ALL USING ((auth.jwt() ->> 'role') = 'admin');
-CREATE POLICY "Admins full access Events" ON events FOR ALL USING ((auth.jwt() ->> 'role') = 'admin');
-CREATE POLICY "Admins full access Campaigns" ON campaigns FOR ALL USING ((auth.jwt() ->> 'role') = 'admin');
-CREATE POLICY "Admins full access Products" ON products FOR ALL USING ((auth.jwt() ->> 'role') = 'admin');
-CREATE POLICY "Admins full access Orders" ON orders FOR ALL USING ((auth.jwt() ->> 'role') = 'admin');
-CREATE POLICY "Admins full access Store Settings" ON store_settings FOR ALL USING ((auth.jwt() ->> 'role') = 'admin');
+-- Admin access policies (Full access for roles with 'admin' in JWT or profiles table)
+CREATE POLICY "Admins full access CMS" ON cms_posts FOR ALL USING ((auth.jwt() ->> 'role') = 'admin' OR auth.uid() IN (SELECT id FROM profiles WHERE role = 'admin'));
+CREATE POLICY "Admins full access Tickets" ON support_tickets FOR ALL USING ((auth.jwt() ->> 'role') = 'admin' OR auth.uid() IN (SELECT id FROM profiles WHERE role = 'admin'));
+CREATE POLICY "Admins full access Events" ON events FOR ALL USING ((auth.jwt() ->> 'role') = 'admin' OR auth.uid() IN (SELECT id FROM profiles WHERE role = 'admin'));
+CREATE POLICY "Admins full access Campaigns" ON campaigns FOR ALL USING ((auth.jwt() ->> 'role') = 'admin' OR auth.uid() IN (SELECT id FROM profiles WHERE role = 'admin'));
+CREATE POLICY "Admins full access Products" ON products FOR ALL USING ((auth.jwt() ->> 'role') = 'admin' OR auth.uid() IN (SELECT id FROM profiles WHERE role = 'admin'));
+CREATE POLICY "Admins full access Orders" ON orders FOR ALL USING ((auth.jwt() ->> 'role') = 'admin' OR auth.uid() IN (SELECT id FROM profiles WHERE role = 'admin'));
+CREATE POLICY "Admins full access Store Settings" ON store_settings FOR ALL USING ((auth.jwt() ->> 'role') = 'admin' OR auth.uid() IN (SELECT id FROM profiles WHERE role = 'admin'));
 CREATE POLICY "Admins full access Profiles" ON profiles FOR ALL USING ((auth.jwt() ->> 'role') = 'admin');
 
 -- ==========================================
@@ -189,10 +189,10 @@ CREATE POLICY "Public Access" ON storage.objects FOR SELECT USING ( bucket_id = 
 CREATE POLICY "Auth Insert Images" ON storage.objects FOR INSERT WITH CHECK ( bucket_id = 'images' AND auth.role() = 'authenticated' );
 -- 3. Users can update/delete their own images OR admins can do anything
 CREATE POLICY "Owner or Admin Update Delete" ON storage.objects FOR UPDATE USING ( 
-    bucket_id = 'images' AND (auth.uid() = owner OR (auth.jwt() ->> 'role') = 'admin') 
+    bucket_id = 'images' AND (auth.uid() = owner OR (auth.jwt() ->> 'role') = 'admin' OR auth.uid() IN (SELECT id FROM profiles WHERE role = 'admin')) 
 );
 CREATE POLICY "Owner or Admin Delete" ON storage.objects FOR DELETE USING ( 
-    bucket_id = 'images' AND (auth.uid() = owner OR (auth.jwt() ->> 'role') = 'admin') 
+    bucket_id = 'images' AND (auth.uid() = owner OR (auth.jwt() ->> 'role') = 'admin' OR auth.uid() IN (SELECT id FROM profiles WHERE role = 'admin')) 
 );
 
 -- Avatars Bucket Policies

@@ -330,10 +330,15 @@ export default function AdminConsole({
       const modified = updatedPosts.find(p => p.id === editingCmsId);
       if(modified) {
         try {
-          await supabase.from("cms_posts").update({
+          const { error } = await supabase.from("cms_posts").update({
             title: modified.title, content: modified.content, type: modified.type, status: modified.status, image_url: modified.imageUrl
           }).eq('id', editingCmsId);
-        } catch(err) { console.error(err); }
+          if (error) throw error;
+        } catch(err: any) { 
+          console.error(err); 
+          toast.error(`Database Error: ${err.message || "Failed to update database"}`);
+          return;
+        }
       }
 
       onUpdateCMS(updatedPosts);
@@ -354,13 +359,18 @@ export default function AdminConsole({
       };
       
       try {
-        await supabase.from("cms_posts").insert({
+        const { error } = await supabase.from("cms_posts").insert({
             id: newPost.id, title: newPost.title, content: newPost.content, type: newPost.type, status: newPost.status, author: newPost.author,
             image_url: newPost.imageUrl, created_at: newPost.createdAt
         });
-      } catch(err) { console.error(err); }
+        if (error) throw error;
+      } catch(err: any) { 
+        console.error(err);
+        toast.error(`Database Error: ${err.message || "Failed to save to database"}`);
+        return;
+      }
 
-      onUpdateCMS([...cmsPosts, newPost]);
+      onUpdateCMS([newPost, ...cmsPosts]);
       toast.success("New CMS Article Published Successfully!");
     }
     
