@@ -1264,7 +1264,7 @@ export default function AdminConsole({
                 </div>
 
                 <button type="submit" disabled={isUploadingCms} className="bg-emerald-800 hover:bg-emerald-800 text-white font-bold p-3 rounded-xl w-full uppercase cursor-pointer disabled:opacity-50">
-                  {isUploadingCms ? "Uploading Media & Saving..." : "Seal and Deploy Draft"}
+                  {isUploadingCms ? "Uploading Media & Saving..." : "Submit CMS Entry"}
                 </button>
               </form>
             )}
@@ -1537,7 +1537,7 @@ export default function AdminConsole({
                   {mediaFiles.map((file, idx) => (
                     <div key={idx} className="group relative rounded-xl border overflow-hidden bg-gray-50 aspect-square">
                       <img src={file.url} alt={file.name} className="w-full h-full object-cover" />
-                      <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2 p-4">
+                      <div className="absolute inset-0 bg-black/60 opacity-100 transition-opacity flex flex-col items-center justify-center gap-2 p-4">
                         <p className="text-[9px] text-white font-mono break-all text-center leading-tight line-clamp-3">{file.name}</p>
                         <div className="flex gap-2">
                           <button 

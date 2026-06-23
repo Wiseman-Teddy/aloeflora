@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { Upload, X, RefreshCw, Image as ImageIcon, AlertCircle } from 'lucide-react';
 import { uploadWithProgressToSupabase, deleteFromSupabase } from '../utils/supabaseStorage';
 import { toast } from 'react-hot-toast';
@@ -36,6 +36,11 @@ export default function MediaUploader({
   const [uploads, setUploads] = useState<UploadingFile[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  const urlsRef = useRef(urls);
+  useEffect(() => {
+    urlsRef.current = urls;
+  }, [urls]);
 
   const startUpload = async (uploadItem: UploadingFile) => {
     try {
@@ -54,7 +59,14 @@ export default function MediaUploader({
           u.id === uploadItem.id ? { ...u, status: 'success', progress: 100 } : u
         ));
         
-        onChange(multiple ? [...urls, url] : [url]);
+        if (multiple) {
+          const updatedUrls = [...urlsRef.current, url];
+          urlsRef.current = updatedUrls;
+          onChange(updatedUrls);
+        } else {
+          urlsRef.current = [url];
+          onChange([url]);
+        }
         
         // Remove from uploading state after brief delay
         setTimeout(() => {
