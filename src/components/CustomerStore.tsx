@@ -469,7 +469,7 @@ export default function CustomerStore({
                 <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-center w-full">
                   <div className="md:col-span-5 h-48 md:h-56 rounded-2xl overflow-hidden shadow-lg border border-white/10 relative bg-emerald-950 flex items-center justify-center">
                     <img 
-                      src={heroSlides[heroIndex]?.url || "https://images.unsplash.com/photo-1596547609652-9cf5d8d76921"} 
+                      src={heroSlides[heroIndex]?.imageUrl || "https://images.unsplash.com/photo-1596547609652-9cf5d8d76921"} 
                       alt={heroSlides[heroIndex]?.title} 
                       className="w-full h-full object-cover select-none"
                       referrerPolicy="no-referrer"
