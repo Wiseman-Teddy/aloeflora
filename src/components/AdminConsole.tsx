@@ -1051,12 +1051,12 @@ export default function AdminConsole({
 
                 <div className="flex justify-between items-center text-gray-500 pl-4">
                   <span>- Operating Expenses (Logistics & Hosting)</span>
-                  <span>KES {mockOperatingExpenses}</span>
+                  <span>KES {operatingExpenses}</span>
                 </div>
 
                 <div className="flex justify-between items-center text-gray-950 font-extrabold border-t-2 pt-2 text-sm">
                   <span>Net Profit (Money You Keep)</span>
-                  <span className="text-emerald-900">KES {mockNetProfit > 0 ? mockNetProfit : 0}</span>
+                  <span className="text-emerald-900">KES {netProfit > 0 ? netProfit : 0}</span>
                 </div>
               </div>
 
@@ -1422,43 +1422,7 @@ export default function AdminConsole({
               </div>
             </div>
 
-            <div className="mb-4 mt-8">
-              <h3 className="text-lg font-bold text-gray-950 dark:text-white">Database Initialization</h3>
-              <p className="text-xs text-gray-500">Push default mock data directly to Supabase to initialize real-time synchronization.</p>
-              <div className="mt-3">
-                <button
-                  type="button"
-                  onClick={async () => {
-                    if (window.confirm("This will push local mock data to Supabase. Make sure you have created the tables. Proceed?")) {
-                      try {
-                        for (const p of products) {
-                          await supabase.from("products").upsert({
-                            id: p.id, name: p.name, description: p.description, price: p.price, cost_price: p.costPrice,
-                            category: p.category, sub_category: p.subCategory, image_url: p.imageUrl, stock: p.stock,
-                            safety_stock: p.safetyStock, reorder_level: p.reorderLevel, rating: p.rating, reviews_count: p.reviewsCount,
-                            variants: p.variants, features: p.features
-                          });
-                        }
-                        for (const c of cmsPosts) {
-                          await supabase.from("cms_posts").upsert({
-                            id: c.id, title: c.title, content: c.content, type: c.type, status: c.status, author: c.author,
-                            image_url: c.imageUrl, created_at: c.createdAt, seo_title: c.seoTitle, seo_desc: c.seoDesc, seo_keywords: c.seoKeywords
-                          });
-                        }
-                        toast.success("Data successfully pushed to Supabase!");
-                      } catch (err: any) {
-                        console.error(err);
-                        toast.error("Error pushing data: " + err.message);
-                      }
-                    }
-                  }}
-                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold transition shadow-sm cursor-pointer"
-                >
-                  <Database className="w-4 h-4 inline-block mr-2" />
-                  Seed Database to Supabase
-                </button>
-              </div>
-            </div>
+
 
             <hr className="border-gray-100 dark:border-gray-800" />
 

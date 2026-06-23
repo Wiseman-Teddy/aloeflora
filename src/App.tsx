@@ -28,7 +28,6 @@ import { useAuth } from "./contexts/AuthContext";
 import ProtectedRoute from "./components/ProtectedRoute";
 import CustomerAuth from "./components/auth/CustomerAuth";
 import AdminAuth from "./components/auth/AdminAuth";
-import UserDashboard from './components/UserDashboard';
 import NotFound from './components/NotFound';
 import { Toaster, toast } from 'react-hot-toast';
 import { Product, Order, SupportTicket, MarketingCampaign, BookingEvent, CMSPost, DevOpsLog, AuditAnomaly, StoreSettings, UserProfile } from "./types";

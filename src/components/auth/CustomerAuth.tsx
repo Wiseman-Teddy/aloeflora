@@ -55,7 +55,9 @@ export default function CustomerAuth({ initialMode = 'login' }: CustomerAuthProp
         setSuccessMsg('Password reset instructions have been sent to your email.');
       }
     } catch (error: any) {
-      setErrorMsg(error.message || 'An error occurred during authentication.');
+      console.error("Auth error:", error);
+      const msg = typeof error === 'string' ? error : error?.message && typeof error.message === 'string' && error.message !== '{}' ? error.message : 'An error occurred during authentication. Please try again.';
+      setErrorMsg(msg);
     } finally {
       setLoading(false);
     }

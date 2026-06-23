@@ -86,36 +86,10 @@ export default function UserManagement({ users, onUpdateUsers }: UserManagementP
         onUpdateUsers(updatedUsers);
         toast.success("User updated successfully.");
       } else {
-        // Mock create user in profiles directly (since client can't create auth user securely)
-        const mockId = "usr_" + Math.random().toString(36).substring(2, 9);
-        const { error } = await supabase.from('profiles').insert({
-          id: mockId, // Note: In real app this comes from auth.users
-          full_name: formFullName,
-          email: formEmail,
-          phone: formPhone,
-          role: formRole,
-          account_status: formStatus
-        });
-        
-        if (error) {
-            // Because profiles relies on auth.users(id), inserting a mock UUID might fail depending on foreign key constraints.
-            // In development, if foreign keys are enforced, this will fail.
-            toast.error("Note: Inserting directly into profiles without an auth user may fail if FK constraints are strictly enforced. \nFor local testing, we will update the state directly.");
-        }
-        
-        const newUser: UserProfile = {
-          id: mockId,
-          fullName: formFullName,
-          email: formEmail,
-          phone: formPhone,
-          role: formRole,
-          accountStatus: formStatus,
-          createdAt: new Date().toISOString(),
-          totalSpending: 0,
-          orderCount: 0
-        };
-        
-        onUpdateUsers([...users, newUser]);
+        toast.error("In production, new users must sign up via the customer portal, or you must use the Supabase Admin API to invite them.");
+        setIsModalOpen(false);
+        setIsSaving(false);
+        return;
       }
       setIsModalOpen(false);
     } catch (err: any) {
