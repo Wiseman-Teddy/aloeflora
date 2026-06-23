@@ -204,6 +204,9 @@ CREATE POLICY "Auth Insert Avatars" ON storage.objects FOR INSERT WITH CHECK ( b
 CREATE POLICY "Owner Update Delete Avatars" ON storage.objects FOR UPDATE USING ( 
     bucket_id = 'avatars' AND auth.uid() = owner 
 );
+
+-- IMPORTANT: Ensure buckets are set to public!
+UPDATE storage.buckets SET public = true WHERE id IN ('images', 'avatars');
 CREATE POLICY "Owner Delete Avatars" ON storage.objects FOR DELETE USING ( 
     bucket_id = 'avatars' AND auth.uid() = owner 
 );
