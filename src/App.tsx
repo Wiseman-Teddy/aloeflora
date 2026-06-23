@@ -129,7 +129,7 @@ export default function App() {
         const { data: ordData, error: ordErr } = await supabase.from('orders').select('*').order('created_at', { ascending: false });
         if (ordData && !ordErr && ordData.length > 0) {
           const mapped: Order[] = ordData.map((d: any) => ({
-            id: d.id, customerName: d.customer_name, phone: d.phone, email: "", county: "", subCounty: "", estate: "", building: "", houseNumber: "", deliveryNotes: "", items: [], subtotal: d.total_amount, deliveryFee: 0, total: d.total_amount, paymentMethod: "mpesa_stk", paymentStatus: d.status, deliveryStatus: "pending", mpesaReceipt: "", createdAt: d.created_at
+            id: d.id, customerName: d.customer_name, phone: d.phone, email: d.email || "", county: d.county || "", subCounty: d.sub_county || "", estate: d.estate || "", building: d.building || "", houseNumber: d.house_number || "", deliveryNotes: d.delivery_notes || "", items: d.items || [], subtotal: d.subtotal || d.total_amount, deliveryFee: d.delivery_fee || 0, total: d.total_amount, paymentMethod: d.payment_method || "mpesa_stk", paymentStatus: d.status, deliveryStatus: d.delivery_status || "pending", mpesaReceipt: d.mpesa_receipt || "", createdAt: d.created_at
           }));
           setOrders(mapped);
         }
@@ -141,7 +141,7 @@ export default function App() {
             id: p.id, name: p.name, description: p.description, price: p.price, costPrice: p.cost_price,
             category: p.category as any, subCategory: p.sub_category, imageUrl: p.image_url, stock: p.stock,
             safetyStock: p.safety_stock, reorderLevel: p.reorder_level, rating: p.rating, reviewsCount: p.reviews_count,
-            variants: p.variants, features: p.features, reviews: []
+            variants: p.variants || [], features: p.features || [], mediaUrls: p.media_urls || [], specifications: p.specifications || [], reviews: []
           }));
           setProducts(mappedProds);
         }

@@ -268,7 +268,7 @@ export default function AdminConsole({
         id: newProduct.id, name: newProduct.name, description: newProduct.description, price: newProduct.price, cost_price: newProduct.costPrice,
         category: newProduct.category, sub_category: newProduct.subCategory, image_url: newProduct.imageUrl, stock: newProduct.stock,
         safety_stock: newProduct.safetyStock, reorder_level: newProduct.reorderLevel, rating: newProduct.rating, reviews_count: newProduct.reviewsCount,
-        variants: newProduct.variants, features: newProduct.features
+        variants: newProduct.variants, features: newProduct.features, media_urls: newProduct.mediaUrls, specifications: newProduct.specifications
       });
     } catch(err) { console.error("Supabase insert error", err); }
 
