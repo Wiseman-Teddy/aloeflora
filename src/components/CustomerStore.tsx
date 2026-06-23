@@ -737,7 +737,7 @@ export default function CustomerStore({
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {events.map((evt) => (
+            {cmsPosts.filter(p => p.type === 'promotion').map((evt) => (
               <div key={evt.id} className="bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-2xl overflow-hidden shadow-sm flex flex-col justify-between">
                 <div>
                   <div className="h-32 bg-emerald-950 overflow-hidden relative">
@@ -748,20 +748,20 @@ export default function CustomerStore({
                       referrerPolicy="no-referrer"
                     />
                     <span className="absolute top-2 right-2 bg-emerald-900/90 backdrop-blur text-[10px] font-bold text-lime-400 px-2 py-0.5 rounded border border-emerald-800">
-                      {evt.date}
+                      {evt.seoTitle || 'Upcoming'}
                     </span>
                   </div>
                   <div className="p-4 space-y-1.5">
                     <h4 className="font-bold text-sm text-gray-900 dark:text-white line-clamp-1">{evt.title}</h4>
                     <div className="flex items-center gap-1.5 text-xs text-gray-500 font-mono">
-                      <MapPin className="w-3.5 h-3.5 text-lime-600" /> {evt.location}
+                      <MapPin className="w-3.5 h-3.5 text-lime-600" /> {evt.seoDesc || 'TBA'}
                     </div>
-                    <p className="text-[11px] text-gray-500 line-clamp-3 leading-relaxed pt-1">{evt.description}</p>
+                    <p className="text-[11px] text-gray-500 line-clamp-3 leading-relaxed pt-1">{evt.content}</p>
                   </div>
                 </div>
                 <div className="p-4 pt-0 border-t border-gray-50 dark:border-gray-800/60 mt-2 flex items-center justify-between">
                   <span className="text-[10px] text-emerald-800 font-bold bg-emerald-50 px-2 py-0.5 rounded">
-                    Remaining slots: {evt.capacity - evt.registrantCount}
+                    Capacity: {evt.seoKeywords || 'Unlimited'}
                   </span>
                   <button 
                     onClick={() => setRegEventId(evt.id)}

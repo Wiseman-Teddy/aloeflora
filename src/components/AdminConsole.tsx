@@ -117,6 +117,9 @@ export default function AdminConsole({
   const [cmsStatus, setCmsStatus] = useState<"draft" | "published">("published");
   const [cmsImageUrls, setCmsImageUrls] = useState<string[]>([]);
   const [isUploadingCms, setIsUploadingCms] = useState(false);
+  const [eventDate, setEventDate] = useState<string>("");
+  const [eventLocation, setEventLocation] = useState<string>("");
+  const [eventCapacity, setEventCapacity] = useState<string>("50");
 
   // SEO config fields
   const [seoTitle, setSeoTitle] = useState<string>(storeSettings?.seoTitle || "");
@@ -322,7 +325,7 @@ export default function AdminConsole({
     if (editingCmsId) {
       const updatedPosts = cmsPosts.map(p => {
         if (p.id === editingCmsId) {
-          return { ...p, title: sanitizeInput(cmsTitle), content: sanitizeInput(cmsContent), type: cmsType, status: cmsStatus, imageUrl: finalImageUrl || p.imageUrl };
+          return { ...p, title: sanitizeInput(cmsTitle), content: sanitizeInput(cmsContent), type: cmsType, status: cmsStatus, imageUrl: finalImageUrl || p.imageUrl, seoTitle: cmsType === 'promotion' ? sanitizeInput(eventDate) : p.seoTitle, seoDesc: cmsType === 'promotion' ? sanitizeInput(eventLocation) : p.seoDesc, seoKeywords: cmsType === 'promotion' ? sanitizeInput(eventCapacity) : p.seoKeywords };
         }
         return p;
       });
@@ -331,7 +334,7 @@ export default function AdminConsole({
       if(modified) {
         try {
           const { error } = await supabase.from("cms_posts").update({
-            title: modified.title, content: modified.content, type: modified.type, status: modified.status, image_url: modified.imageUrl
+            title: modified.title, content: modified.content, type: modified.type, status: modified.status, image_url: modified.imageUrl, seo_title: modified.seoTitle, seo_desc: modified.seoDesc, seo_keywords: modified.seoKeywords
           }).eq('id', editingCmsId);
           if (error) throw error;
         } catch(err: any) { 
@@ -355,13 +358,16 @@ export default function AdminConsole({
         status: cmsStatus,
         author: "Admin Master",
         createdAt: new Date().toISOString().split("T")[0],
-        imageUrl: finalImageUrl || undefined
+        imageUrl: finalImageUrl || undefined,
+        seoTitle: cmsType === 'promotion' ? sanitizeInput(eventDate) : undefined,
+        seoDesc: cmsType === 'promotion' ? sanitizeInput(eventLocation) : undefined,
+        seoKeywords: cmsType === 'promotion' ? sanitizeInput(eventCapacity) : undefined,
       };
       
       try {
         const { error } = await supabase.from("cms_posts").insert({
             id: newPost.id, title: newPost.title, content: newPost.content, type: newPost.type, status: newPost.status, author: newPost.author,
-            image_url: newPost.imageUrl, created_at: newPost.createdAt
+            image_url: newPost.imageUrl, created_at: newPost.createdAt, seo_title: newPost.seoTitle, seo_desc: newPost.seoDesc, seo_keywords: newPost.seoKeywords
         });
         if (error) throw error;
       } catch(err: any) { 
@@ -381,13 +387,16 @@ export default function AdminConsole({
   };
 
   const handleEditCMS = (post: CMSPost) => {
-    setEditingCmsId(post.id);
     setCmsTitle(post.title);
     setCmsContent(post.content);
-    setCmsType(post.type);
-    setCmsStatus(post.status);
-    setCmsImageUrls(post.imageUrl ? post.imageUrl.split(',') : []);
+    setCmsType(post.type as any);
+    setCmsStatus(post.status as any);
+    setEditingCmsId(post.id);
     setIsAddingCms(true);
+    setCmsImageUrls(post.imageUrl ? post.imageUrl.split(',') : []);
+    setEventDate(post.seoTitle || "");
+    setEventLocation(post.seoDesc || "");
+    setEventCapacity(post.seoKeywords || "50");
   };
 
   const handleDeleteCMS = (id: string) => {
@@ -1244,6 +1253,7 @@ export default function AdminConsole({
                       <option value="faq">Customer FAQ item</option>
                       <option value="hero">Hero Slide</option>
                       <option value="award">Award Showcase</option>
+                      <option value="promotion">Wellness Promotion Event</option>
                     </select>
                   </div>
 
@@ -1255,6 +1265,23 @@ export default function AdminConsole({
                     </select>
                   </div>
                 </div>
+
+                {cmsType === 'promotion' && (
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div className="space-y-1">
+                      <label className="font-bold">Event Date & Time</label>
+                      <input type="text" value={eventDate} onChange={(e) => setEventDate(e.target.value)} placeholder="e.g. Oct 15 - 18, 2026" className="w-full p-2.5 bg-white border rounded-lg focus:outline-none" />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="font-bold">Location</label>
+                      <input type="text" value={eventLocation} onChange={(e) => setEventLocation(e.target.value)} placeholder="e.g. Nairobi, KICC" className="w-full p-2.5 bg-white border rounded-lg focus:outline-none" />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="font-bold">Capacity (Slots)</label>
+                      <input type="number" value={eventCapacity} onChange={(e) => setEventCapacity(e.target.value)} placeholder="e.g. 50" className="w-full p-2.5 bg-white border rounded-lg focus:outline-none" />
+                    </div>
+                  </div>
+                )}
 
                 <div className="space-y-1">
                   <label className="font-bold">Image Upload (for Hero/Award/Blog)</label>
