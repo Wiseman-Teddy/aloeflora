@@ -38,6 +38,9 @@ export default function CustomerAuth({ initialMode = 'login' }: CustomerAuthProp
         const { data, error } = await supabase.auth.signUp({
           email,
           password,
+          options: {
+            emailRedirectTo: `${window.location.origin}/customer/dashboard`,
+          }
         });
         if (error) throw error;
         
