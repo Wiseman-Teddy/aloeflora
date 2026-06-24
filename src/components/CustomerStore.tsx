@@ -106,7 +106,8 @@ export default function CustomerStore({
     .flatMap((p) => {
       const urls = p.imageUrl ? p.imageUrl.split(',') : [];
       return urls.map(url => ({ ...p, imageUrl: url }));
-    });
+    })
+    .slice(0, 25);
   const [heroIndex, setHeroIndex] = useState<number>(0);
   const heroRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -564,9 +565,6 @@ export default function CustomerStore({
 
           {/* CMS Hero Slider Section */}
           <div className="lg:col-span-7 flex flex-col justify-center h-full relative">
-            <span className="text-[10px] uppercase tracking-widest text-emerald-300 text-right font-mono mb-2">
-              ALOEFLORA PRODUCTS Showcase (Slides {heroIndex + 1}/{heroSlides.length || 1})
-            </span>
             <div className="relative bg-white/5 backdrop-blur-md border border-white/10 rounded-3xl p-6 shadow-2xl overflow-hidden min-h-[300px] flex items-center">
               
               {heroSlides.length > 0 ? (
@@ -581,9 +579,6 @@ export default function CustomerStore({
                   </div>
 
                   <div className="md:col-span-7 space-y-3.5 text-left">
-                    <span className="text-xs font-bold text-lime-300 uppercase tracking-widest block font-mono">
-                      Featured Update
-                    </span>
                     <h3 className="text-lg md:text-xl font-bold font-sans tracking-tight line-clamp-2">
                       {heroSlides[heroIndex]?.title}
                     </h3>

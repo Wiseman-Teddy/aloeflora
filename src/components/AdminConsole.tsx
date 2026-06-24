@@ -198,11 +198,17 @@ export default function AdminConsole({
     if(!confirm("Are you sure you want to permanently delete this media file? It might break existing links.")) return;
     try {
       const { error } = await supabase.storage.from("images").remove([fileName]);
-      if(error) throw error;
+      if (error) throw error;
+      
+      const { data: publicUrlData } = supabase.storage.from("images").getPublicUrl(fileName);
+      if (publicUrlData && publicUrlData.publicUrl) {
+         await supabase.from('cms_posts').delete().eq('type', 'hero').eq('image_url', publicUrlData.publicUrl);
+      }
+      
       setMediaFiles(prev => prev.filter(f => f.name !== fileName));
-      toast.success("Media deleted successfully.");
-    } catch(err) {
-      console.error(err);
+      toast.success("Media file deleted and removed from hero slides if applicable.");
+    } catch (err: any) {
+      toast.error("Error deleting file: " + err.message);
     }
   };
 
@@ -1595,7 +1601,21 @@ export default function AdminConsole({
                 {/* Reusing existing uploader but not tying it to a single string so we just reload list */}
                 <MediaUploader 
                   urls={[]} 
-                  onChange={() => loadMediaFiles()} 
+                  onChange={async (urls) => {
+                    if (urls && urls.length > 0) {
+                      for (const url of urls) {
+                        await supabase.from('cms_posts').insert({
+                          id: 'HERO-' + Math.random().toString(36).substr(2, 9),
+                          title: 'Aloeflora Best Selling Natural Products',
+                          content: 'Get your products now!!!',
+                          type: 'hero',
+                          status: 'published',
+                          image_url: url
+                        });
+                      }
+                    }
+                    loadMediaFiles();
+                  }} 
                   multiple={true} 
                   maxFiles={10} 
                   bucket="images" 
