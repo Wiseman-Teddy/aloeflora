@@ -265,7 +265,7 @@ export default function UserDashboard({ orders, products, events = [], onAddTick
           <p className="text-xs text-emerald-50 mb-4 leading-relaxed">
             Get 20% off on your next organic hair care purchase.
           </p>
-          <Link to="/store" className="block text-center bg-white text-emerald-800 font-bold text-xs py-2 rounded-lg hover:bg-emerald-50 transition">
+          <Link to="/store#organic-formulations" className="block text-center bg-white text-emerald-800 font-bold text-xs py-2 rounded-lg hover:bg-emerald-50 transition">
             Shop Now
           </Link>
         </div>
