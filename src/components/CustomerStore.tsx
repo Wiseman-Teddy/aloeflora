@@ -1679,7 +1679,13 @@ export default function CustomerStore({
                           onClick={async () => {
                             if(!guestPassword) return toast.error("Please enter a password.");
                             setIsRegistering(true);
-                            const { error } = await supabase.auth.signUp({ email: checkoutEmail, password: guestPassword });
+                            const { error } = await supabase.auth.signUp({ 
+                              email: checkoutEmail, 
+                              password: guestPassword,
+                              options: {
+                                emailRedirectTo: `${window.location.origin}/customer/dashboard`,
+                              }
+                            });
                             setIsRegistering(false);
                             if(error) toast.error(error.message);
                             else setRegistrationSuccess(true);
