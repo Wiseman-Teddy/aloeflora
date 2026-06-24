@@ -238,7 +238,7 @@ export default function App() {
       .subscribe();
       
     return () => { supabase.removeChannel(channels); };
-  }, []);
+  }, [user]);
 
   // Actions passed to children handlers
   const handleAddNewOrder = (newOrder: Order) => {

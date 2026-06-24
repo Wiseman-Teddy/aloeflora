@@ -638,7 +638,7 @@ export default function UserDashboard({ orders, products, events = [], onAddTick
                 <div className="text-center py-12 text-gray-500">
                   <ShoppingBag className="w-12 h-12 mx-auto text-gray-300 mb-4" />
                   <p>You haven't placed any orders yet.</p>
-                  <Link to="/store" className="inline-block mt-4 text-emerald-600 font-bold hover:underline">Start Shopping</Link>
+                  <Link to="/store#organic-formulations" className="inline-block mt-4 text-emerald-600 font-bold hover:underline">Start Shopping</Link>
                 </div>
               )}
             </div>
@@ -676,7 +676,7 @@ export default function UserDashboard({ orders, products, events = [], onAddTick
                 <div className="text-center py-12 text-gray-500">
                   <Calendar className="w-12 h-12 mx-auto text-gray-300 mb-4" />
                   <p>You haven't booked any masterclasses or events.</p>
-                  <Link to="/store#events" className="inline-block mt-4 text-emerald-600 font-bold hover:underline">Explore Events</Link>
+                  <Link to="/store#events-marketing-section" className="inline-block mt-4 text-emerald-600 font-bold hover:underline">Explore Events</Link>
                 </div>
               )}
             </div>
