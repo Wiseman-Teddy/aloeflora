@@ -97,6 +97,14 @@ export interface MarketingCampaign {
   deliveryRate?: number;
 }
 
+export interface Promo {
+  id: string;
+  code: string;
+  discountPercent: number;
+  isActive: boolean;
+  createdAt: string;
+}
+
 export interface BookingEvent {
   id: string;
   title: string;

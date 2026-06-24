@@ -210,3 +210,12 @@ UPDATE storage.buckets SET public = true WHERE id IN ('images', 'avatars');
 CREATE POLICY "Owner Delete Avatars" ON storage.objects FOR DELETE USING ( 
     bucket_id = 'avatars' AND auth.uid() = owner 
 );
+
+-- Promos Table
+CREATE TABLE IF NOT EXISTS promos (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    code VARCHAR(50) UNIQUE NOT NULL,
+    discount_percent INTEGER NOT NULL CHECK (discount_percent > 0 AND discount_percent <= 100),
+    is_active BOOLEAN DEFAULT true,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);

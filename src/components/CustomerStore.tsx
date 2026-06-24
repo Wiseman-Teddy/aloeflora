@@ -30,7 +30,7 @@ import {
   Globe,
   Trash2
 } from "lucide-react";
-import { Product, CartItem, Order, BookingEvent, CMSPost } from "../types";
+import { Product, CartItem, Order, BookingEvent, CMSPost, Promo } from "../types";
 
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
@@ -43,6 +43,7 @@ interface CustomerStoreProps {
   onAddOrder: (order: Order) => void;
   onRegisterEvent: (eventId: string, registrant: { name: string; email: string; phone: string }) => boolean;
   onUpdateProductStock: (productId: string, quantitySold: number) => void;
+  promos: Promo[];
 }
 
 export default function CustomerStore({
@@ -51,7 +52,8 @@ export default function CustomerStore({
   cmsPosts,
   onAddOrder,
   onRegisterEvent,
-  onUpdateProductStock
+  onUpdateProductStock,
+  promos
 }: CustomerStoreProps) {
   // Storefront navigation
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
@@ -115,6 +117,7 @@ export default function CustomerStore({
   const [loyaltyPoints, setLoyaltyPoints] = useState<number>(0);
   const [referralCodeInput, setReferralCodeInput] = useState<string>("");
   const [referralMessage, setReferralMessage] = useState<string>("");
+  const [activePromo, setActivePromo] = useState<Promo | null>(null);
 
   // Customer AI Specialist (Gemini assistant proxy)
   const [customerQuery, setCustomerQuery] = useState<string>("");
@@ -211,7 +214,8 @@ export default function CustomerStore({
         ? 0 
         : 250;
 
-  const total = subtotal + deliveryFee;
+  const promoDiscount = activePromo ? Math.floor(subtotal * (activePromo.discountPercent / 100)) : 0;
+  const total = subtotal - promoDiscount + deliveryFee;
 
   // Handles Product Compare Selection
   const toggleCompare = (product: Product) => {
@@ -399,8 +403,19 @@ export default function CustomerStore({
   };
 
   const applyReferral = async () => {
-    // In production, this should call an API endpoint to validate the referral code.
-    setReferralMessage("Referral validation service is currently offline.");
+    if (!referralCodeInput) return;
+    const code = referralCodeInput.trim().toUpperCase();
+    const promo = promos.find(p => p.code === code && p.isActive);
+    
+    if (promo) {
+      setActivePromo(promo);
+      setReferralMessage(`Success! ${promo.discountPercent}% discount applied.`);
+      toast.success(`${promo.discountPercent}% discount applied!`);
+    } else {
+      setActivePromo(null);
+      setReferralMessage("Invalid or expired promo code.");
+      toast.error("Invalid or expired promo code.");
+    }
   };
 
   return (
@@ -1194,18 +1209,24 @@ export default function CustomerStore({
             {/* Loyalty and Summary checkout footer */}
             {cart.length > 0 && (
               <div className="border-t pt-4 space-y-4 text-left">
-                <div className="space-y-2">
+                <div className="space-y-1">
                   <div className="flex justify-between text-xs text-gray-500">
                     <span>Retail Subtotal</span>
                     <span className="font-bold">KES {subtotal}</span>
                   </div>
+                  {activePromo && (
+                    <div className="flex justify-between text-xs text-emerald-600 font-bold">
+                      <span>Discount ({activePromo.discountPercent}%)</span>
+                      <span>-KES {promoDiscount}</span>
+                    </div>
+                  )}
                   <div className="flex justify-between text-xs text-gray-500">
                     <span>Nairobi Delivery</span>
-                    <span className="text-[11px] italic">Calculated at checkout</span>
+                    <span>KES {deliveryFee}</span>
                   </div>
                   <div className="flex justify-between text-sm font-extrabold pb-2 border-b">
                     <span>Est. Total</span>
-                    <span>KES {subtotal}</span>
+                    <span>KES {subtotal - promoDiscount + deliveryFee}</span>
                   </div>
                 </div>
 
@@ -1443,6 +1464,12 @@ export default function CustomerStore({
                   <span>Cart Subtotal</span>
                   <span className="font-bold text-gray-900 dark:text-white">KES {subtotal}</span>
                 </div>
+                {activePromo && (
+                  <div className="flex justify-between text-emerald-600 font-bold">
+                    <span>Discount ({activePromo.discountPercent}%)</span>
+                    <span>-KES {promoDiscount}</span>
+                  </div>
+                )}
                 <div className="flex justify-between text-gray-500">
                   <span>Delivery fee</span>
                   <span className="font-bold text-gray-900 dark:text-white">KES {deliveryFee}</span>

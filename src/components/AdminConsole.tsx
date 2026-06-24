@@ -24,7 +24,7 @@ import { User, LogOut,
   MessageSquare,
   Database
 } from "lucide-react";
-import { Product, Order, SupportTicket, MarketingCampaign, CMSPost, AuditAnomaly, StoreSettings, SystemMetrics, UserProfile } from "../types";
+import { Product, Order, SupportTicket, MarketingCampaign, CMSPost, AuditAnomaly, StoreSettings, SystemMetrics, UserProfile, Promo } from "../types";
 import { supabase } from "../lib/supabase";
 import { sanitizeInput } from "../utils/sanitize";
 import { uploadToSupabase } from "../utils/supabaseStorage";
@@ -51,6 +51,8 @@ interface AdminConsoleProps {
   onResolveAnomaly: (anomalyId: string) => void;
   users: UserProfile[];
   onUpdateUsers: (users: UserProfile[]) => void;
+  promos: Promo[];
+  onUpdatePromos: (promos: Promo[]) => void;
 }
 
 export default function AdminConsole({
@@ -68,7 +70,9 @@ export default function AdminConsole({
   onUpdateSettings,
   onResolveAnomaly,
   users,
-  onUpdateUsers
+  onUpdateUsers,
+  promos,
+  onUpdatePromos
 }: AdminConsoleProps) {
   const { signOut } = useAuth();
   const [adminName, setAdminName] = useState(storeSettings?.adminName || "");
@@ -130,7 +134,6 @@ export default function AdminConsole({
   // Marketing states
   const [promoCodeInput, setPromoCodeInput] = useState<string>("");
   const [promoValueInput, setPromoValueInput] = useState<number>(10);
-  const [promosList, setPromosList] = useState<{ code: string; discountPercent: number }[]>([]);
 
   // Support Tiketing responses state
   const [replyTicketId, setReplyTicketId] = useState<string | null>(null);
@@ -308,12 +311,46 @@ export default function AdminConsole({
     onUpdateInventory(nextArr);
   };
 
-  const handleCreatePromo = (e: React.FormEvent) => {
+  const handleCreatePromo = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!promoCodeInput) return;
-    setPromosList((prev) => [...prev, { code: promoCodeInput.trim().toUpperCase(), discountPercent: promoValueInput }]);
-    setPromoCodeInput("");
-    toast.success(`Success: Coupon Code '${promoCodeInput.trim().toUpperCase()}' has been activated!`);
+    
+    const newCode = promoCodeInput.trim().toUpperCase();
+    
+    try {
+      const { data, error } = await supabase.from('promos').insert({
+        code: newCode,
+        discount_percent: promoValueInput
+      }).select('*').single();
+      
+      if (error) throw error;
+      
+      const newPromo: Promo = {
+        id: data.id,
+        code: data.code,
+        discountPercent: data.discount_percent,
+        isActive: data.is_active,
+        createdAt: data.created_at
+      };
+      
+      onUpdatePromos([...promos, newPromo]);
+      setPromoCodeInput("");
+      toast.success(`Success: Coupon Code '${newCode}' has been activated!`);
+    } catch (err: any) {
+      toast.error("Failed to create promo code: " + err.message);
+    }
+  };
+
+  const handleDeletePromo = async (promoId: string) => {
+    try {
+      const { error } = await supabase.from('promos').delete().eq('id', promoId);
+      if (error) throw error;
+      
+      onUpdatePromos(promos.filter(p => p.id !== promoId));
+      toast.success("Promo code deleted");
+    } catch (err: any) {
+      toast.error("Failed to delete promo: " + err.message);
+    }
   };
 
   const handleCmsSubmit = async (e: React.FormEvent) => {
@@ -1196,10 +1233,10 @@ export default function AdminConsole({
                 <div className="pt-4 border-t space-y-2">
                   <div className="text-[10px] font-bold text-gray-400 uppercase">Deployed coupons</div>
                   <div className="flex flex-wrap gap-1.5">
-                    {promosList.map((itm) => (
-                      <span key={itm.code} className="bg-lime-400 text-emerald-950 font-mono font-bold text-[11px] px-2.5 py-1 rounded-full border border-lime-500 flex items-center gap-1.5">
+                    {promos.map((itm) => (
+                      <span key={itm.id} className="bg-lime-400 text-emerald-950 font-mono font-bold text-[11px] px-2.5 py-1 rounded-full border border-lime-500 flex items-center gap-1.5">
                         {itm.code} (-{itm.discountPercent}%)
-                        <button type="button" onClick={() => setPromosList(prev => prev.filter(c => c.code !== itm.code))} className="font-sans hover:text-red-700 text-emerald-950 font-bold">×</button>
+                        <button type="button" onClick={() => handleDeletePromo(itm.id)} className="font-sans hover:text-red-700 text-emerald-950 font-bold">×</button>
                       </span>
                     ))}
                   </div>

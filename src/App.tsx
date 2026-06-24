@@ -30,7 +30,7 @@ import CustomerAuth from "./components/auth/CustomerAuth";
 import AdminAuth from "./components/auth/AdminAuth";
 import NotFound from './components/NotFound';
 import { Toaster, toast } from 'react-hot-toast';
-import { Product, Order, SupportTicket, MarketingCampaign, BookingEvent, CMSPost, DevOpsLog, AuditAnomaly, StoreSettings, UserProfile } from "./types";
+import { Product, Order, SupportTicket, MarketingCampaign, BookingEvent, CMSPost, DevOpsLog, AuditAnomaly, StoreSettings, UserProfile, Promo } from "./types";
 
 const CustomerStore = lazy(() => import("./components/CustomerStore"));
 const AdminConsole = lazy(() => import("./components/AdminConsole"));
@@ -57,6 +57,7 @@ export default function App() {
   const [anomalies, setAnomalies] = useState<AuditAnomaly[]>([]);
   const [storeSettings, setStoreSettings] = useState<StoreSettings>({} as StoreSettings);
   const [users, setUsers] = useState<UserProfile[]>([]);
+  const [promos, setPromos] = useState<Promo[]>([]);
 
   // Mobile menu visibility
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
@@ -201,6 +202,15 @@ export default function App() {
           setCampaigns(mappedCamp);
         }
 
+        // Promos
+        const { data: promoData, error: promoErr } = await supabase.from('promos').select('*');
+        if (promoData && !promoErr) {
+          const mappedPromos: Promo[] = promoData.map((p: any) => ({
+            id: p.id, code: p.code, discountPercent: p.discount_percent, isActive: p.is_active, createdAt: p.created_at
+          }));
+          setPromos(mappedPromos);
+        }
+
       } catch (err) { console.warn("Supabase not active", err); }
     };
     
@@ -213,6 +223,7 @@ export default function App() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'store_settings' }, fetchAllData)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, fetchAllData)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'campaigns' }, fetchAllData)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'promos' }, fetchAllData)
       .subscribe();
       
     return () => { supabase.removeChannel(channels); };
@@ -486,6 +497,7 @@ export default function App() {
                   products={products}
                   events={events}
                   cmsPosts={cmsPosts}
+                  promos={promos}
                   onAddOrder={handleAddNewOrder}
                   onRegisterEvent={handleRegisterEventSeat}
                   onUpdateProductStock={handleUpdateProductStock}
@@ -505,12 +517,14 @@ export default function App() {
                     anomalies={anomalies}
                     storeSettings={storeSettings}
                     users={users}
+                    promos={promos}
                     onUpdateInventory={setProducts}
                     onUpdateOrders={setOrders}
                     onUpdateCampaigns={setCampaigns}
                     onUpdateCMS={setCmsPosts}
                     onUpdateSettings={setStoreSettings}
                     onUpdateUsers={setUsers}
+                    onUpdatePromos={setPromos}
                     onResolveAnomaly={handleResolveAnomaly}
                   />
                 </ProtectedRoute>
