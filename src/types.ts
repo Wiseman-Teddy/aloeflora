@@ -182,6 +182,12 @@ export interface UserProfile {
   email: string;
   phone?: string;
   avatarUrl?: string;
+  address?: string;
+  hairType?: string;
+  skinType?: string;
+  wishlist?: string[];
+  cart?: CartItem[];
+  loyaltyPoints?: number;
   role: "admin" | "customer" | "moderator";
   accountStatus: "active" | "suspended" | "locked";
   createdAt: string;

@@ -56,6 +56,20 @@ export default function UserDashboard({ orders, products, events = [], onAddTick
   const [supportSubject, setSupportSubject] = useState("Product Recommendation");
   const [supportMessage, setSupportMessage] = useState("");
 
+  useEffect(() => {
+    if (user) {
+      supabase.from('profiles').select('*').eq('id', user.id).single().then(({ data }) => {
+        if (data) {
+           if (data.address) setAddress(data.address);
+           if (data.hair_type) setHairType(data.hair_type);
+           if (data.skin_type) setSkinType(data.skin_type);
+           if (data.avatar_url) setAvatarUrl(data.avatar_url);
+           if (data.wishlist && data.wishlist.length > 0) setWishlistIds(data.wishlist);
+        }
+      });
+    }
+  }, [user]);
+
   const handleSignOut = () => {
     signOut();
     navigate("/store");
@@ -64,7 +78,7 @@ export default function UserDashboard({ orders, products, events = [], onAddTick
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const { error } = await supabase.auth.updateUser({
+      const { error: authErr } = await supabase.auth.updateUser({
         data: {
           full_name: name,
           phone: phone,
@@ -74,7 +88,19 @@ export default function UserDashboard({ orders, products, events = [], onAddTick
           avatar_url: avatarUrl
         }
       });
-      if (error) throw error;
+      if (authErr) throw authErr;
+      
+      const { error: dbErr } = await supabase.from('profiles').update({
+         full_name: name,
+         phone: phone,
+         address: address,
+         hair_type: hairType,
+         skin_type: skinType,
+         avatar_url: avatarUrl
+      }).eq('id', user?.id);
+      
+      if (dbErr) throw dbErr;
+
       toast.success('Beauty Profile updated and synced securely!');
     } catch (err: any) {
       toast.error(`Error updating profile: ${err.message}`);
@@ -87,9 +113,8 @@ export default function UserDashboard({ orders, products, events = [], onAddTick
     setWishlistIds(newWishlist);
     
     if (user) {
-      await supabase.auth.updateUser({
-        data: { wishlist: newWishlist }
-      });
+      await supabase.auth.updateUser({ data: { wishlist: newWishlist } });
+      await supabase.from('profiles').update({ wishlist: newWishlist }).eq('id', user.id);
     }
   };
 
@@ -145,6 +170,17 @@ export default function UserDashboard({ orders, products, events = [], onAddTick
       ["Product", "Unit Price", "Quantity", "Subtotal"],
       rows
     );
+  };
+
+  const handleCancelOrder = async (orderId: string) => {
+    if (!window.confirm("Are you sure you want to cancel this order?")) return;
+    try {
+      const { error } = await supabase.from('orders').update({ delivery_status: 'cancelled' }).eq('id', orderId);
+      if (error) throw error;
+      toast.success("Order cancelled successfully.");
+    } catch(err: any) {
+      toast.error("Failed to cancel order: " + err.message);
+    }
   };
 
   const handleDownloadSpendingReport = () => {
@@ -434,9 +470,21 @@ export default function UserDashboard({ orders, products, events = [], onAddTick
                 <div className="flex-1">
                   <h3 className="text-lg font-bold text-emerald-900 dark:text-emerald-100">Refer & Earn</h3>
                   <p className="text-xs text-emerald-700 dark:text-emerald-300 mt-1 mb-3">Invite your friends and earn KES 500 for each successful referral.</p>
-                  <button onClick={() => {
-                    navigator.clipboard.writeText(`https://aloeflora.com/invite/${name.replace(/\s+/g, '').toLowerCase()}`);
-                    toast.success("Referral link copied to clipboard!");
+                  <button onClick={async () => {
+                    const code = `REF-${name.split(' ')[0].toUpperCase()}-${user?.id.slice(0, 4).toUpperCase()}`;
+                    const link = `https://aloeflora.com/invite/${code}`;
+                    try {
+                       const { data } = await supabase.from('promos').select('*').eq('code', code).single();
+                       if (!data) {
+                          await supabase.from('promos').insert({
+                             code: code,
+                             discount_percent: 10,
+                             is_active: true
+                          });
+                       }
+                    } catch(err) {}
+                    navigator.clipboard.writeText(link);
+                    toast.success("Referral link copied to clipboard! Promo generated.");
                   }} className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-4 py-2 rounded-lg transition">
                     Refer Now
                   </button>
@@ -574,6 +622,14 @@ export default function UserDashboard({ orders, products, events = [], onAddTick
                         <FileText className="w-3.5 h-3.5" />
                         <span className="hidden md:inline">Invoice</span>
                       </button>
+                      {order.deliveryStatus === 'pending' && (
+                        <button 
+                          onClick={() => handleCancelOrder(order.id)}
+                          className="bg-red-50 hover:bg-red-100 dark:bg-red-900/20 dark:hover:bg-red-900/40 text-red-600 dark:text-red-400 px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer ml-2"
+                        >
+                          Cancel
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>

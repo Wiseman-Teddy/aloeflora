@@ -133,15 +133,44 @@ export default function CustomerStore({
   const [regEmail, setRegEmail] = useState<string>("");
   const [regPhone, setRegPhone] = useState<string>("");
 
-  // Save Cart to localstorage
+  // Fetch user profile on login
+  useEffect(() => {
+    if (user) {
+      const loadProfile = async () => {
+        const { data } = await supabase.from('profiles').select('*').eq('id', user.id).single();
+        if (data) {
+          if (data.wishlist && data.wishlist.length > 0) setWishlist(data.wishlist);
+          if (data.cart && data.cart.length > 0) setCart(data.cart);
+          if (data.loyalty_points) setLoyaltyPoints(data.loyalty_points);
+        }
+      };
+      loadProfile();
+    }
+  }, [user]);
+
+  // Save Cart to localstorage & Supabase
   useEffect(() => {
     localStorage.setItem("aloeflora_cart", JSON.stringify(cart));
-  }, [cart]);
+    if (user) {
+      supabase.from('profiles').update({ cart }).eq('id', user.id).then();
+    }
+  }, [cart, user]);
 
   // Save Wishlist
   useEffect(() => {
     localStorage.setItem("aloeflora_wishlist", JSON.stringify(wishlist));
-  }, [wishlist]);
+    if (user) {
+      supabase.from('profiles').update({ wishlist }).eq('id', user.id).then();
+      supabase.auth.updateUser({ data: { wishlist } });
+    }
+  }, [wishlist, user]);
+
+  // Save loyalty points
+  useEffect(() => {
+    if (user && loyaltyPoints > 0) {
+       supabase.from('profiles').update({ loyalty_points: loyaltyPoints }).eq('id', user.id).then();
+    }
+  }, [loyaltyPoints, user]);
 
   // Auto-rotate hero slide every 5 seconds
   useEffect(() => {
@@ -386,19 +415,64 @@ export default function CustomerStore({
     }
   };
 
-  const handleRegister = (e: React.FormEvent, eventId: string) => {
+  const handleRegister = async (e: React.FormEvent, eventId: string) => {
     e.preventDefault();
     if (!regName || !regEmail || !regPhone) {
       toast.error("Fields cannot be empty!");
       return;
     }
-    const success = onRegisterEvent(eventId, { name: regName, email: regEmail, phone: regPhone });
-    if (success) {
-      toast.success(`Successfully registered ${regName} for the event! A confirmation email and SMS has been fired to ${regPhone}. See you at the botanical gardens!`);
+
+    const post = cmsPosts.find(p => p.id === eventId);
+    if (!post) return;
+
+    try {
+      let { data: evtData, error: evtErr } = await supabase.from('events').select('*').eq('id', eventId).single();
+      
+      if (!evtData) {
+         const newEvt = {
+            id: post.id,
+            title: post.title,
+            date: post.seoTitle || "TBA",
+            location: post.seoDesc || "TBA",
+            description: post.content,
+            image_url: post.imageUrl || null,
+            capacity: parseInt(post.seoKeywords || "50") || 50,
+            registrant_count: 0,
+            registrants: []
+         };
+         await supabase.from('events').insert(newEvt);
+         evtData = newEvt;
+      }
+      
+      if (evtData.registrant_count >= evtData.capacity) {
+         toast.error("Sorry, this event has reached full seating capacity.");
+         return;
+      }
+      
+      const newRegistrant = {
+          name: regName,
+          email: regEmail,
+          phone: regPhone,
+          registeredAt: new Date().toISOString()
+      };
+      
+      const newRegistrants = [...evtData.registrants, newRegistrant];
+      
+      const { error: updateErr } = await supabase.from('events').update({
+          registrant_count: evtData.registrant_count + 1,
+          registrants: newRegistrants
+      }).eq('id', eventId);
+      
+      if (updateErr) throw updateErr;
+
+      onRegisterEvent(eventId, { name: regName, email: regEmail, phone: regPhone });
+      toast.success(`Successfully registered ${regName} for the event!`);
       setRegEventId(null);
       setRegName("");
       setRegEmail("");
       setRegPhone("");
+    } catch (err: any) {
+      toast.error("Registration failed: " + err.message);
     }
   };
 

@@ -517,7 +517,7 @@ export default function AdminConsole({
     toast.success("Enterprise Financial Audit PDF generated successfully. Downloading...");
   };
 
-  const handleTicketReplySubmit = (e: React.FormEvent, ticketId: string) => {
+  const handleTicketReplySubmit = async (e: React.FormEvent, ticketId: string) => {
     e.preventDefault();
     if (!replyMessage.trim()) return;
 
@@ -525,16 +525,22 @@ export default function AdminConsole({
     const matchedIdx = tickets.findIndex(t => t.id === ticketId);
     if (matchedIdx !== -1) {
       const target = tickets[matchedIdx];
-      const updated = {
-        ...target,
-        status: "resolved" as const,
-        replies: [...target.replies, { sender: "admin" as const, message: replyMessage, timestamp: new Date().toISOString() }]
-      };
+      const newReplies = [...target.replies, { sender: "admin" as const, message: replyMessage, timestamp: new Date().toISOString() }];
       
-      // Save it
-      toast.success(`Reply fired successfully to customer. Ticket resolved.`);
-      setReplyTicketId(null);
-      setReplyMessage("");
+      try {
+        const { error } = await supabase.from('support_tickets').update({
+          status: 'resolved',
+          replies: newReplies
+        }).eq('id', ticketId);
+        
+        if (error) throw error;
+        
+        toast.success(`Reply fired successfully to customer. Ticket resolved.`);
+        setReplyTicketId(null);
+        setReplyMessage("");
+      } catch (err: any) {
+        toast.error("Failed to save reply: " + err.message);
+      }
     }
   };
 

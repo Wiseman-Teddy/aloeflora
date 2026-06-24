@@ -166,6 +166,17 @@ export default function App() {
           }));
           setTickets(mappedTkts);
         }
+
+        // Events
+        const { data: evtData, error: evtErr } = await supabase.from('events').select('*');
+        if (evtData && !evtErr) {
+          const mappedEvts: BookingEvent[] = evtData.map((e: any) => ({
+            id: e.id, title: e.title, date: e.date, time: e.time || "TBA", location: e.location,
+            description: e.description, imageUrl: e.image_url, capacity: e.capacity,
+            registrantCount: e.registrant_count, registrants: e.registrants || [], status: e.status || "upcoming"
+          }));
+          setEvents(mappedEvts);
+        }
         // Store Settings
         const { data: stData, error: stErr } = await supabase.from('store_settings').select('*').eq('id', 'global').single();
         if (stData && !stErr) {

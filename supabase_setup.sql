@@ -80,7 +80,14 @@ CREATE TABLE IF NOT EXISTS profiles (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     last_login TIMESTAMP WITH TIME ZONE,
     total_spending DECIMAL(12,2) DEFAULT 0.00,
-    order_count INTEGER DEFAULT 0
+    order_count INTEGER DEFAULT 0,
+    address VARCHAR(255),
+    hair_type VARCHAR(100),
+    skin_type VARCHAR(100),
+    avatar_url TEXT,
+    wishlist JSONB DEFAULT '[]'::jsonb,
+    cart JSONB DEFAULT '[]'::jsonb,
+    loyalty_points INTEGER DEFAULT 0
 );
 
 -- Function to handle new user inserts automatically
@@ -140,10 +147,10 @@ CREATE POLICY "Public can view Store Settings" ON store_settings FOR SELECT USIN
 
 -- Customer access policies
 CREATE POLICY "Customers can view their orders" ON orders FOR SELECT USING (
-    customer_id = auth.uid() OR (auth.jwt() ->> 'role') = 'admin'
+    email = (auth.jwt() ->> 'email') OR (auth.jwt() ->> 'role') = 'admin'
 );
 CREATE POLICY "Customers can create orders" ON orders FOR INSERT WITH CHECK (
-    customer_id = auth.uid() OR auth.uid() IS NULL -- Allow anon for demo
+    email = (auth.jwt() ->> 'email') OR auth.uid() IS NULL -- Allow anon for demo
 );
 CREATE POLICY "Customers can view their tickets" ON support_tickets FOR SELECT USING (
     email = (auth.jwt() ->> 'email') OR (auth.jwt() ->> 'role') = 'admin'
@@ -219,3 +226,35 @@ CREATE TABLE IF NOT EXISTS promos (
     is_active BOOLEAN DEFAULT true,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
+
+-- ADD NEW COLUMNS TO EXISTING PROFILES
+DO $$ 
+BEGIN 
+    BEGIN
+        ALTER TABLE profiles ADD COLUMN address VARCHAR(255);
+    EXCEPTION WHEN duplicate_column THEN END;
+    
+    BEGIN
+        ALTER TABLE profiles ADD COLUMN hair_type VARCHAR(100);
+    EXCEPTION WHEN duplicate_column THEN END;
+    
+    BEGIN
+        ALTER TABLE profiles ADD COLUMN skin_type VARCHAR(100);
+    EXCEPTION WHEN duplicate_column THEN END;
+    
+    BEGIN
+        ALTER TABLE profiles ADD COLUMN avatar_url TEXT;
+    EXCEPTION WHEN duplicate_column THEN END;
+    
+    BEGIN
+        ALTER TABLE profiles ADD COLUMN wishlist JSONB DEFAULT '[]'::jsonb;
+    EXCEPTION WHEN duplicate_column THEN END;
+    
+    BEGIN
+        ALTER TABLE profiles ADD COLUMN cart JSONB DEFAULT '[]'::jsonb;
+    EXCEPTION WHEN duplicate_column THEN END;
+    
+    BEGIN
+        ALTER TABLE profiles ADD COLUMN loyalty_points INTEGER DEFAULT 0;
+    EXCEPTION WHEN duplicate_column THEN END;
+END $$;
