@@ -1016,7 +1016,7 @@ export default function AdminConsole({
                     return (
                       <tr key={p.id} className="hover:bg-zinc-50/50">
                         <td className="p-3 flex items-center gap-2 max-w-xs md:max-w-md">
-                          <img src={p.imageUrl} alt={p.name} className="w-8 h-8 rounded border object-cover shrink-0" />
+                          <img src={p.imageUrl?.split(',')[0]} alt={p.name} className="w-8 h-8 rounded border object-cover shrink-0" />
                           <div className="truncate">
                             <div className="font-extrabold text-gray-900 truncate">{p.name}</div>
                             <span className="text-[10px] uppercase font-bold text-lime-600 bg-emerald-50 px-1.5 py-0.5 rounded">

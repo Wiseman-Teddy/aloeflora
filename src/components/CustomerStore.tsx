@@ -770,7 +770,7 @@ export default function CustomerStore({
                     className="h-44 w-full rounded-xl overflow-hidden bg-gray-50 group-hover:scale-[1.02] cursor-pointer transition duration-300 mb-4 bg-emerald-950/20 flex items-center justify-center relative"
                   >
                     <img 
-                      src={p.imageUrl} 
+                      src={p.imageUrl?.split(',')[0]} 
                       alt={p.name} 
                       className="w-full h-full object-cover"
                       referrerPolicy="no-referrer"
@@ -1037,7 +1037,7 @@ export default function CustomerStore({
                     Remove
                   </button>
                   <div className="h-16 w-16 bg-white overflow-hidden rounded-lg mx-auto mb-3 border">
-                    <img src={p.imageUrl} alt={p.name} className="w-full h-full object-cover" />
+                    <img src={p.imageUrl?.split(',')[0]} alt={p.name} className="w-full h-full object-cover" />
                   </div>
                   <h4 className="font-bold text-xs truncate text-center">{p.name}</h4>
                   
@@ -1093,7 +1093,7 @@ export default function CustomerStore({
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start mt-4">
               <div className="space-y-4">
                 <div className="h-52 md:h-64 rounded-2xl overflow-hidden shadow-md bg-emerald-950/20 mb-2">
-                  <img src={selectedProduct.mediaUrls && selectedProduct.mediaUrls.length > 0 ? selectedProduct.mediaUrls[0] : selectedProduct.imageUrl} alt={selectedProduct.name} className="w-full h-full object-cover" />
+                  <img src={selectedProduct.mediaUrls && selectedProduct.mediaUrls.length > 0 ? selectedProduct.mediaUrls[0] : selectedProduct.imageUrl?.split(',')[0]} alt={selectedProduct.name} className="w-full h-full object-cover" />
                 </div>
                 {selectedProduct.mediaUrls && selectedProduct.mediaUrls.length > 1 && (
                   <div className="flex gap-2 overflow-x-auto pb-2">
