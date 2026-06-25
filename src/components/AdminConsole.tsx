@@ -117,7 +117,7 @@ export default function AdminConsole({
   const [editingCmsId, setEditingCmsId] = useState<string | null>(null);
   const [cmsTitle, setCmsTitle] = useState<string>("");
   const [cmsContent, setCmsContent] = useState<string>("");
-  const [cmsType, setCmsType] = useState<"blog" | "testimonial" | "policy" | "faq" | "promo" | "hero" | "award">("blog");
+  const [cmsType, setCmsType] = useState<"blog" | "testimonial" | "policy" | "faq" | "promo" | "promotion" | "hero" | "award">("blog");
   const [cmsStatus, setCmsStatus] = useState<"draft" | "published">("published");
   const [cmsImageUrls, setCmsImageUrls] = useState<string[]>([]);
   const [isUploadingCms, setIsUploadingCms] = useState(false);

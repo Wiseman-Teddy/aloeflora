@@ -37,6 +37,8 @@ import { supabase } from "../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
 import { toast } from "react-hot-toast";
 
+const CUSTOMER_RATING_ACCENTS = ["Amazing!", "Loved it.", "Smells great.", "Good texture.", "Highly recommended!", "Will buy again."];
+
 interface CustomerStoreProps {
   products: Product[];
   events: BookingEvent[];
