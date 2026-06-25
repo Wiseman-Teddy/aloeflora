@@ -76,6 +76,7 @@ export default function CustomerStore({
     const saved = localStorage.getItem("aloeflora_wishlist");
     return saved ? JSON.parse(saved) : [];
   });
+  const [isProfileLoaded, setIsProfileLoaded] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const location = useLocation();
 
@@ -137,9 +138,15 @@ export default function CustomerStore({
 
   // Customer AI Specialist (Gemini assistant proxy)
   const [customerQuery, setCustomerQuery] = useState<string>("");
-  const [aiChatHistory, setAiChatHistory] = useState<{ role: string; text: string }[]>([
-    { role: "assistant", text: "Habari! I am ALOEFLORA PRODUCTS's AI Specialist from Nairobi. How can I assist you with your hair, body, or home care goals today? I can suggest products tailored precisely for curl moisture or skin repair." }
-  ]);
+  const [aiChatHistory, setAiChatHistory] = useState<{ role: string; text: string }[]>(() => {
+    const saved = localStorage.getItem("aloeflora_ai_chat");
+    if (saved) {
+      return JSON.parse(saved);
+    }
+    return [
+      { role: "assistant", text: "Habari! I am ALOEFLORA PRODUCTS's AI Specialist from Nairobi. How can I assist you with your hair, body, or home care goals today? I can suggest products tailored precisely for curl moisture or skin repair." }
+    ];
+  });
   const [isAiLoading, setIsAiLoading] = useState<boolean>(false);
   const [openAiAssistant, setOpenAiAssistant] = useState<boolean>(false);
 
@@ -155,38 +162,70 @@ export default function CustomerStore({
       const loadProfile = async () => {
         const { data } = await supabase.from('profiles').select('*').eq('id', user.id).single();
         if (data) {
-          if (data.wishlist && data.wishlist.length > 0) setWishlist(data.wishlist);
-          if (data.cart && data.cart.length > 0) setCart(data.cart);
+          if (data.wishlist && data.wishlist.length > 0) {
+            setWishlist(prev => Array.from(new Set([...prev, ...data.wishlist])));
+          }
+          if (data.cart && data.cart.length > 0) {
+            setCart(prev => {
+              const newCart = [...prev];
+              data.cart.forEach((remoteItem: CartItem) => {
+                const existing = newCart.find(localItem => 
+                  localItem.product.id === remoteItem.product.id && 
+                  localItem.selectedVariant === remoteItem.selectedVariant
+                );
+                if (!existing) {
+                  newCart.push(remoteItem);
+                } else {
+                  existing.quantity = Math.max(existing.quantity, remoteItem.quantity);
+                }
+              });
+              return newCart;
+            });
+          }
           if (data.loyalty_points) setLoyaltyPoints(data.loyalty_points);
+          if (data.ai_chat_history && data.ai_chat_history.length > 1) {
+            setAiChatHistory(prev => prev.length > 1 ? prev : data.ai_chat_history);
+          }
         }
+        setIsProfileLoaded(true);
       };
       loadProfile();
+    } else {
+      setIsProfileLoaded(false);
     }
   }, [user]);
 
   // Save Cart to localstorage & Supabase
   useEffect(() => {
     localStorage.setItem("aloeflora_cart", JSON.stringify(cart));
-    if (user) {
+    if (user && isProfileLoaded) {
       supabase.from('profiles').update({ cart }).eq('id', user.id).then();
     }
-  }, [cart, user]);
+  }, [cart, user, isProfileLoaded]);
 
   // Save Wishlist
   useEffect(() => {
     localStorage.setItem("aloeflora_wishlist", JSON.stringify(wishlist));
-    if (user) {
+    if (user && isProfileLoaded) {
       supabase.from('profiles').update({ wishlist }).eq('id', user.id).then();
       supabase.auth.updateUser({ data: { wishlist } });
     }
-  }, [wishlist, user]);
+  }, [wishlist, user, isProfileLoaded]);
 
   // Save loyalty points
   useEffect(() => {
-    if (user && loyaltyPoints > 0) {
+    if (user && loyaltyPoints > 0 && isProfileLoaded) {
        supabase.from('profiles').update({ loyalty_points: loyaltyPoints }).eq('id', user.id).then();
     }
-  }, [loyaltyPoints, user]);
+  }, [loyaltyPoints, user, isProfileLoaded]);
+
+  // Save AI Chat History
+  useEffect(() => {
+    localStorage.setItem("aloeflora_ai_chat", JSON.stringify(aiChatHistory));
+    if (user && isProfileLoaded) {
+      supabase.from('profiles').update({ ai_chat_history: aiChatHistory }).eq('id', user.id).then();
+    }
+  }, [aiChatHistory, user, isProfileLoaded]);
 
   // Auto-rotate hero slide every 5 seconds
   useEffect(() => {

@@ -12,6 +12,14 @@ export default function CustomerAuth({ initialMode = 'login' }: CustomerAuthProp
   const [authConsent, setAuthConsent] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  
+  // Registration Beauty Profile details
+  const [fullName, setFullName] = useState('');
+  const [phone, setPhone] = useState('');
+  const [address, setAddress] = useState('');
+  const [hairType, setHairType] = useState('Type 4C');
+  const [skinType, setSkinType] = useState('Combination');
+  
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
@@ -39,6 +47,13 @@ export default function CustomerAuth({ initialMode = 'login' }: CustomerAuthProp
           email,
           password,
           options: {
+            data: {
+              full_name: fullName,
+              phone: phone,
+              address: address,
+              hair_type: hairType,
+              skin_type: skinType,
+            },
             emailRedirectTo: `${window.location.origin}/customer/dashboard`,
           }
         });
@@ -134,20 +149,56 @@ export default function CustomerAuth({ initialMode = 'login' }: CustomerAuthProp
           )}
 
           {mode === 'register' && (
-            <label className="flex items-start gap-2 cursor-pointer p-3 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-xl mt-2 text-xs">
-              <input 
-                type="checkbox" 
-                required
-                className="mt-0.5" 
-                checked={authConsent}
-                onChange={(e) => setAuthConsent(e.target.checked)}
-              />
+            <>
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-gray-700 dark:text-gray-300 ml-1">Full Name</label>
+                <input type="text" required value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Jane Doe" className="w-full pl-4 pr-4 py-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 transition text-sm dark:text-white" />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-gray-700 dark:text-gray-300 ml-1">Phone Number</label>
+                <input type="tel" required value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+254 700 000000" className="w-full pl-4 pr-4 py-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 transition text-sm dark:text-white" />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-gray-700 dark:text-gray-300 ml-1">Default Address</label>
+                <input type="text" required value={address} onChange={(e) => setAddress(e.target.value)} placeholder="e.g. Westlands, Nairobi" className="w-full pl-4 pr-4 py-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 transition text-sm dark:text-white" />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-gray-700 dark:text-gray-300 ml-1">Hair Type</label>
+                  <select value={hairType} onChange={(e) => setHairType(e.target.value)} className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:border-emerald-600 transition text-sm dark:text-white appearance-none">
+                    <option>Type 1 (Straight)</option>
+                    <option>Type 2 (Wavy)</option>
+                    <option>Type 3 (Curly)</option>
+                    <option>Type 4 (Coily/Kinky)</option>
+                  </select>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-gray-700 dark:text-gray-300 ml-1">Skin Type</label>
+                  <select value={skinType} onChange={(e) => setSkinType(e.target.value)} className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:border-emerald-600 transition text-sm dark:text-white appearance-none">
+                    <option>Normal</option>
+                    <option>Dry</option>
+                    <option>Oily</option>
+                    <option>Combination</option>
+                    <option>Sensitive</option>
+                  </select>
+                </div>
+              </div>
+              
+              <label className="flex items-start gap-2 cursor-pointer p-3 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-xl mt-2 text-xs">
+                <input 
+                  type="checkbox" 
+                  required
+                  className="mt-0.5" 
+                  checked={authConsent}
+                  onChange={(e) => setAuthConsent(e.target.checked)}
+                />
               <span className="text-gray-600 dark:text-gray-400">
                 I explicitly agree to the ALOEFLORA PRODUCTS 
                 <span className="font-bold text-emerald-800 dark:text-emerald-400"> Privacy Policy</span> and 
                 <span className="font-bold text-emerald-800 dark:text-emerald-400"> Terms of Service</span>.
               </span>
             </label>
+            </>
           )}
 
           <button

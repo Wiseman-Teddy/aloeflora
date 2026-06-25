@@ -19,7 +19,8 @@ import {
   MessageSquare,
   FileText,
   TrendingUp,
-  Download
+  Download,
+  X
 } from "lucide-react";
 import { exportToPDF } from "../utils/exportUtils";
 import { supabase } from "../lib/supabase";
@@ -55,6 +56,12 @@ export default function UserDashboard({ orders, products, events = [], onAddTick
   // Support Form State
   const [supportSubject, setSupportSubject] = useState("Product Recommendation");
   const [supportMessage, setSupportMessage] = useState("");
+
+  // Review Modal State
+  const [reviewProductId, setReviewProductId] = useState<string | null>(null);
+  const [reviewRating, setReviewRating] = useState<number>(5);
+  const [reviewText, setReviewText] = useState<string>("");
+  const [isSubmittingReview, setIsSubmittingReview] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -143,6 +150,29 @@ export default function UserDashboard({ orders, products, events = [], onAddTick
     onAddTicket(newTicket);
     setSupportMessage("");
     toast.success("Support ticket sent! Our team will contact you shortly.");
+  };
+
+  const handleSubmitReview = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!reviewProductId || !user) return;
+    setIsSubmittingReview(true);
+    try {
+      const { error } = await supabase.from('product_reviews').insert({
+        product_id: reviewProductId,
+        user_id: user.id,
+        rating: reviewRating,
+        review_text: reviewText
+      });
+      if (error) throw error;
+      toast.success("Thank you! Your review has been submitted.");
+      setReviewProductId(null);
+      setReviewRating(5);
+      setReviewText("");
+    } catch (err: any) {
+      toast.error(`Failed to submit review: ${err.message}`);
+    } finally {
+      setIsSubmittingReview(false);
+    }
   };
 
   const handleDownloadTicket = (evt: BookingEvent) => {
@@ -630,6 +660,19 @@ export default function UserDashboard({ orders, products, events = [], onAddTick
                           Cancel
                         </button>
                       )}
+                      {order.deliveryStatus === 'delivered' && order.items.length > 0 && (
+                        <button 
+                          onClick={() => {
+                            setReviewProductId(order.items[0].productId);
+                            setReviewRating(5);
+                            setReviewText("");
+                          }}
+                          className="bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-900/20 dark:hover:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400 px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer ml-2"
+                        >
+                          <Star className="w-3.5 h-3.5" />
+                          <span className="hidden md:inline">Review</span>
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -747,6 +790,47 @@ export default function UserDashboard({ orders, products, events = [], onAddTick
         )}
 
       </div>
+      
+      {/* Review Modal Overlay */}
+      {reviewProductId && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-gray-900 rounded-3xl p-6 md:p-8 max-w-md w-full shadow-2xl animate-in zoom-in duration-200">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-xl font-bold text-gray-900 dark:text-white">Rate your purchase</h3>
+              <button onClick={() => setReviewProductId(null)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition">
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+            <form onSubmit={handleSubmitReview} className="space-y-5">
+              <div className="flex justify-center gap-2 mb-4">
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <button
+                    key={star}
+                    type="button"
+                    onClick={() => setReviewRating(star)}
+                    className="transition transform hover:scale-110 cursor-pointer"
+                  >
+                    <Star className={`w-10 h-10 ${reviewRating >= star ? 'text-amber-400 fill-amber-400' : 'text-gray-200 dark:text-gray-700'}`} />
+                  </button>
+                ))}
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-gray-500 uppercase">Write a review (Optional)</label>
+                <textarea 
+                  rows={4} 
+                  value={reviewText} 
+                  onChange={(e) => setReviewText(e.target.value)}
+                  placeholder="Tell others what you loved about this product..."
+                  className="w-full p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:border-emerald-600 text-sm dark:text-white transition resize-none"
+                ></textarea>
+              </div>
+              <button type="submit" disabled={isSubmittingReview} className="w-full bg-emerald-800 text-white font-bold py-3 rounded-xl hover:bg-emerald-700 transition shadow disabled:opacity-50 cursor-pointer">
+                {isSubmittingReview ? 'Submitting...' : 'Submit Review'}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
