@@ -63,6 +63,17 @@ export default function App() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
   const [showLegal, setShowLegal] = useState<boolean>(false);
 
+  // One-time production rollout cache wipe to resolve any stale image references
+  useEffect(() => {
+    if (!localStorage.getItem("aloeflora_prod_v1")) {
+      const isDarkMode = localStorage.getItem("aloeflora_dark_mode");
+      localStorage.clear();
+      if (isDarkMode) localStorage.setItem("aloeflora_dark_mode", isDarkMode);
+      localStorage.setItem("aloeflora_prod_v1", "true");
+      window.location.reload();
+    }
+  }, []);
+
   // Sync state variables to LocalStorage on updates
   useEffect(() => {
     localStorage.setItem("aloeflora_db_products", JSON.stringify(products));

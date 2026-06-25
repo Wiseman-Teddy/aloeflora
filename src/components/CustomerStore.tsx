@@ -770,7 +770,7 @@ export default function CustomerStore({
                     className="h-44 w-full rounded-xl overflow-hidden bg-gray-50 group-hover:scale-[1.02] cursor-pointer transition duration-300 mb-4 bg-emerald-950/20 flex items-center justify-center relative"
                   >
                     <img 
-                      src={p.imageUrl?.split(',')[0]} 
+                      src={(p.mediaUrls && p.mediaUrls.length > 0) ? p.mediaUrls[0] : p.imageUrl?.split(',')[0]} 
                       alt={p.name} 
                       className="w-full h-full object-cover"
                       referrerPolicy="no-referrer"
@@ -1037,7 +1037,7 @@ export default function CustomerStore({
                     Remove
                   </button>
                   <div className="h-16 w-16 bg-white overflow-hidden rounded-lg mx-auto mb-3 border">
-                    <img src={p.imageUrl?.split(',')[0]} alt={p.name} className="w-full h-full object-cover" />
+                    <img src={(p.mediaUrls && p.mediaUrls.length > 0) ? p.mediaUrls[0] : p.imageUrl?.split(',')[0]} alt={p.name} className="w-full h-full object-cover" />
                   </div>
                   <h4 className="font-bold text-xs truncate text-center">{p.name}</h4>
                   
