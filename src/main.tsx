@@ -5,26 +5,7 @@ import { AuthProvider } from './contexts/AuthContext';
 import App from './App.tsx';
 import './index.css';
 
-// --- Production Cache Purge ---
-// Clear all legacy local storage and session storage
-try {
-  localStorage.clear();
-  sessionStorage.clear();
-  
-  // Unregister any lingering service workers
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.getRegistrations().then(function(registrations) {
-      for(let registration of registrations) {
-        registration.unregister();
-      }
-    }).catch(function(err) {
-      console.log('Service Worker registration failed: ', err);
-    });
-  }
-} catch (e) {
-  console.error("Cache purge failed", e);
-}
-// ------------------------------
+// Removed unconditional cache purge to prevent infinite reload loops
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
