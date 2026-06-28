@@ -117,7 +117,7 @@ export default function AdminConsole({
   const [editingCmsId, setEditingCmsId] = useState<string | null>(null);
   const [cmsTitle, setCmsTitle] = useState<string>("");
   const [cmsContent, setCmsContent] = useState<string>("");
-  const [cmsType, setCmsType] = useState<"blog" | "testimonial" | "policy" | "faq" | "promo" | "promotion" | "hero" | "award">("blog");
+  const [cmsType, setCmsType] = useState<"blog" | "testimonial" | "policy" | "faq" | "promo" | "promotion" | "hero" | "award" | "about" | "team">("blog");
   const [cmsStatus, setCmsStatus] = useState<"draft" | "published">("published");
   const [cmsImageUrls, setCmsImageUrls] = useState<string[]>([]);
   const [isUploadingCms, setIsUploadingCms] = useState(false);
@@ -1303,6 +1303,8 @@ export default function AdminConsole({
                       <option value="hero">Hero Slide</option>
                       <option value="award">Award Showcase</option>
                       <option value="promotion">Wellness Promotion Event</option>
+                      <option value="about">About Us Section</option>
+                      <option value="team">Our Team Section</option>
                     </select>
                   </div>
 

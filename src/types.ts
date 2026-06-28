@@ -128,7 +128,7 @@ export interface CMSPost {
   id: string;
   title: string;
   content: string;
-  type: "blog" | "testimonial" | "policy" | "faq" | "promo" | "promotion" | "hero" | "award";
+  type: "blog" | "testimonial" | "policy" | "faq" | "promo" | "promotion" | "hero" | "award" | "about" | "team";
   status: "draft" | "published";
   imageUrl?: string;
   author: string;

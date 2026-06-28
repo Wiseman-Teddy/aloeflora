@@ -839,6 +839,57 @@ export default function CustomerStore({
         )}
       </section>
 
+      {/* ABOUT US SECTION */}
+      {cmsPosts.filter(p => p.type === "about" && p.status === "published").length > 0 && (
+        <section id="about-us" className="mb-12 scroll-mt-10 text-left">
+          <div className="flex items-center justify-between pb-4 border-b border-gray-100 dark:border-gray-800 mb-6">
+            <div>
+              <span className="text-[10px] text-emerald-800 dark:text-emerald-400 uppercase font-bold tracking-widest">Our Story</span>
+              <h3 className="text-lg font-bold text-gray-900 dark:text-white mt-1">About Us</h3>
+            </div>
+            <Info className="w-5 h-5 text-emerald-800" />
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {cmsPosts.filter(p => p.type === "about" && p.status === "published").map(post => (
+              <div key={post.id} className="bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-2xl overflow-hidden shadow-sm p-6 flex flex-col md:flex-row gap-6 items-center md:items-start">
+                {post.imageUrl && (
+                  <img src={post.imageUrl.split(',')[0]} alt={post.title} className="w-full md:w-48 h-48 object-cover rounded-xl border border-gray-100 shrink-0" />
+                )}
+                <div>
+                  <h4 className="font-bold text-sm text-gray-900 dark:text-white mb-2">{post.title}</h4>
+                  <p className="text-xs text-gray-500 leading-relaxed whitespace-pre-wrap">{post.content}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* OUR TEAM SECTION */}
+      {cmsPosts.filter(p => p.type === "team" && p.status === "published").length > 0 && (
+        <section id="our-team" className="mb-12 scroll-mt-10 text-left">
+          <div className="flex items-center justify-between pb-4 border-b border-gray-100 dark:border-gray-800 mb-6">
+            <div>
+              <span className="text-[10px] text-emerald-800 dark:text-emerald-400 uppercase font-bold tracking-widest">Leadership</span>
+              <h3 className="text-lg font-bold text-gray-900 dark:text-white mt-1">Our Team</h3>
+            </div>
+            <User className="w-5 h-5 text-emerald-800" />
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+            {cmsPosts.filter(p => p.type === "team" && p.status === "published").map(member => (
+              <div key={member.id} className="bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-2xl overflow-hidden shadow-sm flex flex-col items-center text-center p-6">
+                {member.imageUrl && (
+                  <img src={member.imageUrl.split(',')[0]} alt={member.title} className="w-24 h-24 object-cover rounded-full border-4 border-lime-100 mb-4" />
+                )}
+                <h4 className="font-bold text-sm text-gray-900 dark:text-white mb-1">{member.title}</h4>
+                <div className="text-[10px] text-emerald-600 font-bold mb-2 uppercase">{member.seoTitle || "Team Member"}</div>
+                <p className="text-xs text-gray-500 leading-relaxed">{member.content}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
       {/* 2.5 AWARDS SHOWCASE SECTION */}
       {cmsPosts.filter(p => p.type === "award" && p.status === "published").length > 0 && (
         <section id="awards-section" className="mb-12 text-left">

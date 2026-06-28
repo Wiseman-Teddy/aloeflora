@@ -366,6 +366,18 @@ export default function App() {
               Products
             </a>
             <a
+              href="/store#about-us"
+              className="px-4 py-1.5 rounded-full text-xs font-semibold transition cursor-pointer select-none text-gray-600 dark:text-gray-300 hover:text-gray-950 hover:bg-white dark:hover:bg-gray-800"
+            >
+              About us
+            </a>
+            <a
+              href="/store#our-team"
+              className="px-4 py-1.5 rounded-full text-xs font-semibold transition cursor-pointer select-none text-gray-600 dark:text-gray-300 hover:text-gray-950 hover:bg-white dark:hover:bg-gray-800"
+            >
+              Our team
+            </a>
+            <a
               href="#footer-contacts"
               className="px-4 py-1.5 rounded-full text-xs font-semibold transition cursor-pointer select-none text-gray-600 dark:text-gray-300 hover:text-gray-950 hover:bg-white dark:hover:bg-gray-800"
             >
@@ -454,6 +466,20 @@ export default function App() {
               className="p-3 rounded-xl font-bold flex items-center gap-2 hover:bg-gray-50 dark:hover:bg-gray-800"
             >
               Products
+            </a>
+            <a
+              href="/store#about-us"
+              onClick={() => setIsMobileMenuOpen(false)}
+              className="p-3 rounded-xl font-bold flex items-center gap-2 hover:bg-gray-50 dark:hover:bg-gray-800"
+            >
+              About us
+            </a>
+            <a
+              href="/store#our-team"
+              onClick={() => setIsMobileMenuOpen(false)}
+              className="p-3 rounded-xl font-bold flex items-center gap-2 hover:bg-gray-50 dark:hover:bg-gray-800"
+            >
+              Our team
             </a>
             <a
               href="#footer-contacts"
