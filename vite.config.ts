@@ -2,10 +2,18 @@ import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
 import {defineConfig} from 'vite';
+import Sitemap from 'vite-plugin-sitemap';
 
 export default defineConfig(() => {
   return {
-    plugins: [react(), tailwindcss()],
+    plugins: [
+      react(), 
+      tailwindcss(),
+      Sitemap({
+        hostname: 'https://aloeflora.vercel.app',
+        dynamicRoutes: ['/', '/store', '/login', '/register', '/docs']
+      })
+    ],
     resolve: {
       alias: {
         '@': path.resolve(__dirname, '.'),

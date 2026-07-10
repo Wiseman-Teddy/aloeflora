@@ -31,7 +31,7 @@ import AdminAuth from "./components/auth/AdminAuth";
 import NotFound from './components/NotFound';
 import { Toaster, toast } from 'react-hot-toast';
 import { Product, Order, SupportTicket, MarketingCampaign, BookingEvent, CMSPost, DevOpsLog, AuditAnomaly, StoreSettings, UserProfile, Promo } from "./types";
-
+import { SEO } from "./components/SEO";
 const CustomerStore = lazy(() => import("./components/CustomerStore"));
 const AdminConsole = lazy(() => import("./components/AdminConsole"));
 const ArchitectureDocs = lazy(() => import("./components/ArchitectureDocs"));
@@ -106,20 +106,6 @@ export default function App() {
 
   useEffect(() => {
     localStorage.setItem("aloeflora_db_store_settings", JSON.stringify(storeSettings));
-    
-    // Update global document metadata
-    if (storeSettings && storeSettings.seoTitle) {
-      document.title = storeSettings.seoTitle || "ALOEFLORA PRODUCTS";
-      const metaDesc = document.querySelector('meta[name="description"]');
-      if (metaDesc) {
-        metaDesc.setAttribute("content", storeSettings.seoDesc || "");
-      } else {
-        const meta = document.createElement('meta');
-        meta.name = "description";
-        meta.content = storeSettings.seoDesc || "";
-        document.head.appendChild(meta);
-      }
-    }
   }, [storeSettings]);
 
   // Apply visual theme tags
@@ -331,6 +317,12 @@ export default function App() {
     <div className={`min-h-screen transition duration-300 font-sans ${
       darkMode ? "bg-gray-950 text-white" : "bg-neutral-50/50 text-gray-900"
     }`}>
+      <SEO 
+        title={storeSettings?.seoTitle}
+        description={storeSettings?.seoDesc}
+        keywords={storeSettings?.seoKeywords}
+        robots={storeSettings?.seoRobots}
+      />
       <Toaster position="top-right" />
       
       {/* GLOBAL ENTERPRISE SUPERIOR NAVIGATION HEADER */}
