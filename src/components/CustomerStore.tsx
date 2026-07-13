@@ -614,7 +614,7 @@ export default function CustomerStore({
                     <img 
                       src={heroSlides[heroIndex]?.imageUrl || "https://images.unsplash.com/photo-1596547609652-9cf5d8d76921"} 
                       alt={heroSlides[heroIndex]?.title} 
-                      className="w-full h-full object-cover select-none"
+                      className="w-full h-full object-contain p-2 select-none"
                       referrerPolicy="no-referrer"
                     />
                   </div>
