@@ -769,7 +769,7 @@ export default function CustomerStore({
                   {/* Thumbnail */}
                   <div 
                     onClick={() => setSelectedProduct(p)}
-                    className="h-44 w-full rounded-xl overflow-hidden bg-gray-50 group-hover:scale-[1.02] cursor-pointer transition duration-300 mb-4 bg-emerald-950/20 flex items-center justify-center relative"
+                    className="aspect-[4/5] w-full rounded-xl overflow-hidden bg-gray-50 group-hover:scale-[1.02] cursor-pointer transition duration-300 mb-4 bg-emerald-950/20 flex items-center justify-center relative"
                   >
                     <img 
                       src={(p.mediaUrls && p.mediaUrls.length > 0) ? p.mediaUrls[0] : p.imageUrl?.split(',')[0]} 
@@ -914,6 +914,32 @@ export default function CustomerStore({
         </section>
       )}
 
+      {/* 2.6 PARTNERS SHOWCASE SECTION */}
+      <section id="partners-section" className="mb-12 text-left">
+        <div className="flex items-center justify-between pb-4 border-b border-gray-100 dark:border-gray-800 mb-6">
+          <div>
+            <span className="text-[10px] text-emerald-800 dark:text-emerald-400 uppercase font-bold tracking-widest">Our Partners</span>
+            <h3 className="text-lg font-bold text-gray-900 dark:text-white mt-1">Trusted & Certified By</h3>
+          </div>
+          <Globe className="w-5 h-5 text-emerald-800 dark:text-emerald-400" />
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-4 gap-6">
+          {[
+            { id: "kipi", name: "KIPI", src: "https://upload.wikimedia.org/wikipedia/en/3/30/Kenya_Industrial_Property_Institute_logo.png" },
+            { id: "kebs", name: "KEBS", src: "https://pbs.twimg.com/profile_images/1110051786524176384/mH3XG8aG_400x400.png" },
+            { id: "organic", name: "Certified Organic", src: "https://images.unsplash.com/photo-1596547609652-9cf5d8d76921?auto=format&fit=crop&q=80&w=150" },
+            { id: "nema", name: "NEMA Kenya", src: "https://www.nema.go.ke/images/NEMA_logo_2.png" },
+          ].map((partner) => (
+            <div key={partner.id} className="bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-2xl p-6 shadow-sm flex items-center justify-center grayscale hover:grayscale-0 transition duration-300">
+              <div className="flex flex-col items-center gap-2">
+                <img src={partner.src} alt={partner.name} className="h-16 w-auto object-contain mix-blend-multiply dark:mix-blend-normal" />
+                <span className="text-[10px] font-bold text-gray-400 mt-2">{partner.name}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
       {/* 3. INFORMATION EVENTS / PROMOTIONS NEWSLETTER SECTION */}
       <section id="events-marketing-section" className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         
@@ -931,7 +957,7 @@ export default function CustomerStore({
             {cmsPosts.filter(p => p.type === 'promotion').map((evt) => (
               <div key={evt.id} className="bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-2xl overflow-hidden shadow-sm flex flex-col justify-between">
                 <div>
-                  <div className="h-32 bg-emerald-950 overflow-hidden relative">
+                  <div className="aspect-video bg-emerald-950 overflow-hidden relative">
                     <img 
                       src={evt.imageUrl} 
                       alt={evt.title} 
@@ -1145,7 +1171,7 @@ export default function CustomerStore({
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start mt-4">
               <div className="space-y-4">
-                <div className="h-52 md:h-64 rounded-2xl overflow-hidden shadow-md bg-emerald-950/20 mb-2">
+                <div className="aspect-[4/5] rounded-2xl overflow-hidden shadow-md bg-emerald-950/20 mb-2">
                   <img src={selectedProduct.mediaUrls && selectedProduct.mediaUrls.length > 0 ? selectedProduct.mediaUrls[0] : selectedProduct.imageUrl?.split(',')[0]} alt={selectedProduct.name} className="w-full h-full object-cover" />
                 </div>
                 {selectedProduct.mediaUrls && selectedProduct.mediaUrls.length > 1 && (
