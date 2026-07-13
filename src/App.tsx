@@ -21,7 +21,8 @@ import {
   LogOut,
   Settings,
   LayoutDashboard,
-  User as UserIcon
+  User as UserIcon,
+  Globe
 } from "lucide-react";
 import { supabase } from "./lib/supabase";
 import { useAuth } from "./contexts/AuthContext";
@@ -588,6 +589,31 @@ export default function App() {
           </Routes>
         </Suspense>
       </main>
+      {/* PARTNERS SHOWCASE SECTION (GLOBAL) */}
+      <section id="partners-section" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-12 text-left w-full">
+        <div className="flex items-center justify-between pb-4 border-b border-gray-100 dark:border-gray-800 mb-6 mt-12">
+          <div>
+            <span className="text-[10px] text-emerald-800 dark:text-emerald-400 uppercase font-bold tracking-widest">Our Partners</span>
+            <h3 className="text-lg font-bold text-gray-900 dark:text-white mt-1">Trusted & Certified By</h3>
+          </div>
+          <Globe className="w-5 h-5 text-emerald-800 dark:text-emerald-400" />
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-4 gap-6">
+          {[
+            { id: "kipi", name: "KIPI", src: "/partners/kipi.png" },
+            { id: "kebs", name: "KEBS", src: "/partners/kebs.png" },
+            { id: "organic", name: "Certified Organic", src: "/partners/organic.png" },
+            { id: "nema", name: "NEMA Kenya", src: "/partners/nema.png" },
+          ].map((partner) => (
+            <div key={partner.id} className="bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-2xl p-6 shadow-sm flex items-center justify-center transition duration-300">
+              <div className="flex flex-col items-center gap-2">
+                <img src={partner.src} alt={partner.name} className="h-16 w-auto object-contain" />
+                <span className="text-[10px] font-bold text-gray-400 mt-2">{partner.name}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
 
       {/* GLOBAL BRAND FOOTER SIGNALS */}
       <footer id="footer-contacts" className="border-t border-emerald-950 dark:border-gray-900 bg-emerald-950 text-white py-12 mt-12">

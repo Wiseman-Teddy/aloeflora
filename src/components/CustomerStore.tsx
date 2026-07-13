@@ -914,31 +914,7 @@ export default function CustomerStore({
         </section>
       )}
 
-      {/* 2.6 PARTNERS SHOWCASE SECTION */}
-      <section id="partners-section" className="mb-12 text-left">
-        <div className="flex items-center justify-between pb-4 border-b border-gray-100 dark:border-gray-800 mb-6">
-          <div>
-            <span className="text-[10px] text-emerald-800 dark:text-emerald-400 uppercase font-bold tracking-widest">Our Partners</span>
-            <h3 className="text-lg font-bold text-gray-900 dark:text-white mt-1">Trusted & Certified By</h3>
-          </div>
-          <Globe className="w-5 h-5 text-emerald-800 dark:text-emerald-400" />
-        </div>
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-4 gap-6">
-          {[
-            { id: "kipi", name: "KIPI", src: "https://upload.wikimedia.org/wikipedia/en/3/30/Kenya_Industrial_Property_Institute_logo.png" },
-            { id: "kebs", name: "KEBS", src: "https://pbs.twimg.com/profile_images/1110051786524176384/mH3XG8aG_400x400.png" },
-            { id: "organic", name: "Certified Organic", src: "https://images.unsplash.com/photo-1596547609652-9cf5d8d76921?auto=format&fit=crop&q=80&w=150" },
-            { id: "nema", name: "NEMA Kenya", src: "https://www.nema.go.ke/images/NEMA_logo_2.png" },
-          ].map((partner) => (
-            <div key={partner.id} className="bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-2xl p-6 shadow-sm flex items-center justify-center grayscale hover:grayscale-0 transition duration-300">
-              <div className="flex flex-col items-center gap-2">
-                <img src={partner.src} alt={partner.name} className="h-16 w-auto object-contain mix-blend-multiply dark:mix-blend-normal" />
-                <span className="text-[10px] font-bold text-gray-400 mt-2">{partner.name}</span>
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
+
 
       {/* 3. INFORMATION EVENTS / PROMOTIONS NEWSLETTER SECTION */}
       <section id="events-marketing-section" className="grid grid-cols-1 lg:grid-cols-12 gap-8">
@@ -1067,15 +1043,15 @@ export default function CustomerStore({
 
           {/* FAQ panel widget */}
           <div className="bg-zinc-50 dark:bg-gray-800/10 border border-zinc-100 dark:border-gray-800 p-6 rounded-3xl space-y-4">
-            <h4 className="font-bold text-sm text-gray-950 dark:text-white">Customer FAQs</h4>
+            <h4 className="font-bold text-base text-gray-950 dark:text-white mb-2">Customer FAQs</h4>
             <div className="space-y-3">
-              {cmsPosts.filter(p => p.type === "faq").map((faq) => (
-                <details key={faq.id} className="group bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 p-3 rounded-xl cursor-all-scroll transition">
-                  <summary className="text-xs font-semibold text-gray-900 dark:text-white list-none flex items-center justify-between cursor-pointer">
+              {cmsPosts.filter(p => p.type === "faq").map((faq, index) => (
+                <details key={faq.id} open={index === 0} className="group bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 p-4 rounded-xl transition">
+                  <summary className="text-sm font-semibold text-gray-900 dark:text-white list-none flex items-center justify-between cursor-pointer">
                     <span>{faq.title}</span>
                     <span className="text-emerald-600 font-bold group-open:rotate-45 transition-transform duration-200">+</span>
                   </summary>
-                  <p className="text-[11px] text-gray-500 mt-2 leading-relaxed leading-normal">{faq.content}</p>
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mt-3 leading-relaxed">{faq.content}</p>
                 </details>
               ))}
             </div>
