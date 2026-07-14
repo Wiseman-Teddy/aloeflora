@@ -49,14 +49,38 @@ export default function App() {
   });
 
   // ERP Centralized Database States
-  const [products, setProducts] = useState<Product[]>([]);
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [tickets, setTickets] = useState<SupportTicket[]>([]);
-  const [campaigns, setCampaigns] = useState<MarketingCampaign[]>([]);
-  const [events, setEvents] = useState<BookingEvent[]>([]);
-  const [cmsPosts, setCmsPosts] = useState<CMSPost[]>([]);
-  const [anomalies, setAnomalies] = useState<AuditAnomaly[]>([]);
-  const [storeSettings, setStoreSettings] = useState<StoreSettings>({} as StoreSettings);
+  const [products, setProducts] = useState<Product[]>(() => {
+    const saved = localStorage.getItem("aloeflora_db_products");
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [orders, setOrders] = useState<Order[]>(() => {
+    const saved = localStorage.getItem("aloeflora_db_orders");
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [tickets, setTickets] = useState<SupportTicket[]>(() => {
+    const saved = localStorage.getItem("aloeflora_db_tickets");
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [campaigns, setCampaigns] = useState<MarketingCampaign[]>(() => {
+    const saved = localStorage.getItem("aloeflora_db_campaigns");
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [events, setEvents] = useState<BookingEvent[]>(() => {
+    const saved = localStorage.getItem("aloeflora_db_events");
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [cmsPosts, setCmsPosts] = useState<CMSPost[]>(() => {
+    const saved = localStorage.getItem("aloeflora_db_cms");
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [anomalies, setAnomalies] = useState<AuditAnomaly[]>(() => {
+    const saved = localStorage.getItem("aloeflora_db_anomalies");
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [storeSettings, setStoreSettings] = useState<StoreSettings>(() => {
+    const saved = localStorage.getItem("aloeflora_db_store_settings");
+    return saved ? JSON.parse(saved) : ({} as StoreSettings);
+  });
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [promos, setPromos] = useState<Promo[]>([]);
 
@@ -126,7 +150,7 @@ export default function App() {
       try {
         // Orders
         const { data: ordData, error: ordErr } = await supabase.from('orders').select('*').order('created_at', { ascending: false });
-        if (ordData && !ordErr && ordData.length > 0) {
+        if (ordData && !ordErr) {
           const mapped: Order[] = ordData.map((d: any) => ({
             id: d.id, customerName: d.customer_name, phone: d.phone, email: d.email || "", county: d.county || "", subCounty: d.sub_county || "", estate: d.estate || "", building: d.building || "", houseNumber: d.house_number || "", deliveryNotes: d.delivery_notes || "", items: d.items || [], subtotal: d.subtotal || d.total_amount, deliveryFee: d.delivery_fee || 0, total: d.total_amount, paymentMethod: d.payment_method || "mpesa_stk", paymentStatus: d.status, deliveryStatus: d.delivery_status || "pending", mpesaReceipt: d.mpesa_receipt || "", createdAt: d.created_at
           }));
@@ -135,7 +159,7 @@ export default function App() {
         
         // Products
         const { data: prodData, error: prodErr } = await supabase.from('products').select('*');
-        if (prodData && !prodErr && prodData.length > 0) {
+        if (prodData && !prodErr) {
           const mappedProds: Product[] = prodData.map((p: any) => ({
             id: p.id, name: p.name, description: p.description, price: p.price, costPrice: p.cost_price,
             category: p.category as any, subCategory: p.sub_category, imageUrl: p.image_url, stock: p.stock,
@@ -147,7 +171,7 @@ export default function App() {
 
         // CMS
         const { data: cmsData, error: cmsErr } = await supabase.from('cms_posts').select('*').order('created_at', { ascending: false });
-        if (cmsData && !cmsErr && cmsData.length > 0) {
+        if (cmsData && !cmsErr) {
           const mappedCms: CMSPost[] = cmsData.map((c: any) => ({
             id: c.id, title: c.title, content: c.content, type: c.type, status: c.status, author: c.author,
             imageUrl: c.image_url, createdAt: c.created_at, seoTitle: c.seo_title, seoDesc: c.seo_desc, seoKeywords: c.seo_keywords
@@ -157,7 +181,7 @@ export default function App() {
 
         // Tickets
         const { data: tktData, error: tktErr } = await supabase.from('support_tickets').select('*').order('created_at', { ascending: false });
-        if (tktData && !tktErr && tktData.length > 0) {
+        if (tktData && !tktErr) {
           const mappedTkts: SupportTicket[] = tktData.map((t: any) => ({
             id: t.id, customerName: t.customer_name, email: t.email, phone: t.phone, subject: t.subject,
             message: t.message, status: t.status, createdAt: t.created_at, replies: t.replies || []
@@ -193,7 +217,7 @@ export default function App() {
 
         // Profiles / Users
         const { data: profData, error: profErr } = await supabase.from('profiles').select('*');
-        if (profData && !profErr && profData.length > 0) {
+        if (profData && !profErr) {
           const mappedUsers: UserProfile[] = profData.map((u: any) => ({
             id: u.id, fullName: u.full_name, email: u.email, phone: u.phone, role: u.role, accountStatus: u.account_status,
             createdAt: u.created_at, lastLogin: u.last_login, totalSpending: u.total_spending, orderCount: u.order_count
@@ -203,7 +227,7 @@ export default function App() {
 
         // Campaigns
         const { data: campData, error: campErr } = await supabase.from('campaigns').select('*');
-        if (campData && !campErr && campData.length > 0) {
+        if (campData && !campErr) {
           const mappedCamp: MarketingCampaign[] = campData.map((c: any) => ({
             id: c.id, name: c.name, platform: c.platform, status: c.status, budget: c.budget, impressions: c.impressions,
             clicks: c.clicks, conversions: c.conversions, roi: c.roi_percent, startDate: c.start_date, endDate: c.end_date
@@ -334,11 +358,11 @@ export default function App() {
             <div className="bg-white p-0.5 rounded-xl shadow-sm border border-emerald-900/10 dark:border-gray-800">
               <img src="/logo.jpeg" alt="ALOEFLORA Logo" className="h-10 w-auto object-contain rounded-lg" />
             </div>
-            <div className="text-left select-none hidden sm:block">
-              <div className="text-sm font-extrabold tracking-tight text-emerald-800 dark:text-lime-400 block scale-y-105 leading-none uppercase">
+            <div className="text-left select-none block">
+              <div className="text-xs sm:text-sm font-extrabold tracking-tight text-emerald-800 dark:text-lime-400 block scale-y-105 leading-none uppercase whitespace-nowrap">
                 ALOEFLORA PRODUCTS
               </div>
-              <div className="text-[9px] uppercase font-bold tracking-wider text-gray-400 mt-1 block font-mono leading-none">
+              <div className="text-[8px] sm:text-[9px] uppercase font-bold tracking-wider text-gray-400 mt-1 block font-mono leading-none whitespace-nowrap">
                 Quality, Affordable & Natural
               </div>
             </div>
@@ -363,12 +387,6 @@ export default function App() {
               className="px-4 py-1.5 rounded-full text-xs font-semibold transition cursor-pointer select-none text-gray-600 dark:text-gray-300 hover:text-gray-950 hover:bg-white dark:hover:bg-gray-800"
             >
               About us
-            </a>
-            <a
-              href="/store#our-team"
-              className="px-4 py-1.5 rounded-full text-xs font-semibold transition cursor-pointer select-none text-gray-600 dark:text-gray-300 hover:text-gray-950 hover:bg-white dark:hover:bg-gray-800"
-            >
-              Our team
             </a>
             <a
               href="#footer-contacts"
@@ -466,13 +484,6 @@ export default function App() {
               className="p-3 rounded-xl font-bold flex items-center gap-2 hover:bg-gray-50 dark:hover:bg-gray-800"
             >
               About us
-            </a>
-            <a
-              href="/store#our-team"
-              onClick={() => setIsMobileMenuOpen(false)}
-              className="p-3 rounded-xl font-bold flex items-center gap-2 hover:bg-gray-50 dark:hover:bg-gray-800"
-            >
-              Our team
             </a>
             <a
               href="#footer-contacts"
@@ -664,13 +675,19 @@ export default function App() {
               <h4 className="font-bold text-sm text-white mb-4">Social Media</h4>
               <div className="flex gap-4">
                 <a href="https://www.instagram.com/aloefloraproducts?igsh=YzljYTk1ODg3Zg==" target="_blank" rel="noreferrer" className="w-8 h-8 rounded-full bg-emerald-900 border border-emerald-800 flex items-center justify-center text-lime-400 hover:bg-emerald-800 transition">
-                  <span className="font-bold text-xs">IG</span>
+                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path fillRule="evenodd" d="M12.315 2c2.43 0 2.784.013 3.808.06 1.064.049 1.791.218 2.427.465a4.902 4.902 0 011.772 1.153 4.902 4.902 0 011.153 1.772c.247.636.416 1.363.465 2.427.048 1.067.06 1.407.06 4.123v.08c0 2.643-.012 2.987-.06 4.043-.049 1.064-.218 1.791-.465 2.427a4.902 4.902 0 01-1.153 1.772 4.902 4.902 0 01-1.772 1.153c-.636.247-1.363.416-2.427.465-1.067.048-1.407.06-4.123.06h-.08c-2.643 0-2.987-.012-4.043-.06-1.064-.049-1.791-.218-2.427-.465a4.902 4.902 0 01-1.772-1.153 4.902 4.902 0 01-1.153-1.772c-.247-.636-.416-1.363-.465-2.427-.047-1.024-.06-1.379-.06-3.808v-.63c0-2.43.013-2.784.06-3.808.049-1.064.218-1.791.465-2.427a4.902 4.902 0 011.153-1.772A4.902 4.902 0 015.45 2.525c.636-.247 1.363-.416 2.427-.465C8.901 2.013 9.256 2 11.685 2h.63zm-.081 1.802h-.468c-2.456 0-2.784.011-3.807.058-.975.045-1.504.207-1.857.344-.467.182-.8.398-1.15.748-.35.35-.566.683-.748 1.15-.137.353-.3.882-.344 1.857-.047 1.023-.058 1.351-.058 3.807v.468c0 2.456.011 2.784.058 3.807.045.975.207 1.504.344 1.857.182.466.399.8.748 1.15.35.35.683.566 1.15.748.353.137.882.3 1.857.344 1.054.048 1.37.058 4.041.058h.08c2.597 0 2.917-.01 3.96-.058.976-.045 1.505-.207 1.858-.344.466-.182.8-.398 1.15-.748.35-.35.566-.683.748-1.15.137-.353.3-.882.344-1.857.048-1.055.058-1.37.058-4.041v-.08c0-2.597-.01-2.917-.058-3.96-.045-.976-.207-1.505-.344-1.858a3.097 3.097 0 00-.748-1.15 3.098 3.098 0 00-1.15-.748c-.353-.137-.882-.3-1.857-.344-1.023-.047-1.351-.058-3.807-.058zM12 6.865a5.135 5.135 0 110 10.27 5.135 5.135 0 010-10.27zm0 1.802a3.333 3.333 0 100 6.666 3.333 3.333 0 000-6.666zm5.338-3.205a1.2 1.2 0 110 2.4 1.2 1.2 0 010-2.4z" clipRule="evenodd" />
+                  </svg>
                 </a>
                 <a href="https://www.facebook.com/aloefloraproducts" target="_blank" rel="noreferrer" className="w-8 h-8 rounded-full bg-emerald-900 border border-emerald-800 flex items-center justify-center text-lime-400 hover:bg-emerald-800 transition">
-                  <span className="font-bold text-xs">FB</span>
+                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path fillRule="evenodd" d="M22 12c0-5.523-4.477-10-10-10S2 6.477 2 12c0 4.991 3.657 9.128 8.438 9.878v-6.987h-2.54V12h2.54V9.797c0-2.506 1.492-3.89 3.777-3.89 1.094 0 2.238.195 2.238.195v2.46h-1.26c-1.243 0-1.63.771-1.63 1.562V12h2.773l-.443 2.89h-2.33v6.988C18.343 21.128 22 16.991 22 12z" clipRule="evenodd" />
+                  </svg>
                 </a>
                 <a href="https://wa.me/254702283637" target="_blank" rel="noreferrer" className="w-8 h-8 rounded-full bg-emerald-900 border border-emerald-800 flex items-center justify-center text-lime-400 hover:bg-emerald-800 transition">
-                  <span className="font-bold text-xs">WA</span>
+                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path fillRule="evenodd" d="M12.031 2C6.505 2 2.019 6.486 2.019 12c0 1.956.541 3.843 1.573 5.5l-1.575 5.751 5.882-1.544c1.595.968 3.447 1.479 5.372 1.479 5.525 0 10.012-4.486 10.012-10S17.556 2 12.031 2zm0 18.006c-1.611 0-3.19-.434-4.571-1.25l-.328-.194-3.398.89 .906-3.313-.213-.339C3.513 14.398 3.031 13.227 3.031 12c0-4.965 4.04-9.006 9.004-9.006 4.965 0 9.006 4.041 9.006 9.006s-4.041 9.006-9.006 9.006zm4.945-6.75c-.271-.136-1.604-.792-1.854-.882-.25-.09-.433-.136-.615.136-.181.272-.7 .882-.857 1.064-.158.181-.316.204-.587.068-.271-.136-1.144-.422-2.18-1.347-.806-.72-1.348-1.609-1.506-1.881-.158-.271-.017-.419.119-.554.122-.122.271-.317.407-.475.136-.158.181-.271.271-.453.09-.181.045-.34-.022-.475-.068-.136-.615-1.485-.843-2.031-.222-.533-.448-.461-.615-.469-.158-.008-.339-.009-.521-.009-.181 0-.475.068-.724.34-.249.271-.951.929-.951 2.266s.973 2.628 1.109 2.809c.136.181 1.916 2.924 4.639 4.098.648.279 1.155.446 1.551.571.65.207 1.242.177 1.708.107.525-.078 1.604-.655 1.83-1.288.226-.633.226-1.176.158-1.288-.068-.112-.249-.181-.52-.317z" clipRule="evenodd" />
+                  </svg>
                 </a>
               </div>
             </div>

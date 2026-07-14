@@ -10,7 +10,7 @@ export default defineConfig(() => {
       react(), 
       tailwindcss(),
       Sitemap({
-        hostname: 'https://aloeflora.vercel.app',
+        hostname: 'https://aloefloraproducts.com',
         dynamicRoutes: ['/', '/store', '/login', '/register', '/docs']
       })
     ],

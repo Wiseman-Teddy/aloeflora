@@ -151,6 +151,8 @@ export default function AdminConsole({
   // Media Library State
   const [mediaFiles, setMediaFiles] = useState<{name: string, url: string}[]>([]);
   const [isMediaLoading, setIsMediaLoading] = useState(false);
+  const [mediaCategoryFilter, setMediaCategoryFilter] = useState<string>("all");
+  const [mediaUploadCategory, setMediaUploadCategory] = useState<string>("general");
 
   // Live interval ticker simulating DevOps process fluctuations
   useEffect(() => {
@@ -254,8 +256,11 @@ export default function AdminConsole({
     const uploadedMediaUrls: string[] = prodMediaUrls;
     setIsUploadingProduct(false);
 
+    const isUpdating = editingProductId !== null;
+    const targetId = isUpdating ? editingProductId : ("p" + Date.now()); // robust ID generation
+
     const newProduct: Product = {
-      id: "p" + (products.length + 1),
+      id: targetId,
       name: prodName,
       description: prodDesc,
       price: prodPrice,
@@ -276,17 +281,71 @@ export default function AdminConsole({
     };
 
     try {
-      await supabase.from("products").insert({
+      const dbRow = {
         id: newProduct.id, name: newProduct.name, description: newProduct.description, price: newProduct.price, cost_price: newProduct.costPrice,
         category: newProduct.category, sub_category: newProduct.subCategory, image_url: newProduct.imageUrl, stock: newProduct.stock,
         safety_stock: newProduct.safetyStock, reorder_level: newProduct.reorderLevel, rating: newProduct.rating, reviews_count: newProduct.reviewsCount,
         variants: newProduct.variants, features: newProduct.features, media_urls: newProduct.mediaUrls, specifications: newProduct.specifications
-      });
-    } catch(err) { console.error("Supabase insert error", err); }
+      };
 
-    onUpdateInventory([...products, newProduct]);
+      let error;
+      if (isUpdating) {
+        const { error: updErr } = await supabase.from("products").update(dbRow).eq('id', targetId);
+        error = updErr;
+      } else {
+        const { error: insErr } = await supabase.from("products").insert(dbRow);
+        error = insErr;
+      }
+      
+      if (error) throw error;
+      
+      if (isUpdating) {
+        onUpdateInventory(products.map(p => p.id === targetId ? newProduct : p));
+        toast.success("Product updated successfully!");
+      } else {
+        onUpdateInventory([...products, newProduct]);
+        toast.success("Product added successfully!");
+      }
+    } catch(err: any) { 
+      console.error("Supabase operation error", err);
+      toast.error("Database error: " + err.message);
+      return; 
+    }
+
     setIsAddingProduct(false);
+    setEditingProductId(null);
     resetProductForm();
+  };
+
+  const handleEditClick = (p: Product) => {
+    setEditingProductId(p.id);
+    setProdName(p.name);
+    setProdDesc(p.description);
+    setProdPrice(p.price);
+    setProdCostPrice(p.costPrice || 200);
+    setProdCategory(p.category as any);
+    setProdSubCategory(p.subCategory);
+    setProdImageUrl(p.imageUrl);
+    setProdStock(p.stock);
+    setProdSafetyStock(p.safetyStock);
+    setProdReorderLevel(p.reorderLevel);
+    setProdVariants(p.variants ? p.variants.join(", ") : "");
+    setProdFeatures(p.features ? p.features.join(", ") : "");
+    setProdSpecs(p.specifications ? p.specifications.join(", ") : "");
+    setProdMediaUrls(p.mediaUrls || []);
+    setIsAddingProduct(true);
+  };
+
+  const handleDeleteProduct = async (id: string) => {
+    if (!confirm("Are you sure you want to permanently delete this product?")) return;
+    try {
+      const { error } = await supabase.from('products').delete().eq('id', id);
+      if (error) throw error;
+      onUpdateInventory(products.filter(item => item.id !== id));
+      toast.success("Product deleted successfully!");
+    } catch (err: any) {
+      toast.error("Error deleting product: " + err.message);
+    }
   };
 
   const resetProductForm = () => {
@@ -442,9 +501,17 @@ export default function AdminConsole({
     setEventCapacity(post.seoKeywords || "50");
   };
 
-  const handleDeleteCMS = (id: string) => {
+  const handleDeleteCMS = async (id: string) => {
     if(confirm("Are you sure you want to permanently delete this CMS Post?")) {
-      onUpdateCMS(cmsPosts.filter(p => p.id !== id));
+      try {
+        const { error } = await supabase.from('cms_posts').delete().eq('id', id);
+        if (error) throw error;
+        onUpdateCMS(cmsPosts.filter(p => p.id !== id));
+        toast.success("CMS Post deleted successfully!");
+      } catch (err: any) {
+        console.error(err);
+        toast.error(`Failed to delete CMS post: ${err.message}`);
+      }
     }
   };
 
@@ -928,7 +995,7 @@ export default function AdminConsole({
                   </div>
                   <div className="space-y-1 md:col-span-2">
                     <label className="font-bold">Media Upload (Select multiple files)</label>
-                    <MediaUploader urls={prodMediaUrls} onChange={setProdMediaUrls} multiple maxFiles={5} bucket="images" />
+                    <MediaUploader urls={prodMediaUrls} onChange={setProdMediaUrls} multiple maxFiles={5} bucket="images" category="product" />
                   </div>
                 </div>
 
@@ -1043,15 +1110,21 @@ export default function AdminConsole({
                           <button
                             onClick={() => handleReplenishStock(p.id, 10)}
                             className="bg-emerald-80 bg-emerald-50 text-emerald-800 border p-1 rounded font-bold hover:bg-emerald-100 cursor-pointer"
+                            title="Restock +10"
                           >
-                            +10 Restock
+                            +10
                           </button>
                           
                           <button
-                            onClick={() => {
-                              onUpdateInventory(products.filter(item => item.id !== p.id));
-                              toast.success("Product removed from storefront!");
-                            }}
+                            onClick={() => handleEditClick(p)}
+                            className="bg-blue-50 border text-blue-600 p-1.5 rounded hover:bg-blue-100 tooltip cursor-pointer"
+                            title="Edit Product"
+                          >
+                            <PenTool className="w-3.5 h-3.5" />
+                          </button>
+
+                          <button
+                            onClick={() => handleDeleteProduct(p.id)}
                             className="bg-rose-50 border text-rose-600 p-1.5 rounded hover:bg-rose-100 tooltip cursor-pointer"
                             title="Remove listing"
                           >
@@ -1336,7 +1409,7 @@ export default function AdminConsole({
 
                 <div className="space-y-1">
                   <label className="font-bold">Image Upload (for Hero/Award/Blog)</label>
-                  <MediaUploader urls={cmsImageUrls} onChange={setCmsImageUrls} multiple={true} maxFiles={10} bucket="images" />
+                  <MediaUploader urls={cmsImageUrls} onChange={setCmsImageUrls} multiple={true} maxFiles={10} bucket="images" category={cmsType} />
                 </div>
 
                 <div className="space-y-1">
@@ -1598,33 +1671,57 @@ export default function AdminConsole({
             </div>
             
             <div className="bg-white border border-gray-100 p-6 rounded-2xl shadow-sm">
-              <div className="mb-6 space-y-2">
-                <h4 className="font-bold text-sm">Upload New Media</h4>
-                {/* Reusing existing uploader but not tying it to a single string so we just reload list */}
+              <div className="mb-6 space-y-4">
+                <div className="flex justify-between items-end">
+                  <div className="space-y-1">
+                    <h4 className="font-bold text-sm">Upload New Media</h4>
+                    <p className="text-xs text-gray-500">Select a category to organize your upload</p>
+                  </div>
+                  <select 
+                    value={mediaUploadCategory} 
+                    onChange={(e) => setMediaUploadCategory(e.target.value)}
+                    className="p-2 border rounded-lg text-sm bg-gray-50 outline-none"
+                  >
+                    <option value="general">General Asset</option>
+                    <option value="hero">Hero Slider</option>
+                    <option value="blog">Blog Image</option>
+                    <option value="product">Product Image</option>
+                    <option value="promo">Promo Image</option>
+                  </select>
+                </div>
+                
                 <MediaUploader 
                   urls={[]} 
                   onChange={async (urls) => {
-                    if (urls && urls.length > 0) {
-                      for (const url of urls) {
-                        await supabase.from('cms_posts').insert({
-                          id: 'HERO-' + Math.random().toString(36).substr(2, 9),
-                          title: 'Aloeflora Best Selling Natural Products',
-                          content: 'Get your products now!!!',
-                          type: 'hero',
-                          status: 'published',
-                          image_url: url
-                        });
-                      }
-                    }
+                    // Upload happens inside MediaUploader directly to Supabase storage.
+                    // We just need to refresh the media list.
                     loadMediaFiles();
                   }} 
                   multiple={true} 
                   maxFiles={10} 
                   bucket="images" 
+                  category={mediaUploadCategory}
                 />
               </div>
 
-              <h4 className="font-bold text-sm mb-4 border-b pb-2">Uploaded Files ({mediaFiles.length})</h4>
+              <div className="mb-4 flex flex-col md:flex-row justify-between items-start md:items-center border-b pb-4 gap-4">
+                <h4 className="font-bold text-sm">Uploaded Files ({mediaFiles.length})</h4>
+                
+                <div className="flex flex-wrap gap-2">
+                  {['all', 'general', 'hero', 'blog', 'product', 'promo'].map(cat => (
+                    <button
+                      key={cat}
+                      onClick={() => setMediaCategoryFilter(cat)}
+                      className={`px-3 py-1 text-xs font-bold rounded-full capitalize transition ${
+                        mediaCategoryFilter === cat ? "bg-emerald-800 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                      }`}
+                    >
+                      {cat}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               {isMediaLoading ? (
                 <div className="flex items-center justify-center p-12 text-gray-400">
                   <Loader2 className="w-8 h-8 animate-spin" />
@@ -1636,10 +1733,19 @@ export default function AdminConsole({
                 </div>
               ) : (
                 <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
-                  {mediaFiles.map((file, idx) => (
+                  {mediaFiles
+                    .filter(file => {
+                      if (mediaCategoryFilter === 'all') return true;
+                      const fileCategory = file.name.includes('_') ? file.name.split('_')[0] : 'general';
+                      return fileCategory === mediaCategoryFilter;
+                    })
+                    .map((file, idx) => (
                     <div key={idx} className="group relative rounded-xl border overflow-hidden bg-gray-50 aspect-square">
                       <img src={file.url} alt={file.name} className="w-full h-full object-cover" />
-                      <div className="absolute inset-0 bg-black/60 opacity-100 transition-opacity flex flex-col items-center justify-center gap-2 p-4">
+                      <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2 p-4">
+                        <span className="bg-emerald-600 text-white text-[10px] px-2 py-0.5 rounded-full capitalize absolute top-2 right-2">
+                          {file.name.includes('_') ? file.name.split('_')[0] : 'general'}
+                        </span>
                         <p className="text-[9px] text-white font-mono break-all text-center leading-tight line-clamp-3">{file.name}</p>
                         <div className="flex gap-2">
                           <button 

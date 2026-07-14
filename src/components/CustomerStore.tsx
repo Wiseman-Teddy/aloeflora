@@ -348,7 +348,8 @@ export default function CustomerStore({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           prompt: userMessage,
-          catalog: products.map((p) => ({ name: p.name, category: p.category, desc: p.description, price: p.price }))
+          catalog: products.map((p) => ({ name: p.name, category: p.category, desc: p.description, price: p.price })),
+          faqs: cmsPosts.filter(p => p.type === "faq").map(p => ({ question: p.title, answer: p.content }))
         })
       });
       if (!response.ok) throw new Error("API Route failure");
@@ -586,22 +587,7 @@ export default function CustomerStore({
               </button>
             </div>
 
-            {/* Loyalty points card mock */}
-            <div className="bg-emerald-900/40 backdrop-blur-sm border border-emerald-800/80 rounded-2xl p-4 flex items-center justify-between max-w-sm mt-4">
-              <div className="flex items-center gap-3">
-                <div className="bg-lime-500/10 p-2 rounded-xl text-lime-400">
-                  <Award className="w-5 h-5" />
-                </div>
-                <div>
-                  <div className="text-[10px] uppercase font-bold tracking-wider text-emerald-300">Loyalty Tracker</div>
-                  <div className="text-xs font-semibold">Gold Member Referral Tier</div>
-                </div>
-              </div>
-              <div className="text-right">
-                <div className="text-base font-extrabold text-lime-400">{loyaltyPoints}</div>
-                <div className="text-[10px] text-emerald-200">Ksh points bank</div>
-              </div>
-            </div>
+
           </div>
 
           {/* CMS Hero Slider Section */}
@@ -668,7 +654,7 @@ export default function CustomerStore({
       <section id="organic-formulations" className="scroll-mt-10">
         <div className="flex flex-col md:flex-row md:items-center justify-between pb-6 border-b border-gray-100 dark:border-gray-800 gap-4">
           <div>
-            <span className="text-xs font-bold text-emerald-800 dark:text-emerald-400 uppercase tracking-widest font-mono">Organic Formulations</span>
+            <span className="text-xs font-bold text-emerald-800 dark:text-emerald-400 uppercase tracking-widest font-mono">OUR ORGANIC PRODUCTS</span>
             <h2 className="text-2xl font-semibold text-gray-950 dark:text-white">Active Product Catalog</h2>
           </div>
 
@@ -862,31 +848,31 @@ export default function CustomerStore({
               </div>
             ))}
           </div>
-        </section>
-      )}
 
-      {/* OUR TEAM SECTION */}
-      {cmsPosts.filter(p => p.type === "team" && p.status === "published").length > 0 && (
-        <section id="our-team" className="mb-12 scroll-mt-10 text-left">
-          <div className="flex items-center justify-between pb-4 border-b border-gray-100 dark:border-gray-800 mb-6">
-            <div>
-              <span className="text-[10px] text-emerald-800 dark:text-emerald-400 uppercase font-bold tracking-widest">Leadership</span>
-              <h3 className="text-lg font-bold text-gray-900 dark:text-white mt-1">Our Team</h3>
-            </div>
-            <User className="w-5 h-5 text-emerald-800" />
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
-            {cmsPosts.filter(p => p.type === "team" && p.status === "published").map(member => (
-              <div key={member.id} className="bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-2xl overflow-hidden shadow-sm flex flex-col items-center text-center p-6">
-                {member.imageUrl && (
-                  <img src={member.imageUrl.split(',')[0]} alt={member.title} className="w-24 h-24 object-cover rounded-full border-4 border-lime-100 mb-4" />
-                )}
-                <h4 className="font-bold text-sm text-gray-900 dark:text-white mb-1">{member.title}</h4>
-                <div className="text-[10px] text-emerald-600 font-bold mb-2 uppercase">{member.seoTitle || "Team Member"}</div>
-                <p className="text-xs text-gray-500 leading-relaxed">{member.content}</p>
+          {/* INTEGRATED TEAM SECTION */}
+          {cmsPosts.filter(p => p.type === "team" && p.status === "published").length > 0 && (
+            <div className="mt-12">
+              <div className="flex items-center justify-between pb-4 border-b border-gray-100 dark:border-gray-800 mb-6">
+                <div>
+                  <span className="text-[10px] text-emerald-800 dark:text-emerald-400 uppercase font-bold tracking-widest">Leadership</span>
+                  <h3 className="text-lg font-bold text-gray-900 dark:text-white mt-1">Our Team</h3>
+                </div>
+                <User className="w-5 h-5 text-emerald-800" />
               </div>
-            ))}
-          </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+                {cmsPosts.filter(p => p.type === "team" && p.status === "published").map(member => (
+                  <div key={member.id} className="bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-2xl overflow-hidden shadow-sm flex flex-col items-center text-center p-6">
+                    {member.imageUrl && (
+                      <img src={member.imageUrl.split(',')[0]} alt={member.title} className="w-24 h-24 object-cover rounded-full border-4 border-lime-100 mb-4" />
+                    )}
+                    <h4 className="font-bold text-sm text-gray-900 dark:text-white mb-1">{member.title}</h4>
+                    <div className="text-[10px] text-emerald-600 font-bold mb-2 uppercase">{member.seoTitle || "Team Member"}</div>
+                    <p className="text-xs text-gray-500 leading-relaxed">{member.content}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </section>
       )}
 
@@ -986,72 +972,29 @@ export default function CustomerStore({
                 )}
                 <h4 className="font-bold text-gray-900 dark:text-white text-sm line-clamp-2">{blog.title}</h4>
                 <p className="text-xs text-gray-500 mt-2 line-clamp-3 leading-relaxed">{blog.content}</p>
-                <div className="mt-4 pt-4 border-t border-gray-100 dark:border-gray-800 flex justify-between items-center text-[10px] text-gray-400 font-bold">
-                  <span>{blog.author}</span>
-                  <span>{blog.createdAt}</span>
+                <div className="mt-4 pt-4 border-t border-gray-100 dark:border-gray-800 flex justify-end items-center text-[10px] text-gray-400 font-bold">
+                  <span>{new Date(blog.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</span>
                 </div>
               </div>
             ))}
           </div>
         </div>
 
-        {/* Social Links / Contact Card */}
-        <div className="lg:col-span-12 space-y-6 text-left mt-8 grid grid-cols-1 lg:grid-cols-2 gap-8">
-          
-          {/* Dr Dorcas Obondo contact Info Card */}
-          <div className="bg-emerald-950 text-white rounded-3xl p-6 relative overflow-hidden shadow">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-lime-500/10 rounded-full blur-xl"></div>
-            <h4 className="font-bold text-md tracking-tight">Enterprise Contacts</h4>
-            <p className="text-xs text-emerald-200 mt-1 pb-4 border-b border-emerald-800">For enquiries, custom partnerships & stock queries:</p>
-            
-            <div className="mt-4 space-y-3">
-              <div className="flex items-center gap-3 text-xs">
-                <div className="bg-emerald-900 p-2 rounded-lg text-lime-400">
-                  <Mail className="w-4 h-4" />
-                </div>
-                <div>
-                  <div className="text-[9px] text-emerald-300">Email Address</div>
-                  <a href="mailto:obondodoris@gmail.com" className="font-semibold hover:underline">obondodoris@gmail.com</a>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-3 text-xs">
-                <div className="bg-emerald-900 p-2 rounded-lg text-lime-400">
-                  <Phone className="w-4 h-4" />
-                </div>
-                <div>
-                  <div className="text-[9px] text-emerald-300">Hotline Phone</div>
-                  <a href="tel:+254702283637" className="font-semibold hover:underline">+254 702 283 637</a>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-3 text-xs">
-                <div className="bg-emerald-900 p-2 rounded-lg text-lime-400">
-                  <Globe className="w-4 h-4" />
-                </div>
-                <div>
-                  <div className="text-[9px] text-emerald-300">Social Accounts</div>
-                  <div className="flex gap-2 font-semibold">
-                    <a href="https://www.instagram.com/aloefloraproducts?igsh=YzljYTk1ODg3Zg==" target="_blank" referrerPolicy="no-referrer" rel="noreferrer" className="text-lime-400 hover:underline">Instagram</a>
-                    <span className="text-emerald-700">|</span>
-                    <a href="https://www.facebook.com/aloefloraproducts" target="_blank" referrerPolicy="no-referrer" rel="noreferrer" className="text-lime-400 hover:underline">Facebook</a>
-                  </div>
-                </div>
-              </div>
+        {/* FAQ Section */}
+        <div className="lg:col-span-12 mt-12 mb-8">
+          <div className="max-w-4xl mx-auto bg-zinc-50 dark:bg-gray-800/10 border border-zinc-100 dark:border-gray-800 p-8 rounded-3xl shadow-sm">
+            <div className="text-center mb-8">
+              <h4 className="text-2xl font-bold text-gray-950 dark:text-white mb-2">Frequently Asked Questions</h4>
+              <p className="text-sm text-gray-500">Find answers to common questions about our organic products and services.</p>
             </div>
-          </div>
-
-          {/* FAQ panel widget */}
-          <div className="bg-zinc-50 dark:bg-gray-800/10 border border-zinc-100 dark:border-gray-800 p-6 rounded-3xl space-y-4">
-            <h4 className="font-bold text-base text-gray-950 dark:text-white mb-2">Customer FAQs</h4>
-            <div className="space-y-3">
+            <div className="space-y-3 text-left">
               {cmsPosts.filter(p => p.type === "faq").map((faq, index) => (
-                <details key={faq.id} open={index === 0} className="group bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 p-4 rounded-xl transition">
+                <details key={faq.id} open={index === 0} className="group bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 p-5 rounded-xl transition hover:shadow-md">
                   <summary className="text-sm font-semibold text-gray-900 dark:text-white list-none flex items-center justify-between cursor-pointer">
                     <span>{faq.title}</span>
                     <span className="text-emerald-600 font-bold group-open:rotate-45 transition-transform duration-200">+</span>
                   </summary>
-                  <p className="text-sm text-gray-600 dark:text-gray-400 mt-3 leading-relaxed">{faq.content}</p>
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mt-4 leading-relaxed border-t border-gray-50 dark:border-gray-800 pt-4">{faq.content}</p>
                 </details>
               ))}
             </div>

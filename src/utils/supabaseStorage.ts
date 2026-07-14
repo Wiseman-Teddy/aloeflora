@@ -1,9 +1,9 @@
 import { supabase } from '../lib/supabase';
 
-export const uploadToSupabase = async (file: File, bucket: string = 'images'): Promise<string | null> => {
+export const uploadToSupabase = async (file: File, bucket: string = 'images', category: string = 'general'): Promise<string | null> => {
   try {
     const fileExt = file.name.split('.').pop();
-    const fileName = `${Math.random().toString(36).substring(2, 15)}_${Date.now()}.${fileExt}`;
+    const fileName = `${category}_${Math.random().toString(36).substring(2, 15)}_${Date.now()}.${fileExt}`;
     const filePath = `${fileName}`;
 
     const { error: uploadError } = await supabase.storage
@@ -29,11 +29,12 @@ export const uploadToSupabase = async (file: File, bucket: string = 'images'): P
 export const uploadWithProgressToSupabase = async (
   file: File, 
   bucket: string = 'images',
-  onProgress?: (progress: number) => void
+  onProgress?: (progress: number) => void,
+  category: string = 'general'
 ): Promise<string | null> => {
   try {
     const fileExt = file.name.split('.').pop();
-    const fileName = `${Math.random().toString(36).substring(2, 15)}_${Date.now()}.${fileExt}`;
+    const fileName = `${category}_${Math.random().toString(36).substring(2, 15)}_${Date.now()}.${fileExt}`;
     const filePath = `${fileName}`;
 
     if (onProgress) onProgress(10);

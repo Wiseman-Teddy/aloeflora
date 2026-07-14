@@ -3,8 +3,12 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import ngrok from 'ngrok';
+import { GoogleGenAI } from '@google/genai';
 
 dotenv.config();
+
+let currentAppUrl = process.env.APP_URL || 'https://aloefloraproducts.com';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -67,7 +71,7 @@ app.post('/api/mpesa/stkpush', async (req, res) => {
       PartyA: formattedPhone,
       PartyB: businessShortCode,
       PhoneNumber: formattedPhone,
-      CallBackURL: `${process.env.APP_URL || 'https://your-ngrok-url.com'}/api/mpesa/callback`, // Needs to be public
+      CallBackURL: `${currentAppUrl}/api/mpesa/callback`, // Needs to be public
       AccountReference: 'Aloeflora Order',
       TransactionDesc: 'Payment for order'
     };
@@ -103,6 +107,62 @@ app.post('/api/mpesa/callback', (req, res) => {
   res.status(200).json({ message: 'Success' });
 });
 
+// Gemini AI Assistant Endpoint
+app.post('/api/gemini/consult', async (req, res) => {
+  try {
+    const { prompt, catalog, faqs } = req.body;
+
+    if (!prompt || typeof prompt !== 'string' || prompt.length > 2000) {
+      return res.status(400).json({ error: 'Prompt is required and must be under 2000 characters' });
+    }
+
+    const apiKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
+    if (!apiKey) {
+      return res.status(500).json({ error: 'Gemini API Key is not configured' });
+    }
+
+    const ai = new GoogleGenAI({ apiKey });
+
+    // Build standard system prompt context
+    const catalogString = catalog && Array.isArray(catalog)
+      ? catalog.map(p => `- ${p.name} (${p.category}): ${p.desc} [KES ${p.price}]`).join('\n')
+      : 'No product list available.';
+
+    const faqsString = faqs && Array.isArray(faqs) && faqs.length > 0
+      ? faqs.map(f => `Q: ${f.question}\nA: ${f.answer}`).join('\n\n')
+      : 'No FAQs available.';
+
+    const systemInstruction = `You are ALOEFLORA's expert AI Specialist based in Nairobi, Kenya.
+Your role is to guide customers on organic, natural solutions for hair care (especially Kenyan curls/coils moisture), skin repair, body care, and healthy household surfaces.
+
+Use the following catalog of ALOEFLORA products to answer the user's questions. Always recommend one or more matching products from this catalog if they fit the user's request. Give specific advice on how to use them.
+
+ALOEFLORA Catalog:
+${catalogString}
+
+You also have access to our frequently asked questions. Use this knowledge to assist customers with queries about shipping, returns, policies, or general advice:
+${faqsString}
+
+Keep your tone warm, welcoming, professional, and culturally relevant to Kenya (feel free to use light Kenyan expressions like "Habari!", "Karibu" when appropriate). Be precise, helpful, and concise.`;
+
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: prompt,
+      config: {
+        systemInstruction: systemInstruction,
+        temperature: 0.7,
+      }
+    });
+
+    const resultText = response.text || "I apologize, but I am unable to generate a recommendation at the moment. Please feel free to check our products directly on the storefront!";
+
+    res.status(200).json({ response: resultText });
+  } catch (error) {
+    console.error('Gemini Consult Error:', error);
+    res.status(500).json({ error: 'Internal server error', details: error.message });
+  }
+});
+
 // Serve frontend if in production
 if (process.env.NODE_ENV === 'production') {
   app.use(express.static(path.join(__dirname, 'dist')));
@@ -112,6 +172,17 @@ if (process.env.NODE_ENV === 'production') {
 }
 
 const PORT = process.env.PORT || 3001;
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
   console.log(`Express API Server running on port ${PORT}`);
+
+  if (process.env.NODE_ENV !== 'production') {
+    try {
+      const url = await ngrok.connect(PORT);
+      currentAppUrl = url;
+      console.log(`[ngrok] Tunnel created: ${url}`);
+      console.log(`[ngrok] M-Pesa Callbacks will be sent to: ${url}/api/mpesa/callback`);
+    } catch (err) {
+      console.error('[ngrok] Failed to start ngrok:', err);
+    }
+  }
 });

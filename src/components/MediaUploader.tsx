@@ -12,6 +12,7 @@ interface MediaUploaderProps {
   bucket?: string;
   label?: string;
   className?: string;
+  category?: string;
 }
 
 interface UploadingFile {
@@ -31,7 +32,8 @@ export default function MediaUploader({
   accept = "image/*",
   bucket = "images",
   label = "Upload Media",
-  className = ""
+  className = "",
+  category = "general"
 }: MediaUploaderProps) {
   const [uploads, setUploads] = useState<UploadingFile[]>([]);
   const [isDragging, setIsDragging] = useState(false);
@@ -51,7 +53,8 @@ export default function MediaUploader({
           setUploads(prev => prev.map(u => 
             u.id === uploadItem.id ? { ...u, progress, status: 'uploading', error: undefined } : u
           ));
-        }
+        },
+        category
       );
 
       if (url) {
