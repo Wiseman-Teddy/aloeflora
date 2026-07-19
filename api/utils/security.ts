@@ -31,7 +31,7 @@ export function checkRateLimit(req: IncomingMessage, res: ServerResponse, maxReq
 }
 
 export function applyCors(req: IncomingMessage, res: ServerResponse): boolean {
-  const allowedOrigins = ['http://localhost:3000', 'http://localhost:5173'];
+  const allowedOrigins = ['http://localhost:3000', 'http://localhost:5173', 'https://aloefloraproducts.com', 'https://www.aloefloraproducts.com'];
   const origin = req.headers.origin || '';
 
   // Allow localhost during dev and strictly any *.vercel.app domain for production
@@ -40,7 +40,7 @@ export function applyCors(req: IncomingMessage, res: ServerResponse): boolean {
   } else {
     // If no matching origin, don't set the header (browser will block it)
     // or set a strict fallback
-    res.setHeader('Access-Control-Allow-Origin', 'https://aloeflora.vercel.app'); 
+    res.setHeader('Access-Control-Allow-Origin', 'https://aloefloraproducts.com'); 
   }
 
   res.setHeader('Access-Control-Allow-Methods', 'POST, GET, OPTIONS');
