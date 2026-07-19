@@ -27,7 +27,7 @@ async function getRequestBody(req: IncomingMessage): Promise<any> {
 async function getMpesaToken(consumerKey: string, consumerSecret: string) {
   const auth = Buffer.from(`${consumerKey}:${consumerSecret}`).toString('base64');
   try {
-    const response = await fetch('https://sandbox.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials', {
+    const response = await fetch('https://api.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials', {
       headers: {
         Authorization: `Basic ${auth}`
       }
@@ -67,7 +67,7 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
 
     const consumerKey = process.env.MPESA_CONSUMER_KEY;
     const consumerSecret = process.env.MPESA_CONSUMER_SECRET;
-    const businessShortCode = process.env.MPESA_SHORTCODE || '174379';
+    const businessShortCode = process.env.MPESA_SHORTCODE || '4160861';
     const passkey = process.env.MPESA_PASSKEY || 'bfb279f9aa9bdbcf158e97dd71a467cd2e0c893059b10f78e6b72ada1ed2c919';
 
     if (!consumerKey || !consumerSecret) {
@@ -89,7 +89,7 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
     const timestamp = new Date().toISOString().replace(/[^0-9]/g, '').slice(0, 14);
     const password = Buffer.from(`${businessShortCode}${passkey}${timestamp}`).toString('base64');
 
-    const appUrl = process.env.APP_URL || 'https://aloeflora.vercel.app';
+    const appUrl = process.env.APP_URL || 'https://aloefloraproducts.com';
     const callbackUrl = `${appUrl}/api/mpesa/callback`;
 
     const payload = {
@@ -106,7 +106,7 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
       TransactionDesc: 'Payment for order'
     };
 
-    const response = await fetch('https://sandbox.safaricom.co.ke/mpesa/stkpush/v1/processrequest', {
+    const response = await fetch('https://api.safaricom.co.ke/mpesa/stkpush/v1/processrequest', {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${token}`,

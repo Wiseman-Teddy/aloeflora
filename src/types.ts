@@ -4,7 +4,7 @@ export interface Product {
   description: string;
   price: number;
   costPrice: number;
-  category: "hair" | "body" | "home";
+  category: "hair" | "body" | "home" | "coffee";
   subCategory: string;
   imageUrl: string;
   stock: number;
@@ -109,19 +109,34 @@ export interface BookingEvent {
   id: string;
   title: string;
   date: string;
-  time: string;
+  time?: string;
   location: string;
   description: string;
-  imageUrl: string;
+  imageUrl?: string;
   capacity: number;
-  registrantCount: number;
-  registrants: {
-    name: string;
-    email: string;
-    phone: string;
-    registeredAt: string;
-  }[];
-  status: "upcoming" | "active" | "passed";
+  price: number;
+  vendor_enabled?: boolean;
+  vendor_price?: number;
+  vendor_capacity?: number;
+  attendee_enabled?: boolean;
+  attendee_price?: number;
+  status: "upcoming" | "active" | "passed" | "draft";
+  created_at?: string;
+}
+
+export interface EventRegistration {
+  id: string;
+  event_id: string;
+  user_id?: string;
+  role: "attendee" | "vendor";
+  name: string;
+  email: string;
+  phone: string;
+  payment_status: "free" | "pending" | "paid" | "failed";
+  amount_paid: number;
+  ticket_number?: string;
+  mpesa_receipt?: string;
+  created_at?: string;
 }
 
 export interface CMSPost {

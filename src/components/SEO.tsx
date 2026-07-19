@@ -13,12 +13,12 @@ interface SEOProps {
 }
 
 export const SEO: React.FC<SEOProps> = ({
-  title = 'ALOEFLORA PRODUCTS',
-  description = 'Quality, affordable, and natural hair, body, and home care formulations. Handcrafted with organic aloe vera locally sourced in Nairobi, Kenya.',
-  keywords = 'aloe vera, hair care, natural curls, skin repair, organic home care, Nairobi, Kenya',
+  title = 'ALOEFLORA PRODUCTS | Best Natural Hair, Skin, & Home Care',
+  description = 'Shop the best natural hair products, best coffee products, and best home care & natural body care products. Quality, affordable organic formulations locally sourced in Nairobi, Kenya.',
+  keywords = 'Best Natural hair product, best coffee products, best Home care and natural products, best natural and body care, Best skin hair home products, aloe vera, organic formulations, Nairobi, Kenya',
   robots = 'index, follow',
   type = 'website',
-  url = 'https://aloeflora.vercel.app/',
+  url = 'https://aloefloraproducts.com/',
   image = 'https://images.unsplash.com/photo-1596547609652-9cf5d8d76921?auto=format&fit=crop&q=80&w=600',
   schema
 }) => {

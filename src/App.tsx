@@ -33,6 +33,7 @@ import NotFound from './components/NotFound';
 import { Toaster, toast } from 'react-hot-toast';
 import { Product, Order, SupportTicket, MarketingCampaign, BookingEvent, CMSPost, DevOpsLog, AuditAnomaly, StoreSettings, UserProfile, Promo } from "./types";
 import { SEO } from "./components/SEO";
+import { CookieBanner } from "./components/CookieBanner";
 const CustomerStore = lazy(() => import("./components/CustomerStore"));
 const AdminConsole = lazy(() => import("./components/AdminConsole"));
 const ArchitectureDocs = lazy(() => import("./components/ArchitectureDocs"));
@@ -349,6 +350,7 @@ export default function App() {
         robots={storeSettings?.seoRobots}
       />
       <Toaster position="top-right" />
+      <CookieBanner />
       
       {/* GLOBAL ENTERPRISE SUPERIOR NAVIGATION HEADER */}
       <header id="enterprise-header" className="sticky top-0 z-50 bg-white/90 dark:bg-gray-950/90 backdrop-blur-md border-b border-gray-100 dark:border-gray-900 shadow-sm">
@@ -646,10 +648,10 @@ export default function App() {
             <div>
               <h4 className="font-bold text-sm text-white mb-4">Quick Links</h4>
               <ul className="space-y-2 text-xs text-emerald-100/70">
-                <li><Link to="/store" className="hover:text-emerald-600 transition">Shop Products</Link></li>
-                <li><a href="#events-marketing-section" className="hover:text-emerald-600 transition">Events & Workshops</a></li>
+                <li><Link to="/store#organic-formulations" className="hover:text-emerald-600 transition">Shop Products</Link></li>
+                <li><Link to="/store#events-marketing-section" className="hover:text-emerald-600 transition">Events & Workshops</Link></li>
                 <li><button onClick={() => toast.success('Track Order portal coming soon!')} className="hover:text-emerald-600 transition cursor-pointer">Track Order</button></li>
-                <li><button onClick={() => toast.success('Return Policy documentation is being updated.')} className="hover:text-emerald-600 transition cursor-pointer">Return Policy</button></li>
+                <li><Link to="/policies/returns" className="hover:text-emerald-600 transition cursor-pointer">Return Policy</Link></li>
               </ul>
             </div>
 
@@ -694,7 +696,11 @@ export default function App() {
           </div>
           
           <div className="flex flex-col md:flex-row items-center justify-between pt-6 border-t border-emerald-900 text-[10px] text-emerald-200/50 font-mono">
-            <span>© {new Date().getFullYear()} ALOEFLORA PRODUCTS Kenya. All rights reserved.</span>
+            <span>&copy; {new Date().getFullYear()} ALOEFLORA PRODUCTS Kenya. All rights reserved.</span>
+            <div className="flex gap-4 mt-4 md:mt-0">
+              <Link to="/policies/terms" className="hover:text-white transition">Terms of Service</Link>
+              <Link to="/policies/privacy" className="hover:text-white transition">Privacy Policy</Link>
+            </div>
 
           </div>
         </div>

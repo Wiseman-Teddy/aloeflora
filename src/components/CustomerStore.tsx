@@ -113,6 +113,11 @@ export default function CustomerStore({
     .slice(0, 25);
   const [heroIndex, setHeroIndex] = useState<number>(0);
   const heroRef = useRef<NodeJS.Timeout | null>(null);
+  const [eventsData, setEventsData] = useState<any[]>([]);
+
+  useEffect(() => {
+    supabase.from('events').select('*, event_registrations(role)').then(({data}) => setEventsData(data || []));
+  }, []);
 
   // Multi-step Checkout details
   const [isCheckoutOpen, setIsCheckoutOpen] = useState<boolean>(false);
@@ -157,6 +162,10 @@ export default function CustomerStore({
   const [regName, setRegName] = useState<string>("");
   const [regEmail, setRegEmail] = useState<string>("");
   const [regPhone, setRegPhone] = useState<string>("");
+  const [regRole, setRegRole] = useState<"attendee" | "vendor">("attendee");
+  const [paymentContext, setPaymentContext] = useState<"order" | "event">("order");
+  const [pendingEventRegId, setPendingEventRegId] = useState<string | null>(null);
+  const [pendingEventPrice, setPendingEventPrice] = useState<number>(0);
 
   // Fetch user profile on login
   useEffect(() => {
@@ -376,6 +385,45 @@ export default function CustomerStore({
     setStkStatus("verifying");
 
     try {
+      if (paymentContext === "event") {
+        const ticketId = "TKT-" + Math.floor(100000 + Math.random() * 900000);
+        setGeneratedOrderId(ticketId); // reuse for display
+        const mpesaRef = "QFF" + Math.random().toString(36).substring(2, 8).toUpperCase();
+        
+        const { error } = await supabase.from('event_registrations').insert({
+          event_id: pendingEventRegId,
+          role: regRole,
+          name: regName,
+          email: regEmail,
+          phone: regPhone,
+          payment_status: "paid",
+          amount_paid: pendingEventPrice,
+          ticket_number: ticketId,
+          mpesa_receipt: mpesaRef
+        });
+        
+        if (error) throw error;
+        
+        // Send Email Confirmation
+        const evTitle = cmsPosts.find(p => p.id === pendingEventRegId)?.title || 'ALOEFLORA Event';
+        fetch('/api/email/confirm', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: regEmail, name: regName, role: regRole, eventTitle: evTitle, ticketNumber: ticketId, paymentStatus: "Paid", amount: pendingEventPrice })
+        }).catch(err => console.error("Email send error", err));
+        
+        setTimeout(() => {
+          setStkStatus("success");
+          toast.success(`Payment confirmed! Your ticket is ${ticketId}. Email sent.`);
+          // onRegisterEvent removed: handled by supabase
+          setRegEventId(null);
+          setRegName("");
+          setRegEmail("");
+          setRegPhone("");
+        }, 3000);
+        return;
+      }
+
       const orderId = "ORD-" + Math.floor(1000 + Math.random() * 9000);
       setGeneratedOrderId(orderId);
 
@@ -448,6 +496,7 @@ export default function CustomerStore({
       return;
     }
     setStkStatus("verifying");
+    setPaymentContext("order");
     setIsSTKSimulating(true);
 
     try {
@@ -484,6 +533,21 @@ export default function CustomerStore({
     if (!post) return;
 
     try {
+      // Check for duplicate registration
+      const { data: existingReg, error: existingErr } = await supabase
+        .from('event_registrations')
+        .select('id')
+        .eq('event_id', eventId)
+        .eq('email', regEmail)
+        .limit(1);
+
+      if (existingReg && existingReg.length > 0) {
+        const wantsMultiple = window.confirm("You have already registered for this event with this email. Do you want to register again to buy an additional ticket?");
+        if (!wantsMultiple) {
+          return;
+        }
+      }
+
       let { data: evtData, error: evtErr } = await supabase.from('events').select('*').eq('id', eventId).single();
       
       if (!evtData) {
@@ -495,40 +559,75 @@ export default function CustomerStore({
             description: post.content,
             image_url: post.imageUrl || null,
             capacity: parseInt(post.seoKeywords || "50") || 50,
-            registrant_count: 0,
-            registrants: []
+            price: 0,
+            vendor_enabled: true,
+            vendor_price: 2000,
+            vendor_capacity: 10,
+            attendee_enabled: true,
+            attendee_price: 0,
+            status: 'upcoming'
          };
-         await supabase.from('events').insert(newEvt);
+         const { error: insError } = await supabase.from('events').insert(newEvt);
+         if (insError) {
+             console.error("Failed to create event fallback:", insError);
+             toast.error("Error setting up event registration record.");
+             return;
+         }
          evtData = newEvt;
       }
       
-      if (evtData.registrant_count >= evtData.capacity) {
-         toast.error("Sorry, this event has reached full seating capacity.");
-         return;
+      const { count: currentVendors } = await supabase.from('event_registrations').select('*', { count: 'exact', head: true }).eq('event_id', eventId).eq('role', 'vendor');
+      const { count: currentAttendees } = await supabase.from('event_registrations').select('*', { count: 'exact', head: true }).eq('event_id', eventId).eq('role', 'attendee');
+      
+      if (regRole === 'vendor') {
+        if (evtData.vendor_enabled === false) {
+          toast.error("Vendor registration is not enabled for this event."); return;
+        }
+        if ((currentVendors || 0) >= (evtData.vendor_capacity || 10)) {
+          toast.error("Sorry, vendor slots are fully booked."); return;
+        }
+      } else {
+        if (evtData.attendee_enabled === false) {
+          toast.error("Attendee registration is not enabled for this event."); return;
+        }
+        if ((currentAttendees || 0) >= (evtData.capacity || 50)) {
+          toast.error("Sorry, attendee tickets are sold out."); return;
+        }
       }
       
-      const newRegistrant = {
-          name: regName,
-          email: regEmail,
-          phone: regPhone,
-          registeredAt: new Date().toISOString()
-      };
+      const price = regRole === 'vendor' ? (Number(evtData.vendor_price) || 0) : (Number(evtData.price) || 0);
       
-      const newRegistrants = [...evtData.registrants, newRegistrant];
-      
-      const { error: updateErr } = await supabase.from('events').update({
-          registrant_count: evtData.registrant_count + 1,
-          registrants: newRegistrants
-      }).eq('id', eventId);
-      
-      if (updateErr) throw updateErr;
+      if (price > 0) {
+        setPendingEventRegId(eventId);
+        setPendingEventPrice(price);
+        setPaymentContext("event");
+        setStkStatus("waiting_pin");
+        setIsSTKSimulating(true);
+      } else {
+        const { error: insErr } = await supabase.from('event_registrations').insert({
+            event_id: eventId,
+            role: regRole,
+            name: regName,
+            email: regEmail,
+            phone: regPhone,
+            payment_status: "free"
+        });
+        
+        if (insErr) throw insErr;
+        
+        fetch('/api/email/confirm', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: regEmail, name: regName, role: regRole, eventTitle: post.title, paymentStatus: "Free" })
+        }).catch(err => console.error("Email send error", err));
 
-      onRegisterEvent(eventId, { name: regName, email: regEmail, phone: regPhone });
-      toast.success(`Successfully registered ${regName} for the event!`);
-      setRegEventId(null);
-      setRegName("");
-      setRegEmail("");
-      setRegPhone("");
+        // onRegisterEvent removed: handled by supabase
+        toast.success(`Successfully registered ${regName} as ${regRole}! Email sent.`);
+        setRegEventId(null);
+        setRegName("");
+        setRegEmail("");
+        setRegPhone("");
+      }
     } catch (err: any) {
       toast.error("Registration failed: " + err.message);
     }
@@ -699,7 +798,8 @@ export default function CustomerStore({
             { id: "all", label: "All Items" },
             { id: "hair", label: "Hair Care" },
             { id: "body", label: "Body Care" },
-            { id: "home", label: "Home Care" }
+            { id: "home", label: "Home Care" },
+            { id: "coffee", label: "Coffee" }
           ].map((cat) => (
             <button
               key={cat.id}
@@ -909,7 +1009,7 @@ export default function CustomerStore({
         <div className="lg:col-span-8 bg-zinc-50 dark:bg-gray-800/10 border border-zinc-100 dark:border-gray-800 rounded-3xl p-6 text-left">
           <div className="flex items-center justify-between pb-4 border-b border-gray-100 dark:border-gray-800 mb-6">
             <div>
-              <span className="text-[10px] text-emerald-800 dark:text-emerald-400 uppercase font-bold tracking-widest">Wellness Promotion</span>
+              <span className="text-[10px] text-emerald-800 dark:text-emerald-400 uppercase font-bold tracking-widest">EVENTS & WELLNESS PROMOTION</span>
               <h3 className="text-lg font-bold text-gray-900 dark:text-white mt-1">Kenyan Organic Expos & Farm Walks</h3>
             </div>
             <Calendar className="w-5 h-5 text-emerald-800" />
@@ -938,15 +1038,36 @@ export default function CustomerStore({
                     <p className="text-[11px] text-gray-500 line-clamp-3 leading-relaxed pt-1">{evt.content}</p>
                   </div>
                 </div>
-                <div className="p-4 pt-0 border-t border-gray-50 dark:border-gray-800/60 mt-2 flex items-center justify-between">
-                  <span className="text-[10px] text-emerald-800 font-bold bg-emerald-50 px-2 py-0.5 rounded">
-                    Capacity: {evt.seoKeywords || 'Unlimited'}
-                  </span>
+                <div className="p-4 pt-0 border-t border-gray-50 dark:border-gray-800/60 mt-2">
+                  <div className="flex flex-col gap-1 mb-2">
+                    {(() => {
+                      const evState = eventsData.find(e => e.id === evt.id);
+                      if (!evState) return null;
+                      const aCount = evState.event_registrations?.filter((r: any) => r.role === 'attendee').length || 0;
+                      const vCount = evState.event_registrations?.filter((r: any) => r.role === 'vendor').length || 0;
+                      return (
+                        <>
+                          {evState.attendee_enabled && (
+                            <div className="flex justify-between items-center text-[10px]">
+                                <span className="text-gray-500">Attendee: {evState.price > 0 ? `KES ${evState.price}` : 'Free'}</span>
+                                <span className="text-emerald-800 font-bold bg-emerald-50 px-1.5 py-0.5 rounded">{Math.max(0, evState.capacity - aCount)} slots left</span>
+                            </div>
+                          )}
+                          {evState.vendor_enabled && (
+                            <div className="flex justify-between items-center text-[10px]">
+                                <span className="text-gray-500">Vendor: {evState.vendor_price > 0 ? `KES ${evState.vendor_price}` : 'Free'}</span>
+                                <span className="text-amber-800 font-bold bg-amber-50 px-1.5 py-0.5 rounded">{Math.max(0, (evState.vendor_capacity || 10) - vCount)} slots left</span>
+                            </div>
+                          )}
+                        </>
+                      );
+                    })()}
+                  </div>
                   <button 
                     onClick={() => setRegEventId(evt.id)}
-                    className="text-xs font-bold text-emerald-800 underline hover:text-emerald-700 cursor-pointer p-2 min-h-[44px] flex items-center"
+                    className="w-full text-center text-xs font-bold text-white bg-emerald-800 hover:bg-emerald-700 rounded-lg cursor-pointer p-2 transition shadow-sm"
                   >
-                    Register Seat
+                    View Registration Options
                   </button>
                 </div>
               </div>
@@ -958,7 +1079,6 @@ export default function CustomerStore({
         <div className="lg:col-span-12 text-left mt-8">
           <div className="flex items-center justify-between pb-4 border-b border-gray-100 dark:border-gray-800 mb-6">
             <div>
-              <span className="text-[10px] text-emerald-800 dark:text-emerald-400 uppercase font-bold tracking-widest">Education</span>
               <h3 className="text-lg font-bold text-gray-900 dark:text-white mt-1">Scientific Blog & Insights</h3>
             </div>
           </div>
@@ -980,26 +1100,6 @@ export default function CustomerStore({
           </div>
         </div>
 
-        {/* FAQ Section */}
-        <div className="lg:col-span-12 mt-12 mb-8">
-          <div className="max-w-4xl mx-auto bg-zinc-50 dark:bg-gray-800/10 border border-zinc-100 dark:border-gray-800 p-8 rounded-3xl shadow-sm">
-            <div className="text-center mb-8">
-              <h4 className="text-2xl font-bold text-gray-950 dark:text-white mb-2">Frequently Asked Questions</h4>
-              <p className="text-sm text-gray-500">Find answers to common questions about our organic products and services.</p>
-            </div>
-            <div className="space-y-3 text-left">
-              {cmsPosts.filter(p => p.type === "faq").map((faq, index) => (
-                <details key={faq.id} open={index === 0} className="group bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 p-5 rounded-xl transition hover:shadow-md">
-                  <summary className="text-sm font-semibold text-gray-900 dark:text-white list-none flex items-center justify-between cursor-pointer">
-                    <span>{faq.title}</span>
-                    <span className="text-emerald-600 font-bold group-open:rotate-45 transition-transform duration-200">+</span>
-                  </summary>
-                  <p className="text-sm text-gray-600 dark:text-gray-400 mt-4 leading-relaxed border-t border-gray-50 dark:border-gray-800 pt-4">{faq.content}</p>
-                </details>
-              ))}
-            </div>
-          </div>
-        </div>
       </section>
 
       {/* 4. PRODUCT COMPARISON MODAL SLIDE-UP */}
@@ -1238,14 +1338,39 @@ export default function CustomerStore({
                   required
                   value={regPhone}
                   onChange={(e) => setRegPhone(e.target.value)}
-                  placeholder="e.g. +254 711 223344" 
+                  placeholder="2547XXXXXXXX" 
                   className="w-full text-xs p-3 border border-gray-200 rounded-xl focus:outline-none focus:border-emerald-700" 
                 />
               </div>
 
+              <div className="space-y-2 mt-2">
+                <label className="text-[10px] uppercase font-bold text-gray-400 block">Registration Type</label>
+                {(() => {
+                  const evState = eventsData.find(e => e.id === regEventId);
+                  return (
+                    <div className="grid grid-cols-2 gap-3">
+                      {(!evState || evState.attendee_enabled !== false) && (
+                        <label className={`cursor-pointer border-2 rounded-2xl p-4 transition text-center flex flex-col items-center justify-center ${regRole === 'attendee' ? 'border-emerald-600 bg-emerald-50 dark:bg-emerald-900/20 shadow-sm' : 'border-gray-100 hover:border-gray-200 dark:border-gray-800'}`}>
+                          <input type="radio" name="regRole" value="attendee" checked={regRole === 'attendee'} onChange={() => setRegRole('attendee')} className="hidden" />
+                          <div className="font-bold text-sm text-gray-900 dark:text-white">Attendee</div>
+                          <div className="text-[10px] text-emerald-600 font-bold mt-1 uppercase">{evState && evState.price > 0 ? `KES ${evState.price}` : 'Free Admission'}</div>
+                        </label>
+                      )}
+                      {(!evState || evState.vendor_enabled !== false) && (
+                        <label className={`cursor-pointer border-2 rounded-2xl p-4 transition text-center flex flex-col items-center justify-center ${regRole === 'vendor' ? 'border-amber-500 bg-amber-50 dark:bg-amber-900/20 shadow-sm' : 'border-gray-100 hover:border-gray-200 dark:border-gray-800'}`}>
+                          <input type="radio" name="regRole" value="vendor" checked={regRole === 'vendor'} onChange={() => setRegRole('vendor')} className="hidden" />
+                          <div className="font-bold text-sm text-gray-900 dark:text-white">Vendor</div>
+                          <div className="text-[10px] text-amber-600 font-bold mt-1 uppercase">{evState && evState.vendor_price > 0 ? `KES ${evState.vendor_price}` : 'Free'}</div>
+                        </label>
+                      )}
+                    </div>
+                  );
+                })()}
+              </div>
+
               <button 
                 type="submit"
-                className="w-full bg-emerald-800 hover:bg-emerald-700 text-white font-bold p-3 rounded-xl transition cursor-pointer text-xs uppercase tracking-wide shadow"
+                className="w-full bg-emerald-800 hover:bg-emerald-700 text-white font-bold p-3 rounded-xl transition cursor-pointer text-xs uppercase tracking-wide shadow mt-4"
               >
                 Confirm Spot Invitation
               </button>
@@ -1330,6 +1455,30 @@ export default function CustomerStore({
             {/* Loyalty and Summary checkout footer */}
             {cart.length > 0 && (
               <div className="border-t pt-4 space-y-4 text-left">
+                {/* Coupon Input UI */}
+                <div className="space-y-2 pb-2 border-b border-gray-100 dark:border-gray-800">
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      placeholder="Promo Code"
+                      value={referralCodeInput}
+                      onChange={(e) => setReferralCodeInput(e.target.value)}
+                      className="flex-1 text-xs p-2.5 border border-gray-200 rounded-lg focus:outline-none focus:border-emerald-700 bg-gray-50 dark:bg-gray-800 dark:border-gray-700 dark:text-white uppercase"
+                    />
+                    <button
+                      onClick={applyReferral}
+                      className="bg-emerald-800 hover:bg-emerald-700 text-white font-bold px-4 py-2.5 rounded-lg transition cursor-pointer text-xs uppercase"
+                    >
+                      Apply
+                    </button>
+                  </div>
+                  {referralMessage && (
+                    <div className={`text-[10px] font-bold ${activePromo ? 'text-emerald-600' : 'text-red-500'}`}>
+                      {referralMessage}
+                    </div>
+                  )}
+                </div>
+
                 <div className="space-y-1">
                   <div className="flex justify-between text-xs text-gray-500">
                     <span>Retail Subtotal</span>
@@ -1639,8 +1788,8 @@ export default function CustomerStore({
                   <div className="bg-gray-950 p-4 rounded-2xl border border-gray-800 text-left space-y-3 font-mono text-xs">
                     <div className="text-gray-400 border-b border-gray-800 pb-2">STK Push Message Dialog:</div>
                     <div className="text-emerald-400 font-bold">Pay Bill: 174379 (ALOEFLORA PRODUCTS)</div>
-                    <div>Account No: ORD-{generatedOrderId || "9281"}</div>
-                    <div>Amount: KES {total}</div>
+                    <div>Account No: {paymentContext === "event" ? "" : "ORD-"}{generatedOrderId || "9281"}</div>
+                    <div>Amount: KES {paymentContext === "event" ? pendingEventPrice : total}</div>
                     <div className="text-gray-400">Enter Your 4-Digit M-Pesa Secret PIN:</div>
                     
                     {/* Dots indicator */}
@@ -1704,7 +1853,7 @@ export default function CustomerStore({
                     <Check className="w-6 h-6" />
                   </div>
                   <div className="space-y-1">
-                    <h4 className="font-bold text-emerald-400">KES {total} Paid Successfully</h4>
+                    <h4 className="font-bold text-emerald-400">KES {paymentContext === "event" ? pendingEventPrice : total} Paid Successfully</h4>
                     <p className="text-xs text-gray-400">Safaricom Receipt Ref: QFF{Math.random().toString(36).substring(2, 8).toUpperCase()}</p>
                     <p className="text-[10px] text-gray-500 px-4 mt-2">ALOEFLORA PRODUCTS Nairobi accounts sync cleared. Your order is registered in our dashboard.</p>
                   </div>

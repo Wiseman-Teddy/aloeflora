@@ -91,7 +91,7 @@ export default function AdminConsole({
   const [prodDesc, setProdDesc] = useState<string>("");
   const [prodPrice, setProdPrice] = useState<number>(500);
   const [prodCostPrice, setProdCostPrice] = useState<number>(200);
-  const [prodCategory, setProdCategory] = useState<"hair" | "body" | "home">("hair");
+  const [prodCategory, setProdCategory] = useState<"hair" | "body" | "home" | "coffee">("hair");
   const [prodSubCategory, setProdSubCategory] = useState<string>("Shampoos");
   const [prodImageUrl, setProdImageUrl] = useState<string>("");
   const [prodStock, setProdStock] = useState<number>(50);
@@ -153,6 +153,20 @@ export default function AdminConsole({
   const [isMediaLoading, setIsMediaLoading] = useState(false);
   const [mediaCategoryFilter, setMediaCategoryFilter] = useState<string>("all");
   const [mediaUploadCategory, setMediaUploadCategory] = useState<string>("general");
+
+  // Events and Registrations State
+  const [eventsData, setEventsData] = useState<any[]>([]);
+  const [eventRegistrations, setEventRegistrations] = useState<any[]>([]);
+  const [eventPrice, setEventPrice] = useState<string>("0");
+  const [vendorEnabled, setVendorEnabled] = useState<boolean>(true);
+  const [vendorPrice, setVendorPrice] = useState<string>("2000");
+  const [vendorCapacity, setVendorCapacity] = useState<string>("10");
+  const [attendeeEnabled, setAttendeeEnabled] = useState<boolean>(true);
+
+  useEffect(() => {
+    supabase.from('events').select('*').then(({data}) => setEventsData(data || []));
+    supabase.from('event_registrations').select('*').then(({data}) => setEventRegistrations(data || []));
+  }, []);
 
   // Live interval ticker simulating DevOps process fluctuations
   useEffect(() => {
@@ -439,6 +453,25 @@ export default function AdminConsole({
             title: modified.title, content: modified.content, type: modified.type, status: modified.status, image_url: modified.imageUrl, seo_title: modified.seoTitle, seo_desc: modified.seoDesc, seo_keywords: modified.seoKeywords
           }).eq('id', editingCmsId);
           if (error) throw error;
+          
+          if (modified.type === 'promotion') {
+            const modEvt = {
+              id: modified.id,
+              title: modified.title,
+              description: modified.content,
+              date: modified.seoTitle || "TBA",
+              location: modified.seoDesc || "TBA",
+              capacity: parseInt(modified.seoKeywords || "50") || 50,
+              price: parseFloat(eventPrice) || 0,
+              vendor_enabled: vendorEnabled,
+              vendor_price: parseFloat(vendorPrice) || 0,
+              vendor_capacity: parseInt(vendorCapacity) || 10,
+              attendee_enabled: attendeeEnabled,
+              image_url: modified.imageUrl || null
+            };
+            const { error: evtErr } = await supabase.from('events').upsert(modEvt);
+            if (!evtErr) setEventsData(eventsData.map(e => e.id === modEvt.id ? { ...e, ...modEvt } : e));
+          }
         } catch(err: any) { 
           console.error(err); 
           toast.error(`Database Error: ${err.message || "Failed to update database"}`);
@@ -472,6 +505,26 @@ export default function AdminConsole({
             image_url: newPost.imageUrl, created_at: newPost.createdAt, seo_title: newPost.seoTitle, seo_desc: newPost.seoDesc, seo_keywords: newPost.seoKeywords
         });
         if (error) throw error;
+
+        if (newPost.type === 'promotion') {
+          const newEvt = {
+            id: newPost.id,
+            title: newPost.title,
+            description: newPost.content,
+            date: newPost.seoTitle || "TBA",
+            location: newPost.seoDesc || "TBA",
+            capacity: parseInt(newPost.seoKeywords || "50") || 50,
+            price: parseFloat(eventPrice) || 0,
+            vendor_enabled: vendorEnabled,
+            vendor_price: parseFloat(vendorPrice) || 0,
+            vendor_capacity: parseInt(vendorCapacity) || 10,
+            attendee_enabled: attendeeEnabled,
+            image_url: newPost.imageUrl || null,
+            status: "upcoming"
+          };
+          const { error: evtErr } = await supabase.from('events').insert(newEvt);
+          if (!evtErr) setEventsData([...eventsData, newEvt]);
+        }
       } catch(err: any) { 
         console.error(err);
         toast.error(`Database Error: ${err.message || "Failed to save to database"}`);
@@ -499,6 +552,20 @@ export default function AdminConsole({
     setEventDate(post.seoTitle || "");
     setEventLocation(post.seoDesc || "");
     setEventCapacity(post.seoKeywords || "50");
+    if (post.type === 'promotion') {
+      const evt = eventsData.find(e => e.id === post.id);
+      setEventPrice(evt ? String(evt.price) : "0");
+      setVendorEnabled(evt ? evt.vendor_enabled : true);
+      setVendorPrice(evt ? String(evt.vendor_price) : "2000");
+      setVendorCapacity(evt ? String(evt.vendor_capacity) : "10");
+      setAttendeeEnabled(evt ? evt.attendee_enabled : true);
+    } else {
+      setEventPrice("0");
+      setVendorEnabled(true);
+      setVendorPrice("2000");
+      setVendorCapacity("10");
+      setAttendeeEnabled(true);
+    }
   };
 
   const handleDeleteCMS = async (id: string) => {
@@ -742,6 +809,7 @@ export default function AdminConsole({
                 { id: "users", label: "User Management", icon: Users },
                 { id: "support", label: "Support Tickets", icon: MessageSquare },
                 { id: "cms", label: "CMS Web Editor", icon: PenTool },
+                { id: "events", label: "Events & Registrations", icon: Calendar },
                 { id: "media", label: "Media Library", icon: Database },
               ].map(item => (
                 <button
@@ -832,7 +900,15 @@ export default function AdminConsole({
             </div>
 
             {/* KPI Summary Rows */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+              <div className="bg-gray-50/50 p-4 border rounded-xl">
+                <span className="text-[10px] uppercase font-bold text-gray-400">Event Revenue</span>
+                <div className="text-lg font-extrabold text-emerald-800 mt-1">KES {eventRegistrations.filter(r => r.payment_status === "paid").reduce((sum, r) => sum + Number(r.amount_paid || 0), 0).toLocaleString()}</div>
+                <span className="text-[9px] text-emerald-600 font-semibold mt-1 flex items-center gap-0.5">
+                   {eventRegistrations.length} Registrations
+                </span>
+              </div>
+
               <div className="bg-gray-50/50 p-4 border rounded-xl">
                 <span className="text-[10px] uppercase font-bold text-gray-400">Paid Revenue</span>
                 <div className="text-lg font-extrabold text-gray-900 mt-1">Ksh {totalPaidRevenue}</div>
@@ -1010,10 +1086,11 @@ export default function AdminConsole({
                   </div>
                   <div className="space-y-1">
                     <label className="font-bold">Category</label>
-                    <select value={prodCategory} onChange={(e) => setProdCategory(e.target.value as "hair"|"body"|"home")} className="w-full p-2 border bg-white rounded-lg focus:outline-none">
+                    <select value={prodCategory} onChange={(e) => setProdCategory(e.target.value as "hair"|"body"|"home"|"coffee")} className="w-full p-2 border bg-white rounded-lg focus:outline-none">
                       <option value="hair">Hair Care</option>
                       <option value="body">Body Care</option>
                       <option value="home">Home Care</option>
+                      <option value="coffee">Coffee</option>
                     </select>
                   </div>
                   <div className="space-y-1">
@@ -1391,18 +1468,50 @@ export default function AdminConsole({
                 </div>
 
                 {cmsType === 'promotion' && (
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                    <div className="space-y-1">
-                      <label className="font-bold">Event Date & Time</label>
-                      <input type="text" value={eventDate} onChange={(e) => setEventDate(e.target.value)} placeholder="e.g. Oct 15 - 18, 2026" className="w-full p-2.5 bg-white border rounded-lg focus:outline-none" />
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3 p-4 border border-emerald-100 bg-emerald-50/30 rounded-xl mb-4">
+                    <div className="md:col-span-3 pb-2 border-b border-emerald-100 flex items-center justify-between">
+                        <h4 className="font-bold text-emerald-900">Event Configuration</h4>
                     </div>
                     <div className="space-y-1">
-                      <label className="font-bold">Location</label>
-                      <input type="text" value={eventLocation} onChange={(e) => setEventLocation(e.target.value)} placeholder="e.g. Nairobi, KICC" className="w-full p-2.5 bg-white border rounded-lg focus:outline-none" />
+                      <label className="font-bold text-xs">Event Date & Time</label>
+                      <input type="text" value={eventDate} onChange={(e) => setEventDate(e.target.value)} placeholder="e.g. Oct 15 - 18, 2026" className="w-full p-2.5 bg-white border rounded-lg focus:outline-none text-sm" />
                     </div>
                     <div className="space-y-1">
-                      <label className="font-bold">Capacity (Slots)</label>
-                      <input type="number" value={eventCapacity} onChange={(e) => setEventCapacity(e.target.value)} placeholder="e.g. 50" className="w-full p-2.5 bg-white border rounded-lg focus:outline-none" />
+                      <label className="font-bold text-xs">Location</label>
+                      <input type="text" value={eventLocation} onChange={(e) => setEventLocation(e.target.value)} placeholder="e.g. Nairobi, KICC" className="w-full p-2.5 bg-white border rounded-lg focus:outline-none text-sm" />
+                    </div>
+                    <div className="space-y-1"></div>
+                    
+                    {/* Attendee Settings */}
+                    <div className="p-3 bg-white border rounded-lg shadow-sm space-y-3">
+                        <div className="flex items-center justify-between border-b pb-2">
+                            <label className="font-bold text-sm text-gray-900">Attendee Access</label>
+                            <input type="checkbox" checked={attendeeEnabled} onChange={(e) => setAttendeeEnabled(e.target.checked)} className="w-4 h-4 text-emerald-600 focus:ring-emerald-500 rounded" />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="font-bold text-xs text-gray-500">Ticket Price (0 for Free)</label>
+                          <input type="number" value={eventPrice} onChange={(e) => setEventPrice(e.target.value)} disabled={!attendeeEnabled} className="w-full p-2 bg-gray-50 border rounded-lg focus:outline-none text-sm disabled:opacity-50" />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="font-bold text-xs text-gray-500">Attendee Capacity</label>
+                          <input type="number" value={eventCapacity} onChange={(e) => setEventCapacity(e.target.value)} disabled={!attendeeEnabled} className="w-full p-2 bg-gray-50 border rounded-lg focus:outline-none text-sm disabled:opacity-50" />
+                        </div>
+                    </div>
+
+                    {/* Vendor Settings */}
+                    <div className="p-3 bg-white border rounded-lg shadow-sm space-y-3">
+                        <div className="flex items-center justify-between border-b pb-2">
+                            <label className="font-bold text-sm text-gray-900">Vendor Access</label>
+                            <input type="checkbox" checked={vendorEnabled} onChange={(e) => setVendorEnabled(e.target.checked)} className="w-4 h-4 text-emerald-600 focus:ring-emerald-500 rounded" />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="font-bold text-xs text-gray-500">Vendor Fee</label>
+                          <input type="number" value={vendorPrice} onChange={(e) => setVendorPrice(e.target.value)} disabled={!vendorEnabled} className="w-full p-2 bg-gray-50 border rounded-lg focus:outline-none text-sm disabled:opacity-50" />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="font-bold text-xs text-gray-500">Vendor Slots</label>
+                          <input type="number" value={vendorCapacity} onChange={(e) => setVendorCapacity(e.target.value)} disabled={!vendorEnabled} className="w-full p-2 bg-gray-50 border rounded-lg focus:outline-none text-sm disabled:opacity-50" />
+                        </div>
                     </div>
                   </div>
                 )}
@@ -1653,6 +1762,85 @@ export default function AdminConsole({
                 <br />
                 • Schema type definition: LocalBusiness & Product schemas verified OK.
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* TAB 10.5: EVENTS & REGISTRATIONS */}
+        {activeModule === "events" && (
+          <div className="space-y-6 animate-in fade-in duration-150 text-left">
+            <div className="flex justify-between items-center bg-zinc-50 p-6 rounded-2xl border">
+              <div>
+                <h3 className="font-bold text-lg text-gray-950">Events & Registrations</h3>
+                <p className="text-xs text-gray-500">Manage attendee spots, vendor tickets, and event revenue.</p>
+              </div>
+            </div>
+
+            <div className="space-y-6">
+              {eventsData.map(event => {
+                const eventRegs = eventRegistrations.filter(r => r.event_id === event.id);
+                const revenue = eventRegs.filter(r => r.payment_status === "paid").reduce((sum, r) => sum + Number(r.amount_paid || 0), 0);
+                
+                return (
+                  <div key={event.id} className="bg-white border rounded-2xl p-6 shadow-sm">
+                    <div className="flex justify-between items-start mb-4 pb-4 border-b">
+                      <div>
+                        <h4 className="font-bold text-gray-900 text-lg">{event.title}</h4>
+                        <div className="flex gap-4 mt-2 text-xs text-gray-500">
+                          <span className="flex items-center gap-1"><Calendar className="w-3.5 h-3.5" /> {event.date}</span>
+                          <span>|</span>
+                          <span className="font-bold">Price: {event.price > 0 ? `KES ${event.price}` : 'Free'}</span>
+                          <span>|</span>
+                          <span className="font-bold">Capacity: {eventRegs.length} / {event.capacity}</span>
+                          <span>|</span>
+                          <span className="font-bold text-emerald-600">Revenue: KES {revenue}</span>
+                        </div>
+                      </div>
+                      <span className="bg-emerald-100 text-emerald-800 font-bold px-3 py-1 rounded text-[10px] uppercase">{event.status}</span>
+                    </div>
+
+                    {eventRegs.length === 0 ? (
+                      <p className="text-xs text-gray-400 italic">No registrations yet.</p>
+                    ) : (
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-xs text-left">
+                          <thead className="text-[10px] uppercase text-gray-500 border-b">
+                            <tr>
+                              <th className="py-2">Name</th>
+                              <th className="py-2">Contact</th>
+                              <th className="py-2">Role</th>
+                              <th className="py-2">Status</th>
+                              <th className="py-2">Ticket #</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {eventRegs.map(reg => (
+                              <tr key={reg.id} className="border-b last:border-0 border-gray-50 hover:bg-zinc-50">
+                                <td className="py-3 font-medium">{reg.name}</td>
+                                <td className="py-3"><div className="text-gray-900">{reg.email}</div><div className="text-gray-500">{reg.phone}</div></td>
+                                <td className="py-3">
+                                  <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${reg.role === 'vendor' ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800'}`}>
+                                    {reg.role}
+                                  </span>
+                                </td>
+                                <td className="py-3">
+                                  <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${reg.payment_status === 'paid' ? 'bg-emerald-100 text-emerald-800' : reg.payment_status === 'free' ? 'bg-gray-100 text-gray-800' : 'bg-red-100 text-red-800'}`}>
+                                    {reg.payment_status}
+                                  </span>
+                                </td>
+                                <td className="py-3 font-mono text-gray-500">{reg.ticket_number || '-'}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+              {eventsData.length === 0 && (
+                 <p className="text-sm text-gray-500 p-8 text-center bg-zinc-50 rounded-2xl border border-dashed">No events found. Create one from the CMS Web Editor (Promotions type).</p>
+              )}
             </div>
           </div>
         )}
