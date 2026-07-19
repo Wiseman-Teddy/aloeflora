@@ -1,5 +1,5 @@
 import { IncomingMessage, ServerResponse } from 'http';
-import { applyCors, checkRateLimit } from '../utils/security';
+import { applyCors, checkRateLimit } from '../_utils/security';
 
 // Helper to read body if Vercel doesn't parse it (though Vercel does parse it for POST requests)
 async function getRequestBody(req: IncomingMessage): Promise<any> {

@@ -1,6 +1,6 @@
 import { IncomingMessage, ServerResponse } from 'http';
 import { Resend } from 'resend';
-import { applyCors, checkRateLimit } from '../utils/security';
+import { applyCors, checkRateLimit } from '../_utils/security';
 
 async function getRequestBody(req: IncomingMessage): Promise<any> {
   if ((req as any).body) return (req as any).body;
