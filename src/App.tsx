@@ -22,7 +22,10 @@ import {
   Settings,
   LayoutDashboard,
   User as UserIcon,
-  Globe
+  Globe,
+  Search,
+  Home,
+  ShoppingCart
 } from "lucide-react";
 import { supabase } from "./lib/supabase";
 import { useAuth } from "./contexts/AuthContext";
@@ -38,6 +41,11 @@ const CustomerStore = lazy(() => import("./components/CustomerStore"));
 const AdminConsole = lazy(() => import("./components/AdminConsole"));
 const ArchitectureDocs = lazy(() => import("./components/ArchitectureDocs"));
 const UserDashboard = lazy(() => import("./components/UserDashboard"));
+const FAQPage = lazy(() => import("./components/FAQPage"));
+const AboutUsPage = lazy(() => import("./components/AboutUsPage"));
+const BlogsPage = lazy(() => import("./components/BlogsPage"));
+const ProductDetailPage = lazy(() => import("./components/ProductDetailPage"));
+const CheckoutPage = lazy(() => import("./components/CheckoutPage"));
 
 export default function App() {
   const { user, role, signOut } = useAuth();
@@ -384,12 +392,24 @@ export default function App() {
             >
               Products
             </a>
-            <a
-              href="/store#about-us"
+            <Link
+              to="/about"
               className="px-4 py-1.5 rounded-full text-xs font-semibold transition cursor-pointer select-none text-gray-600 dark:text-gray-300 hover:text-gray-950 hover:bg-white dark:hover:bg-gray-800"
             >
-              About us
-            </a>
+              About Us
+            </Link>
+            <Link
+              to="/blogs"
+              className="px-4 py-1.5 rounded-full text-xs font-semibold transition cursor-pointer select-none text-gray-600 dark:text-gray-300 hover:text-gray-950 hover:bg-white dark:hover:bg-gray-800"
+            >
+              Blogs
+            </Link>
+            <Link
+              to="/faq"
+              className="px-4 py-1.5 rounded-full text-xs font-semibold transition cursor-pointer select-none text-gray-600 dark:text-gray-300 hover:text-gray-950 hover:bg-white dark:hover:bg-gray-800"
+            >
+              FAQ
+            </Link>
             <a
               href="#footer-contacts"
               className="px-4 py-1.5 rounded-full text-xs font-semibold transition cursor-pointer select-none text-gray-600 dark:text-gray-300 hover:text-gray-950 hover:bg-white dark:hover:bg-gray-800"
@@ -480,13 +500,27 @@ export default function App() {
             >
               Products
             </a>
-            <a
-              href="/store#about-us"
+            <Link
+              to="/about"
               onClick={() => setIsMobileMenuOpen(false)}
               className="p-3 rounded-xl font-bold flex items-center gap-2 hover:bg-gray-50 dark:hover:bg-gray-800"
             >
-              About us
-            </a>
+              About Us
+            </Link>
+            <Link
+              to="/blogs"
+              onClick={() => setIsMobileMenuOpen(false)}
+              className="p-3 rounded-xl font-bold flex items-center gap-2 hover:bg-gray-50 dark:hover:bg-gray-800"
+            >
+              Blogs
+            </Link>
+            <Link
+              to="/faq"
+              onClick={() => setIsMobileMenuOpen(false)}
+              className="p-3 rounded-xl font-bold flex items-center gap-2 hover:bg-gray-50 dark:hover:bg-gray-800"
+            >
+              FAQ
+            </Link>
             <a
               href="#footer-contacts"
               onClick={() => setIsMobileMenuOpen(false)}
@@ -539,6 +573,8 @@ export default function App() {
         <Suspense fallback={<div className="flex items-center justify-center py-20"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-800"></div></div>}>
           <Routes>
             <Route path="/" element={<Navigate to="/store" replace />} />
+            <Route path="/about" element={<AboutUsPage cmsPosts={cmsPosts} />} />
+            <Route path="/blogs" element={<BlogsPage cmsPosts={cmsPosts} />} />
             <Route path="/login" element={<CustomerAuth initialMode="login" />} />
             <Route path="/register" element={<CustomerAuth initialMode="register" />} />
             <Route path="/forgot-password" element={<CustomerAuth initialMode="forgot-password" />} />
@@ -584,6 +620,38 @@ export default function App() {
                 </ProtectedRoute>
               } 
             />
+            <Route path="/about" element={<AboutUsPage cmsPosts={cmsPosts} />} />
+            <Route path="/blogs" element={<BlogsPage cmsPosts={cmsPosts} />} />
+            <Route 
+              path="/product/:id" 
+              element={
+                <ProductDetailPage 
+                  products={products}
+                  onAddToCart={(product, variant) => {
+                    const cartItem = { product, quantity: 1, selectedVariant: variant };
+                    const existing = localStorage.getItem("aloeflora_cart");
+                    const cart = existing ? JSON.parse(existing) : [];
+                    const index = cart.findIndex((item: any) => item.product.id === product.id && item.selectedVariant === variant);
+                    if (index >= 0) cart[index].quantity += 1;
+                    else cart.push(cartItem);
+                    localStorage.setItem("aloeflora_cart", JSON.stringify(cart));
+                    // Force re-render of CustomerStore to show badge if needed, or rely on state.
+                  }}
+                />
+              } 
+            />
+            <Route 
+              path="/checkout" 
+              element={
+                <CheckoutPage 
+                  onAddOrder={(order) => {
+                    setOrders(prev => [order, ...prev]);
+                  }}
+                  promos={promos}
+                />
+              } 
+            />
+            <Route path="/faq" element={<FAQPage cmsPosts={cmsPosts} />} />
             <Route path="/docs" element={<ArchitectureDocs />} />
             <Route 
               path="/customer/dashboard/*" 
@@ -611,12 +679,13 @@ export default function App() {
           </div>
           <Globe className="w-5 h-5 text-emerald-800 dark:text-emerald-400" />
         </div>
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
           {[
-            { id: "kipi", name: "KIPI", src: "/partners/kipi.png" },
-            { id: "kebs", name: "KEBS", src: "/partners/kebs.png" },
-            { id: "organic", name: "Certified Organic", src: "/partners/organic.png" },
-            { id: "nema", name: "NEMA Kenya", src: "/partners/nema.png" },
+            { id: "kirdi", name: "KIRDI", src: "/partners/KIRDI.jpeg" },
+            { id: "kam", name: "Kenya Association of Manufacturers", src: "/partners/Kenya Association of Manufacturers.jpeg" },
+            { id: "handinhand", name: "Hand In Hand", src: "/partners/Hand In Hand.jpeg" },
+            { id: "madeinkenya", name: "Made In Kenya", src: "/partners/Made In Kenya.jpeg" },
+            { id: "markup2", name: "Markup II", src: "/partners/Markup II.jpeg" },
           ].map((partner) => (
             <div key={partner.id} className="bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-2xl p-6 shadow-sm flex items-center justify-center transition duration-300">
               <div className="flex flex-col items-center gap-2">
@@ -664,7 +733,7 @@ export default function App() {
                 </li>
                 <li className="flex items-center gap-2">
                   <Phone className="w-4 h-4 text-lime-400 shrink-0" />
-                  <a href="tel:+254702283637" className="hover:text-emerald-600 transition">+254 702 283 637</a>
+                  <a href="tel:+254116794448" className="hover:text-emerald-600 transition">+254 116 794 448</a>
                 </li>
                 <li className="flex items-center gap-2">
                   <Mail className="w-4 h-4 text-lime-400 shrink-0" />
@@ -686,7 +755,7 @@ export default function App() {
                     <path fillRule="evenodd" d="M22 12c0-5.523-4.477-10-10-10S2 6.477 2 12c0 4.991 3.657 9.128 8.438 9.878v-6.987h-2.54V12h2.54V9.797c0-2.506 1.492-3.89 3.777-3.89 1.094 0 2.238.195 2.238.195v2.46h-1.26c-1.243 0-1.63.771-1.63 1.562V12h2.773l-.443 2.89h-2.33v6.988C18.343 21.128 22 16.991 22 12z" clipRule="evenodd" />
                   </svg>
                 </a>
-                <a href="https://wa.me/254702283637" target="_blank" rel="noreferrer" className="w-8 h-8 rounded-full bg-emerald-900 border border-emerald-800 flex items-center justify-center text-lime-400 hover:bg-emerald-800 transition">
+                <a href="https://wa.me/254116794448" target="_blank" rel="noreferrer" className="w-8 h-8 rounded-full bg-emerald-900 border border-emerald-800 flex items-center justify-center text-lime-400 hover:bg-emerald-800 transition">
                   <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                     <path fillRule="evenodd" d="M12.031 2C6.505 2 2.019 6.486 2.019 12c0 1.956.541 3.843 1.573 5.5l-1.575 5.751 5.882-1.544c1.595.968 3.447 1.479 5.372 1.479 5.525 0 10.012-4.486 10.012-10S17.556 2 12.031 2zm0 18.006c-1.611 0-3.19-.434-4.571-1.25l-.328-.194-3.398.89 .906-3.313-.213-.339C3.513 14.398 3.031 13.227 3.031 12c0-4.965 4.04-9.006 9.004-9.006 4.965 0 9.006 4.041 9.006 9.006s-4.041 9.006-9.006 9.006zm4.945-6.75c-.271-.136-1.604-.792-1.854-.882-.25-.09-.433-.136-.615.136-.181.272-.7 .882-.857 1.064-.158.181-.316.204-.587.068-.271-.136-1.144-.422-2.18-1.347-.806-.72-1.348-1.609-1.506-1.881-.158-.271-.017-.419.119-.554.122-.122.271-.317.407-.475.136-.158.181-.271.271-.453.09-.181.045-.34-.022-.475-.068-.136-.615-1.485-.843-2.031-.222-.533-.448-.461-.615-.469-.158-.008-.339-.009-.521-.009-.181 0-.475.068-.724.34-.249.271-.951.929-.951 2.266s.973 2.628 1.109 2.809c.136.181 1.916 2.924 4.639 4.098.648.279 1.155.446 1.551.571.65.207 1.242.177 1.708.107.525-.078 1.604-.655 1.83-1.288.226-.633.226-1.176.158-1.288-.068-.112-.249-.181-.52-.317z" clipRule="evenodd" />
                   </svg>
@@ -705,6 +774,28 @@ export default function App() {
           </div>
         </div>
       </footer>
+
+      {/* MOBILE BOTTOM NAVIGATION BAR */}
+      <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white/80 dark:bg-gray-950/80 backdrop-blur-md border-t border-gray-200 dark:border-gray-800 z-50 pb-safe">
+        <div className="flex justify-around items-center h-16 px-4">
+          <Link to="/store" className={`flex flex-col items-center justify-center w-full h-full text-xs transition ${location.pathname === '/store' || location.pathname === '/' ? 'text-emerald-600 dark:text-emerald-400 font-bold' : 'text-gray-500 hover:text-gray-900 dark:hover:text-white'}`}>
+            <Home className="w-5 h-5 mb-1" />
+            <span>Home</span>
+          </Link>
+          <Link to="/store#organic-formulations" className={`flex flex-col items-center justify-center w-full h-full text-xs transition ${location.pathname.includes('/product') ? 'text-emerald-600 dark:text-emerald-400 font-bold' : 'text-gray-500 hover:text-gray-900 dark:hover:text-white'}`}>
+            <Search className="w-5 h-5 mb-1" />
+            <span>Explore</span>
+          </Link>
+          <Link to="/checkout" className={`flex flex-col items-center justify-center w-full h-full text-xs transition ${location.pathname === '/checkout' ? 'text-emerald-600 dark:text-emerald-400 font-bold' : 'text-gray-500 hover:text-gray-900 dark:hover:text-white'}`}>
+            <ShoppingCart className="w-5 h-5 mb-1" />
+            <span>Cart</span>
+          </Link>
+          <Link to={user ? (role === 'admin' ? '/admin/dashboard' : '/customer/dashboard') : '/login'} className={`flex flex-col items-center justify-center w-full h-full text-xs transition ${location.pathname.includes('dashboard') ? 'text-emerald-600 dark:text-emerald-400 font-bold' : 'text-gray-500 hover:text-gray-900 dark:hover:text-white'}`}>
+            <UserIcon className="w-5 h-5 mb-1" />
+            <span>Profile</span>
+          </Link>
+        </div>
+      </div>
     </div>
   );
 }

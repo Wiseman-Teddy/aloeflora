@@ -39,7 +39,7 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
 
   try {
     const body = await getRequestBody(req);
-    const { prompt, catalog } = body;
+    const { prompt, catalog, faqs } = body;
 
     if (!prompt || typeof prompt !== 'string' || prompt.length > 2000) {
       res.statusCode = 400;
@@ -60,8 +60,12 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
 
     // Build standard system prompt context
     const catalogString = catalog && Array.isArray(catalog)
-      ? catalog.map(p => `- ${p.name} (${p.category}): ${p.desc} [KES ${p.price}]`).join('\n')
+      ? catalog.map((p: any) => `- ${p.name} (${p.category}): ${p.desc} [KES ${p.price}]`).join('\n')
       : 'No product list available.';
+
+    const faqsString = faqs && Array.isArray(faqs) && faqs.length > 0
+      ? faqs.map((f: any) => `Q: ${f.question}\nA: ${f.answer}`).join('\n\n')
+      : 'No FAQs available.';
 
     const systemInstruction = `You are ALOEFLORA's expert AI Specialist based in Nairobi, Kenya.
 Your role is to guide customers on organic, natural solutions for hair care (especially Kenyan curls/coils moisture), skin repair, body care, and healthy household surfaces.
@@ -70,6 +74,9 @@ Use the following catalog of ALOEFLORA products to answer the user's questions. 
 
 ALOEFLORA Catalog:
 ${catalogString}
+
+You also have access to our frequently asked questions. Use this knowledge to assist customers with queries about shipping, returns, policies, or general advice:
+${faqsString}
 
 Keep your tone warm, welcoming, professional, and culturally relevant to Kenya (feel free to use light Kenyan expressions like "Habari!", "Karibu" when appropriate). Be precise, helpful, and concise.`;
 

@@ -91,7 +91,7 @@ export default function MediaUploader({
     if (fileArray.length === 0) return;
 
     // Check capacity
-    const currentTotal = multiple ? urls.length + uploads.length : 0;
+    const currentTotal = multiple ? urls.filter(url => url && url.trim() !== '').length + uploads.length : 0;
     const allowed = multiple ? Math.max(0, maxFiles - currentTotal) : 1;
     
     if (allowed === 0) {
@@ -162,7 +162,7 @@ export default function MediaUploader({
   return (
     <div className={`space-y-4 ${className}`}>
       {/* Dropzone */}
-      {(!multiple && urls.length === 0 && uploads.length === 0) || (multiple && urls.length + uploads.length < maxFiles) ? (
+      {(!multiple) || (multiple && urls.filter(url => url && url.trim() !== '').length + uploads.length < maxFiles) ? (
         <div
           className={`relative border-2 border-dashed rounded-xl p-6 transition flex flex-col items-center justify-center text-center cursor-pointer ${
             isDragging ? 'border-emerald-500 bg-emerald-50' : 'border-gray-300 hover:border-emerald-400 hover:bg-gray-50'
@@ -194,11 +194,11 @@ export default function MediaUploader({
       ) : null}
 
       {/* Grid of uploaded and uploading items */}
-      {(urls.length > 0 || uploads.length > 0) && (
+      {(urls.filter(url => url && url.trim() !== '').length > 0 || uploads.length > 0) && (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
           
           {/* Completed Uploads */}
-          {urls.map((url, idx) => (
+          {urls.filter(url => url && url.trim() !== '').map((url, idx) => (
             <div key={idx} className="relative group rounded-xl overflow-hidden border border-gray-200 bg-gray-50 aspect-square flex items-center justify-center">
               {accept.includes('image') ? (
                 <img src={url} alt={`Media ${idx}`} className="w-full h-full object-cover" />

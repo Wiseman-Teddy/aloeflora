@@ -215,9 +215,9 @@ jobs:
         "Timestamp": "20260615143501",
         "TransactionType": "CustomerPayBillOnline",
         "Amount": "subtotal + delivery_fee",
-        "PartyA": "254702283637",
+        "PartyA": "254116794448",
         "PartyB": "174379",
-        "PhoneNumber": "254702283637",
+        "PhoneNumber": "254116794448",
         "CallBackURL": "https://aloeflora.co.ke/api/payments/mpesa-callback",
         "AccountReference": "ORD-9281",
         "TransactionDesc": "Aloeflora Product Purchase"

@@ -63,6 +63,13 @@ export default function UserDashboard({ orders, products, events = [], onAddTick
   const [reviewText, setReviewText] = useState<string>("");
   const [isSubmittingReview, setIsSubmittingReview] = useState(false);
 
+  // Tracking and Returns State
+  const [expandedOrder, setExpandedOrder] = useState<string | null>(null);
+
+  const handleRequestReturn = (orderId: string) => {
+    toast.success(`Return request initiated for Order #${orderId.slice(0, 8)}. Our support team will contact you shortly.`);
+  };
+
   useEffect(() => {
     if (user) {
       supabase.from('profiles').select('*').eq('id', user.id).single().then(({ data }) => {
@@ -615,8 +622,8 @@ export default function UserDashboard({ orders, products, events = [], onAddTick
             <h2 className="text-2xl font-extrabold text-gray-900 dark:text-white mb-6">Order History</h2>
             <div className="space-y-4">
               {userOrders.map(order => (
-                <div key={order.id} className="flex flex-col md:flex-row md:items-center justify-between p-4 border border-gray-100 dark:border-gray-800 rounded-2xl transition">
-                  <div className="flex items-center gap-4 mb-4 md:mb-0">
+                <div key={order.id} className="flex flex-col"><div className="flex flex-col md:flex-row md:items-center justify-between p-4 border border-gray-100 dark:border-gray-800 rounded-2xl transition">
+                  <div className="flex items-center gap-4 mb-4 md:mb-0 cursor-pointer" onClick={() => setExpandedOrder(expandedOrder === order.id ? null : order.id)}>
                     <div className="w-16 h-16 bg-gray-100 dark:bg-gray-800 rounded-xl flex items-center justify-center overflow-hidden shrink-0">
                       {order.items.length > 0 && products.find(p => p.id === order.items[0].productId) ? (
                         <img src={products.find(p => p.id === order.items[0].productId)?.imageUrl} alt="" className="w-full h-full object-cover" />
@@ -633,12 +640,13 @@ export default function UserDashboard({ orders, products, events = [], onAddTick
                     </div>
                   </div>
                   <div className="flex items-center justify-between md:justify-end gap-6 md:w-1/3">
-                    <div className={`text-xs font-bold px-3 py-1 rounded-full ${
+                    <div className="flex items-center gap-2">
+                      <div className={`text-xs font-bold px-3 py-1 rounded-full ${
                       order.deliveryStatus === 'delivered' ? 'bg-emerald-50 text-emerald-700' :
                       order.deliveryStatus === 'pending' ? 'bg-amber-50 text-amber-700' :
                       order.deliveryStatus === 'dispatched' ? 'bg-blue-50 text-blue-700' : 'bg-red-50 text-red-700'
                     }`}>
-                      {order.deliveryStatus.charAt(0).toUpperCase() + order.deliveryStatus.slice(1)}
+                      </div>
                     </div>
                     <div className="text-sm font-extrabold text-gray-900 dark:text-white">
                       KES {order.total.toLocaleString()}
@@ -673,9 +681,38 @@ export default function UserDashboard({ orders, products, events = [], onAddTick
                           <span className="hidden md:inline">Review</span>
                         </button>
                       )}
+                      {order.deliveryStatus === 'delivered' && (
+                        <button 
+                          onClick={() => handleRequestReturn(order.id)}
+                          className="bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-400 px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer ml-2"
+                        >
+                          <span className="hidden md:inline">Return</span>
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>
+                {expandedOrder === order.id && (
+                  <div className="p-4 border-t border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-900/50 mt-[-1rem] rounded-b-2xl ml-4 mr-4 animate-in fade-in slide-in-from-top-2">
+                    <h4 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-4">Order Timeline Tracking</h4>
+                    <div className="relative border-l-2 border-gray-200 dark:border-gray-700 ml-3 space-y-6">
+                      <div className="relative pl-6">
+                        <div className="absolute -left-[9px] top-1 w-4 h-4 rounded-full bg-emerald-500 ring-4 ring-white dark:ring-gray-900"></div>
+                        <div className="text-sm font-bold text-gray-900 dark:text-white">Order Placed</div>
+                        <div className="text-xs text-gray-500">{new Date(order.createdAt).toLocaleString()}</div>
+                      </div>
+                      <div className="relative pl-6">
+                        <div className={`absolute -left-[9px] top-1 w-4 h-4 rounded-full ${['dispatched', 'delivered'].includes(order.deliveryStatus) ? 'bg-emerald-500' : 'bg-gray-300 dark:bg-gray-700'} ring-4 ring-white dark:ring-gray-900`}></div>
+                        <div className={`text-sm font-bold ${['dispatched', 'delivered'].includes(order.deliveryStatus) ? 'text-gray-900 dark:text-white' : 'text-gray-400'}`}>Dispatched</div>
+                      </div>
+                      <div className="relative pl-6">
+                        <div className={`absolute -left-[9px] top-1 w-4 h-4 rounded-full ${order.deliveryStatus === 'delivered' ? 'bg-emerald-500' : 'bg-gray-300 dark:bg-gray-700'} ring-4 ring-white dark:ring-gray-900`}></div>
+                        <div className={`text-sm font-bold ${order.deliveryStatus === 'delivered' ? 'text-gray-900 dark:text-white' : 'text-gray-400'}`}>Delivered</div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
               ))}
               {userOrders.length === 0 && (
                 <div className="text-center py-12 text-gray-500">
@@ -834,3 +871,4 @@ export default function UserDashboard({ orders, products, events = [], onAddTick
     </div>
   );
 }
+

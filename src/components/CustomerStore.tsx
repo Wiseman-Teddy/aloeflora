@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { 
   ShoppingBag, 
   Sparkles, 
@@ -29,7 +29,9 @@ import {
   Send,
   Loader2,
   Globe,
-  Trash2
+  Trash2,
+  LayoutGrid,
+  List as ListIcon
 } from "lucide-react";
 import { Product, CartItem, Order, BookingEvent, CMSPost, Promo } from "../types";
 
@@ -96,8 +98,10 @@ export default function CustomerStore({
   const [isCartOpen, setIsCartOpen] = useState<boolean>(false);
   const [isWishlistOpen, setIsWishlistOpen] = useState<boolean>(false);
 
-  // Active product detail popup
-  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  // Product display config
+  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  const [visibleCount, setVisibleCount] = useState<number>(12);
+  const navigate = useNavigate();
   
   // Product Comparison state
   const [compareProducts, setCompareProducts] = useState<Product[]>([]);
@@ -163,6 +167,8 @@ export default function CustomerStore({
   const [regEmail, setRegEmail] = useState<string>("");
   const [regPhone, setRegPhone] = useState<string>("");
   const [regRole, setRegRole] = useState<"attendee" | "vendor">("attendee");
+  const [regQuantity, setRegQuantity] = useState<number>(1);
+  const [regStep, setRegStep] = useState<1 | 2>(1);
   const [paymentContext, setPaymentContext] = useState<"order" | "event">("order");
   const [pendingEventRegId, setPendingEventRegId] = useState<string | null>(null);
   const [pendingEventPrice, setPendingEventPrice] = useState<number>(0);
@@ -399,7 +405,9 @@ export default function CustomerStore({
           payment_status: "paid",
           amount_paid: pendingEventPrice,
           ticket_number: ticketId,
-          mpesa_receipt: mpesaRef
+          mpesa_receipt: mpesaRef,
+          quantity: regQuantity,
+          total_cost: pendingEventPrice
         });
         
         if (error) throw error;
@@ -595,7 +603,8 @@ export default function CustomerStore({
         }
       }
       
-      const price = regRole === 'vendor' ? (Number(evtData.vendor_price) || 0) : (Number(evtData.price) || 0);
+      const unitPrice = regRole === 'vendor' ? (Number(evtData.vendor_price) || 0) : (Number(evtData.price) || 0);
+      const price = unitPrice * regQuantity;
       
       if (price > 0) {
         setPendingEventRegId(eventId);
@@ -610,7 +619,9 @@ export default function CustomerStore({
             name: regName,
             email: regEmail,
             phone: regPhone,
-            payment_status: "free"
+            payment_status: "free",
+            quantity: regQuantity,
+            total_cost: 0
         });
         
         if (insErr) throw insErr;
@@ -627,6 +638,8 @@ export default function CustomerStore({
         setRegName("");
         setRegEmail("");
         setRegPhone("");
+        setRegQuantity(1);
+        setRegStep(1);
       }
     } catch (err: any) {
       toast.error("Registration failed: " + err.message);
@@ -699,7 +712,7 @@ export default function CustomerStore({
                     <img 
                       src={heroSlides[heroIndex]?.imageUrl || "https://images.unsplash.com/photo-1596547609652-9cf5d8d76921"} 
                       alt={heroSlides[heroIndex]?.title} 
-                      className="w-full h-full object-contain select-none"
+                      className="w-full h-full object-cover select-none"
                       referrerPolicy="no-referrer"
                     />
                   </div>
@@ -759,15 +772,50 @@ export default function CustomerStore({
 
           {/* Search, Sort and Filters bars */}
           <div className="flex flex-wrap items-center gap-2">
-            <div className="relative">
+            <div className="relative group">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
               <input
                 type="text"
                 placeholder="Search items..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9 pr-4 py-2 text-xs bg-gray-50 border border-gray-200 dark:bg-gray-800 dark:border-gray-700 dark:text-white rounded-xl focus:outline-none focus:border-emerald-700 w-48 md:w-60"
+                className="pl-9 pr-4 py-2 text-xs bg-gray-50 border border-gray-200 dark:bg-gray-800 dark:border-gray-700 dark:text-white rounded-xl focus:outline-none focus:border-emerald-700 w-48 md:w-60 transition-all"
               />
+              {/* Auto-suggest dropdown */}
+              {searchQuery.length > 1 && (
+                <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-xl shadow-xl z-50 overflow-hidden hidden group-focus-within:block">
+                  {products.filter(p => p.name.toLowerCase().includes(searchQuery.toLowerCase()) || p.category.toLowerCase().includes(searchQuery.toLowerCase())).slice(0, 4).map(suggest => (
+                    <div 
+                      key={suggest.id} 
+                      onMouseDown={() => {
+                        setSearchQuery(suggest.name);
+                        navigate(`/product/${suggest.id}`);
+                      }}
+                      className="p-3 hover:bg-gray-50 dark:hover:bg-gray-800 text-xs text-gray-700 dark:text-gray-300 cursor-pointer flex items-center justify-between"
+                    >
+                      <span className="font-semibold">{suggest.name}</span>
+                      <span className="text-[10px] bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded text-gray-500">{suggest.category}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="flex bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden p-0.5">
+              <button 
+                onClick={() => setViewMode("grid")}
+                className={`p-1.5 rounded-lg transition ${viewMode === "grid" ? "bg-white dark:bg-gray-700 shadow-sm text-emerald-700 dark:text-emerald-400" : "text-gray-400 hover:text-gray-600"}`}
+                title="Grid View"
+              >
+                <LayoutGrid className="w-4 h-4" />
+              </button>
+              <button 
+                onClick={() => setViewMode("list")}
+                className={`p-1.5 rounded-lg transition ${viewMode === "list" ? "bg-white dark:bg-gray-700 shadow-sm text-emerald-700 dark:text-emerald-400" : "text-gray-400 hover:text-gray-600"}`}
+                title="List View"
+              >
+                <ListIcon className="w-4 h-4" />
+              </button>
             </div>
 
             <select
@@ -823,8 +871,8 @@ export default function CustomerStore({
             <p className="text-xs text-gray-500 mt-1">Try resetting search string or filtering metrics.</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {filteredProducts.map((p) => {
+          <div className={viewMode === 'grid' ? "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-6" : "flex flex-col gap-4"}>
+            {filteredProducts.slice(0, visibleCount).map((p) => {
               const inWishlist = wishlist.includes(p.id);
               const isLowStock = p.stock <= p.safetyStock;
               const compareSelected = compareProducts.find((cp) => cp.id === p.id);
@@ -832,7 +880,7 @@ export default function CustomerStore({
               return (
                 <div 
                   key={p.id} 
-                  className="group bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-2xl p-4 shadow-sm hover:shadow-md transition duration-300 relative flex flex-col h-full"
+                  className={`group bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-2xl p-4 shadow-sm hover:shadow-md transition duration-300 relative ${viewMode === 'grid' ? 'flex flex-col h-full' : 'flex flex-row items-center gap-6 h-auto'}`}
                 >
                   {/* Badges / Controls */}
                   <div className="absolute top-6 left-6 z-10 flex flex-col gap-1">
@@ -854,7 +902,7 @@ export default function CustomerStore({
 
                   {/* Thumbnail */}
                   <div 
-                    onClick={() => setSelectedProduct(p)}
+                    onClick={() => navigate(`/product/${p.id}`)}
                     className="aspect-[4/5] w-full rounded-xl overflow-hidden bg-gray-50 group-hover:scale-[1.02] cursor-pointer transition duration-300 mb-4 bg-emerald-950/20 flex items-center justify-center relative"
                   >
                     <img 
@@ -878,7 +926,7 @@ export default function CustomerStore({
                       </div>
 
                       <h3 
-                        onClick={() => setSelectedProduct(p)}
+                        onClick={() => navigate(`/product/${p.id}`)}
                         className="text-sm font-semibold text-gray-900 dark:text-white mt-1 hover:text-emerald-800 cursor-pointer line-clamp-2"
                       >
                         {p.name}
@@ -923,58 +971,21 @@ export default function CustomerStore({
             })}
           </div>
         )}
+        
+        {/* Load More Button */}
+        {filteredProducts.length > visibleCount && (
+          <div className="flex justify-center mt-8">
+            <button
+              onClick={() => setVisibleCount(prev => prev + 12)}
+              className="bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 px-6 py-3 rounded-full text-sm font-bold transition cursor-pointer"
+            >
+              Load More Products
+            </button>
+          </div>
+        )}
       </section>
 
-      {/* ABOUT US SECTION */}
-      {cmsPosts.filter(p => p.type === "about" && p.status === "published").length > 0 && (
-        <section id="about-us" className="mb-12 scroll-mt-10 text-left">
-          <div className="flex items-center justify-between pb-4 border-b border-gray-100 dark:border-gray-800 mb-6">
-            <div>
-              <span className="text-[10px] text-emerald-800 dark:text-emerald-400 uppercase font-bold tracking-widest">Our Story</span>
-              <h3 className="text-lg font-bold text-gray-900 dark:text-white mt-1">About Us</h3>
-            </div>
-            <Info className="w-5 h-5 text-emerald-800" />
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {cmsPosts.filter(p => p.type === "about" && p.status === "published").map(post => (
-              <div key={post.id} className="bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-2xl overflow-hidden shadow-sm p-6 flex flex-col md:flex-row gap-6 items-center md:items-start">
-                {post.imageUrl && (
-                  <img src={post.imageUrl.split(',')[0]} alt={post.title} className="w-full md:w-48 h-48 object-cover rounded-xl border border-gray-100 shrink-0" />
-                )}
-                <div>
-                  <h4 className="font-bold text-sm text-gray-900 dark:text-white mb-2">{post.title}</h4>
-                  <p className="text-xs text-gray-500 leading-relaxed whitespace-pre-wrap">{post.content}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* INTEGRATED TEAM SECTION */}
-          {cmsPosts.filter(p => p.type === "team" && p.status === "published").length > 0 && (
-            <div className="mt-12">
-              <div className="flex items-center justify-between pb-4 border-b border-gray-100 dark:border-gray-800 mb-6">
-                <div>
-                  <span className="text-[10px] text-emerald-800 dark:text-emerald-400 uppercase font-bold tracking-widest">Leadership</span>
-                  <h3 className="text-lg font-bold text-gray-900 dark:text-white mt-1">Our Team</h3>
-                </div>
-                <User className="w-5 h-5 text-emerald-800" />
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
-                {cmsPosts.filter(p => p.type === "team" && p.status === "published").map(member => (
-                  <div key={member.id} className="bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-2xl overflow-hidden shadow-sm flex flex-col items-center text-center p-6">
-                    {member.imageUrl && (
-                      <img src={member.imageUrl.split(',')[0]} alt={member.title} className="w-24 h-24 object-cover rounded-full border-4 border-lime-100 mb-4" />
-                    )}
-                    <h4 className="font-bold text-sm text-gray-900 dark:text-white mb-1">{member.title}</h4>
-                    <div className="text-[10px] text-emerald-600 font-bold mb-2 uppercase">{member.seoTitle || "Team Member"}</div>
-                    <p className="text-xs text-gray-500 leading-relaxed">{member.content}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </section>
-      )}
+      {/* ABOUT US SECTION MOVED TO SEPARATE PAGE */}
 
       {/* 2.5 AWARDS SHOWCASE SECTION */}
       {cmsPosts.filter(p => p.type === "award" && p.status === "published").length > 0 && (
@@ -1015,90 +1026,76 @@ export default function CustomerStore({
             <Calendar className="w-5 h-5 text-emerald-800" />
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {cmsPosts.filter(p => p.type === 'promotion').map((evt) => (
-              <div key={evt.id} className="bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-2xl overflow-hidden shadow-sm flex flex-col justify-between">
-                <div>
-                  <div className="aspect-video bg-emerald-950 overflow-hidden relative">
-                    <img 
-                      src={evt.imageUrl} 
-                      alt={evt.title} 
-                      className="w-full h-full object-cover"
-                      referrerPolicy="no-referrer"
-                    />
-                    <span className="absolute top-2 right-2 bg-emerald-900/90 backdrop-blur text-[10px] font-bold text-lime-400 px-2 py-0.5 rounded border border-emerald-800">
-                      {evt.seoTitle || 'Upcoming'}
-                    </span>
-                  </div>
-                  <div className="p-4 space-y-1.5">
-                    <h4 className="font-bold text-sm text-gray-900 dark:text-white line-clamp-1">{evt.title}</h4>
-                    <div className="flex items-center gap-1.5 text-xs text-gray-500 font-mono">
-                      <MapPin className="w-3.5 h-3.5 text-lime-600" /> {evt.seoDesc || 'TBA'}
+          {(() => {
+            const promotionalEvents = cmsPosts.filter(p => p.type === 'promotion');
+            return (
+              <div className={promotionalEvents.length === 1 ? "grid grid-cols-1 gap-6" : "grid grid-cols-1 md:grid-cols-2 gap-6"}>
+                {promotionalEvents.map((evt) => (
+                  <div key={evt.id} className={`bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-2xl overflow-hidden shadow-sm flex ${promotionalEvents.length === 1 ? 'flex-col md:flex-row' : 'flex-col'} justify-between`}>
+                    <div className={promotionalEvents.length === 1 ? 'md:w-1/2 flex flex-col justify-between' : ''}>
+                      <div className="aspect-video bg-emerald-950 overflow-hidden relative">
+                        <img 
+                          src={evt.imageUrl?.split(',')[0] || '/placeholder.png'} 
+                          alt={evt.title} 
+                          className="w-full h-full object-cover"
+                          referrerPolicy="no-referrer"
+                        />
+                        <span className="absolute top-2 right-2 bg-emerald-900/90 backdrop-blur text-[10px] font-bold text-lime-400 px-2 py-0.5 rounded border border-emerald-800">
+                          {evt.seoTitle || 'Upcoming'}
+                        </span>
+                      </div>
+                      <div className="p-4 space-y-1.5">
+                        <h4 className="font-bold text-sm text-gray-900 dark:text-white line-clamp-1">{evt.title}</h4>
+                        <div className="flex items-center gap-1.5 text-xs text-gray-500 font-mono">
+                          <MapPin className="w-3.5 h-3.5 text-lime-600" /> {evt.seoDesc || 'TBA'}
+                        </div>
+                        <p className="text-[11px] text-gray-500 line-clamp-3 leading-relaxed pt-1">{evt.content}</p>
+                      </div>
                     </div>
-                    <p className="text-[11px] text-gray-500 line-clamp-3 leading-relaxed pt-1">{evt.content}</p>
+                    <div className={`p-4 ${promotionalEvents.length === 1 ? 'md:w-1/2 flex flex-col justify-center border-t md:border-l md:border-t-0' : 'pt-0 border-t'} border-gray-50 dark:border-gray-800/60 mt-2`}>
+                      <div className="flex flex-col gap-1 mb-2">
+                        {(() => {
+                          const evState = eventsData.find(e => e.id === evt.id);
+                          if (!evState) return null;
+                          const aCount = evState.event_registrations?.filter((r: any) => r.role === 'attendee').length || 0;
+                          const vCount = evState.event_registrations?.filter((r: any) => r.role === 'vendor').length || 0;
+                          return (
+                            <>
+                              {evState.attendee_enabled && (
+                                <div className="flex justify-between items-center text-[10px]">
+                                    <span className="text-gray-500">Attendee: {evState.price > 0 ? `KES ${evState.price}` : 'Free'}</span>
+                                    <span className="text-emerald-800 font-bold bg-emerald-50 px-1.5 py-0.5 rounded">{Math.max(0, evState.capacity - aCount)} slots left</span>
+                                </div>
+                              )}
+                              {evState.vendor_enabled && (
+                                <div className="flex justify-between items-center text-[10px]">
+                                    <span className="text-gray-500">Vendor: {evState.vendor_price > 0 ? `KES ${evState.vendor_price}` : 'Free'}</span>
+                                    <span className="text-amber-800 font-bold bg-amber-50 px-1.5 py-0.5 rounded">{Math.max(0, (evState.vendor_capacity || 10) - vCount)} slots left</span>
+                                </div>
+                              )}
+                            </>
+                          );
+                        })()}
+                      </div>
+                      <button 
+                        onClick={() => {
+                          setRegEventId(evt.id);
+                          setRegStep(1);
+                          setRegQuantity(1);
+                        }}
+                        className="w-full text-center text-xs font-bold text-white bg-emerald-800 hover:bg-emerald-700 rounded-lg cursor-pointer p-2 transition shadow-sm"
+                      >
+                        View Registration Options
+                      </button>
+                    </div>
                   </div>
-                </div>
-                <div className="p-4 pt-0 border-t border-gray-50 dark:border-gray-800/60 mt-2">
-                  <div className="flex flex-col gap-1 mb-2">
-                    {(() => {
-                      const evState = eventsData.find(e => e.id === evt.id);
-                      if (!evState) return null;
-                      const aCount = evState.event_registrations?.filter((r: any) => r.role === 'attendee').length || 0;
-                      const vCount = evState.event_registrations?.filter((r: any) => r.role === 'vendor').length || 0;
-                      return (
-                        <>
-                          {evState.attendee_enabled && (
-                            <div className="flex justify-between items-center text-[10px]">
-                                <span className="text-gray-500">Attendee: {evState.price > 0 ? `KES ${evState.price}` : 'Free'}</span>
-                                <span className="text-emerald-800 font-bold bg-emerald-50 px-1.5 py-0.5 rounded">{Math.max(0, evState.capacity - aCount)} slots left</span>
-                            </div>
-                          )}
-                          {evState.vendor_enabled && (
-                            <div className="flex justify-between items-center text-[10px]">
-                                <span className="text-gray-500">Vendor: {evState.vendor_price > 0 ? `KES ${evState.vendor_price}` : 'Free'}</span>
-                                <span className="text-amber-800 font-bold bg-amber-50 px-1.5 py-0.5 rounded">{Math.max(0, (evState.vendor_capacity || 10) - vCount)} slots left</span>
-                            </div>
-                          )}
-                        </>
-                      );
-                    })()}
-                  </div>
-                  <button 
-                    onClick={() => setRegEventId(evt.id)}
-                    className="w-full text-center text-xs font-bold text-white bg-emerald-800 hover:bg-emerald-700 rounded-lg cursor-pointer p-2 transition shadow-sm"
-                  >
-                    View Registration Options
-                  </button>
-                </div>
+                ))}
               </div>
-            ))}
-          </div>
+            );
+          })()}
         </div>
 
-        {/* Blogs Articles Column / Social Links / Contact Card */}
-        <div className="lg:col-span-12 text-left mt-8">
-          <div className="flex items-center justify-between pb-4 border-b border-gray-100 dark:border-gray-800 mb-6">
-            <div>
-              <h3 className="text-lg font-bold text-gray-900 dark:text-white mt-1">Scientific Blog & Insights</h3>
-            </div>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {cmsPosts.filter(p => p.type === "blog" && p.status === "published").map(blog => (
-              <div key={blog.id} className="bg-zinc-50 dark:bg-gray-800/10 border border-zinc-100 dark:border-gray-800 rounded-2xl p-5 hover:shadow-md transition">
-                {blog.imageUrl && (
-                  <div className="h-40 mb-4 rounded-xl overflow-hidden">
-                    <img src={blog.imageUrl.split(',')[0]} alt={blog.title} className="w-full h-full object-cover" />
-                  </div>
-                )}
-                <h4 className="font-bold text-gray-900 dark:text-white text-sm line-clamp-2">{blog.title}</h4>
-                <p className="text-xs text-gray-500 mt-2 line-clamp-3 leading-relaxed">{blog.content}</p>
-                <div className="mt-4 pt-4 border-t border-gray-100 dark:border-gray-800 flex justify-end items-center text-[10px] text-gray-400 font-bold">
-                  <span>{new Date(blog.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
+        {/* SCIENTIFIC BLOGS MOVED TO SEPARATE PAGE */}
 
       </section>
 
@@ -1177,122 +1174,6 @@ export default function CustomerStore({
         </div>
       )}
 
-      {/* 5. PRODUCT DETAIL BACKDROP POPUP */}
-      {selectedProduct && (
-        <div id="product-detail-backdrop" className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-900 rounded-3xl max-w-2xl w-full p-6 shadow-2xl relative border border-gray-100 dark:border-gray-800 animate-in fade-in zoom-in-95 text-left">
-            <button 
-              onClick={() => setSelectedProduct(null)}
-              className="absolute top-4 right-4 bg-gray-100 hover:bg-gray-200 p-1.5 rounded-full cursor-pointer text-gray-500"
-            >
-              <X className="w-4 h-4" />
-            </button>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start mt-4">
-              <div className="space-y-4">
-                <div className="aspect-[4/5] rounded-2xl overflow-hidden shadow-md bg-emerald-950/20 mb-2">
-                  <img src={selectedProduct.mediaUrls && selectedProduct.mediaUrls.length > 0 ? selectedProduct.mediaUrls[0] : selectedProduct.imageUrl?.split(',')[0]} alt={selectedProduct.name} className="w-full h-full object-cover" />
-                </div>
-                {selectedProduct.mediaUrls && selectedProduct.mediaUrls.length > 1 && (
-                  <div className="flex gap-2 overflow-x-auto pb-2">
-                    {selectedProduct.mediaUrls.map((url, idx) => (
-                      <div key={idx} className="w-16 h-16 rounded-lg overflow-hidden flex-shrink-0 border border-gray-200">
-                        <img src={url} alt={`${selectedProduct.name} ${idx}`} className="w-full h-full object-cover" />
-                      </div>
-                    ))}
-                  </div>
-                )}
-                <div className="flex flex-wrap gap-1">
-                  {selectedProduct.features?.map((fit, idx) => (
-                    <span key={idx} className="bg-emerald-50 dark:bg-emerald-950/40 text-[10px] font-medium text-emerald-800 dark:text-emerald-400 px-2 py-1 rounded">
-                      ✓ {fit}
-                    </span>
-                  ))}
-                </div>
-              </div>
-
-              <div className="space-y-4">
-                <div className="space-y-1">
-                  <span className="text-xs font-bold text-lime-600 uppercase tracking-widest">{selectedProduct.subCategory}</span>
-                  <h3 className="text-xl font-bold leading-tight">{selectedProduct.name}</h3>
-                  <div className="flex items-center gap-1.5 pt-1">
-                    <Stars rating={selectedProduct.rating} />
-                    <span className="text-xs text-gray-400">({selectedProduct.reviewsCount} verified reviews)</span>
-                  </div>
-                </div>
-
-                <div className="text-lg font-extrabold text-emerald-800">KES {selectedProduct.price}</div>
-                
-                <p className="text-xs text-gray-500 leading-relaxed leading-normal">{selectedProduct.description}</p>
-                
-                {selectedProduct.variants && selectedProduct.variants.length > 0 && (
-                  <div className="space-y-1.5">
-                    <span className="text-[10px] uppercase font-bold text-gray-400">Available size configs</span>
-                    <div className="flex gap-2">
-                      {selectedProduct.variants.map((v) => (
-                        <span key={v} className="border border-emerald-900/30 text-xs px-2.5 py-1 rounded-lg bg-emerald-50/20 text-emerald-900">
-                          {v}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {selectedProduct.specifications && selectedProduct.specifications.length > 0 && (
-                  <div className="space-y-1.5 mt-4">
-                    <span className="text-[10px] uppercase font-bold text-gray-400">Specifications</span>
-                    <ul className="text-xs text-gray-600 list-disc pl-4 space-y-1">
-                      {selectedProduct.specifications.map((spec, idx) => (
-                        <li key={idx}>{spec}</li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-
-                <div className="pt-4 border-t flex items-center gap-3">
-                  <button
-                    onClick={() => {
-                      addToCart(selectedProduct);
-                      setSelectedProduct(null);
-                    }}
-                    disabled={selectedProduct.stock === 0}
-                    className="flex-1 bg-emerald-800 text-white font-bold p-3 rounded-xl hover:bg-emerald-700 text-xs shadow flex items-center justify-center gap-2 cursor-pointer transition"
-                  >
-                    <ShoppingCart className="w-4 h-4" /> Add To Shopping Basket
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {/* Injected Customer reviews inside detail panel */}
-            <div className="mt-6 pt-6 border-t border-gray-100">
-              <h4 className="text-xs font-bold uppercase text-gray-400 mb-3">Live Feedbacks ({selectedProduct.reviews.length})</h4>
-              {selectedProduct.reviews.length === 0 ? (
-                <div className="flex items-center gap-2 bg-gray-50 p-3 rounded-xl text-xs text-gray-500 border border-dashed">
-                  <Info className="w-4 h-4 text-emerald-700" />
-                  <span>
-                    No reviews logged yet. Accents for this batch: <strong>"{CUSTOMER_RATING_ACCENTS[Math.floor(Math.random() * CUSTOMER_RATING_ACCENTS.length)]}"</strong>.
-                  </span>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {selectedProduct.reviews.map((rev) => (
-                    <div key={rev.id} className="bg-zinc-50/50 p-3 rounded-xl border border-zinc-100/60 text-xs space-y-1">
-                      <div className="flex items-center justify-between">
-                        <span className="font-bold">{rev.author}</span>
-                        <span className="text-[10px] text-gray-400">{rev.date}</span>
-                      </div>
-                      <div className="flex text-amber-500"><Stars rating={rev.rating} /></div>
-                      <p className="text-gray-500 leading-relaxed italic">"{rev.comment}"</p>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* 6. EVENT BOOKING REGISTRATION FORM POPUP */}
       {regEventId && (
         <div id="event-reg-backdrop" className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center z-50 p-4">
@@ -1306,74 +1187,142 @@ export default function CustomerStore({
             <h3 className="font-bold text-base text-gray-950 dark:text-white">Secure Event Reservation</h3>
             <p className="text-xs text-gray-500 mt-1">Please fill in details to confirm attendance. We will dispatch an SMS code instantly.</p>
 
-            <form onSubmit={(e) => handleRegister(e, regEventId)} className="space-y-4 mt-4">
-              <div className="space-y-1">
-                <label className="text-[10px] uppercase font-bold text-gray-400">Full Name</label>
-                <input 
-                  type="text" 
-                  required
-                  value={regName}
-                  onChange={(e) => setRegName(e.target.value)}
-                  placeholder="e.g. Amani Wanjiku" 
-                  className="w-full text-xs p-3 border border-gray-200 rounded-xl focus:outline-none focus:border-emerald-700" 
-                />
-              </div>
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              if (regStep === 1) {
+                if (!regName || !regEmail || !regPhone) { toast.error("Fields cannot be empty!"); return; }
+                setRegStep(2);
+              } else {
+                handleRegister(e, regEventId);
+              }
+            }} className="space-y-4 mt-4">
+              {regStep === 1 ? (
+                <>
+                  <div className="space-y-1">
+                    <label className="text-[10px] uppercase font-bold text-gray-400">Full Name</label>
+                    <input 
+                      type="text" 
+                      required
+                      value={regName}
+                      onChange={(e) => setRegName(e.target.value)}
+                      placeholder="e.g. Amani Wanjiku" 
+                      className="w-full text-xs p-3 border border-gray-200 rounded-xl focus:outline-none focus:border-emerald-700" 
+                    />
+                  </div>
 
-              <div className="space-y-1">
-                <label className="text-[10px] uppercase font-bold text-gray-400">Email Address</label>
-                <input 
-                  type="email" 
-                  required
-                  value={regEmail}
-                  onChange={(e) => setRegEmail(e.target.value)}
-                  placeholder="amani.wanjiku@gmail.com" 
-                  className="w-full text-xs p-3 border border-gray-200 rounded-xl focus:outline-none focus:border-emerald-700" 
-                />
-              </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] uppercase font-bold text-gray-400">Email Address</label>
+                    <input 
+                      type="email" 
+                      required
+                      value={regEmail}
+                      onChange={(e) => setRegEmail(e.target.value)}
+                      placeholder="amani.wanjiku@gmail.com" 
+                      className="w-full text-xs p-3 border border-gray-200 rounded-xl focus:outline-none focus:border-emerald-700" 
+                    />
+                  </div>
 
-              <div className="space-y-1">
-                <label className="text-[10px] uppercase font-bold text-gray-400">Kenya Safaricom Phone Number</label>
-                <input 
-                  type="text" 
-                  required
-                  value={regPhone}
-                  onChange={(e) => setRegPhone(e.target.value)}
-                  placeholder="2547XXXXXXXX" 
-                  className="w-full text-xs p-3 border border-gray-200 rounded-xl focus:outline-none focus:border-emerald-700" 
-                />
-              </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] uppercase font-bold text-gray-400">Kenya Safaricom Phone Number</label>
+                    <input 
+                      type="text" 
+                      required
+                      value={regPhone}
+                      onChange={(e) => setRegPhone(e.target.value)}
+                      placeholder="2547XXXXXXXX" 
+                      className="w-full text-xs p-3 border border-gray-200 rounded-xl focus:outline-none focus:border-emerald-700" 
+                    />
+                  </div>
 
-              <div className="space-y-2 mt-2">
-                <label className="text-[10px] uppercase font-bold text-gray-400 block">Registration Type</label>
-                {(() => {
-                  const evState = eventsData.find(e => e.id === regEventId);
-                  return (
-                    <div className="grid grid-cols-2 gap-3">
-                      {(!evState || evState.attendee_enabled !== false) && (
-                        <label className={`cursor-pointer border-2 rounded-2xl p-4 transition text-center flex flex-col items-center justify-center ${regRole === 'attendee' ? 'border-emerald-600 bg-emerald-50 dark:bg-emerald-900/20 shadow-sm' : 'border-gray-100 hover:border-gray-200 dark:border-gray-800'}`}>
-                          <input type="radio" name="regRole" value="attendee" checked={regRole === 'attendee'} onChange={() => setRegRole('attendee')} className="hidden" />
-                          <div className="font-bold text-sm text-gray-900 dark:text-white">Attendee</div>
-                          <div className="text-[10px] text-emerald-600 font-bold mt-1 uppercase">{evState && evState.price > 0 ? `KES ${evState.price}` : 'Free Admission'}</div>
-                        </label>
-                      )}
-                      {(!evState || evState.vendor_enabled !== false) && (
-                        <label className={`cursor-pointer border-2 rounded-2xl p-4 transition text-center flex flex-col items-center justify-center ${regRole === 'vendor' ? 'border-amber-500 bg-amber-50 dark:bg-amber-900/20 shadow-sm' : 'border-gray-100 hover:border-gray-200 dark:border-gray-800'}`}>
-                          <input type="radio" name="regRole" value="vendor" checked={regRole === 'vendor'} onChange={() => setRegRole('vendor')} className="hidden" />
-                          <div className="font-bold text-sm text-gray-900 dark:text-white">Vendor</div>
-                          <div className="text-[10px] text-amber-600 font-bold mt-1 uppercase">{evState && evState.vendor_price > 0 ? `KES ${evState.vendor_price}` : 'Free'}</div>
-                        </label>
-                      )}
-                    </div>
-                  );
-                })()}
-              </div>
+                  <div className="space-y-2 mt-2">
+                    <label className="text-[10px] uppercase font-bold text-gray-400 block">Registration Type</label>
+                    {(() => {
+                      const evState = eventsData.find(e => e.id === regEventId);
+                      return (
+                        <div className="grid grid-cols-2 gap-3">
+                          {(!evState || evState.attendee_enabled !== false) && (
+                            <label className={`cursor-pointer border-2 rounded-2xl p-4 transition text-center flex flex-col items-center justify-center ${regRole === 'attendee' ? 'border-emerald-600 bg-emerald-50 dark:bg-emerald-900/20 shadow-sm' : 'border-gray-100 hover:border-gray-200 dark:border-gray-800'}`}>
+                              <input type="radio" name="regRole" value="attendee" checked={regRole === 'attendee'} onChange={() => setRegRole('attendee')} className="hidden" />
+                              <div className="font-bold text-sm text-gray-900 dark:text-white">Attendee</div>
+                              <div className="text-[10px] text-emerald-600 font-bold mt-1 uppercase">{evState && evState.price > 0 ? `KES ${evState.price}` : 'Free Admission'}</div>
+                            </label>
+                          )}
+                          {(!evState || evState.vendor_enabled !== false) && (
+                            <label className={`cursor-pointer border-2 rounded-2xl p-4 transition text-center flex flex-col items-center justify-center ${regRole === 'vendor' ? 'border-amber-500 bg-amber-50 dark:bg-amber-900/20 shadow-sm' : 'border-gray-100 hover:border-gray-200 dark:border-gray-800'}`}>
+                              <input type="radio" name="regRole" value="vendor" checked={regRole === 'vendor'} onChange={() => setRegRole('vendor')} className="hidden" />
+                              <div className="font-bold text-sm text-gray-900 dark:text-white">Vendor</div>
+                              <div className="text-[10px] text-amber-600 font-bold mt-1 uppercase">{evState && evState.vendor_price > 0 ? `KES ${evState.vendor_price}` : 'Free'}</div>
+                            </label>
+                          )}
+                        </div>
+                      );
+                    })()}
+                  </div>
+                  
+                  <div className="space-y-1 mt-2">
+                    <label className="text-[10px] uppercase font-bold text-gray-400">Quantity</label>
+                    <input 
+                      type="number" 
+                      min="1"
+                      max="10"
+                      required
+                      value={regQuantity}
+                      onChange={(e) => setRegQuantity(parseInt(e.target.value) || 1)}
+                      className="w-full text-xs p-3 border border-gray-200 rounded-xl focus:outline-none focus:border-emerald-700" 
+                    />
+                  </div>
 
-              <button 
-                type="submit"
-                className="w-full bg-emerald-800 hover:bg-emerald-700 text-white font-bold p-3 rounded-xl transition cursor-pointer text-xs uppercase tracking-wide shadow mt-4"
-              >
-                Confirm Spot Invitation
-              </button>
+                  <button 
+                    type="submit"
+                    className="w-full bg-emerald-800 hover:bg-emerald-700 text-white font-bold p-3 rounded-xl transition cursor-pointer text-xs uppercase tracking-wide shadow mt-4"
+                  >
+                    Review Registration
+                  </button>
+                </>
+              ) : (
+                <>
+                  {(() => {
+                    const post = cmsPosts.find(p => p.id === regEventId);
+                    const evState = eventsData.find(e => e.id === regEventId);
+                    const price = regRole === 'vendor' ? (Number(evState?.vendor_price) || 0) : (Number(evState?.price) || 0);
+                    const isFree = price === 0;
+                    return (
+                      <div className="space-y-3 bg-gray-50 dark:bg-gray-800/50 p-4 rounded-xl text-sm border border-gray-100 dark:border-gray-800">
+                        <div className="flex justify-between border-b border-gray-200 dark:border-gray-700 pb-2">
+                          <span className="text-gray-500">Event</span>
+                          <span className="font-bold text-right pl-2 truncate" title={post?.title}>{post?.title}</span>
+                        </div>
+                        <div className="flex justify-between border-b border-gray-200 dark:border-gray-700 pb-2">
+                          <span className="text-gray-500">Ticket Type</span>
+                          <span className="font-bold capitalize">{regRole}</span>
+                        </div>
+                        <div className="flex justify-between border-b border-gray-200 dark:border-gray-700 pb-2">
+                          <span className="text-gray-500">Quantity</span>
+                          <span className="font-bold">{regQuantity}</span>
+                        </div>
+                        <div className="flex justify-between pt-2 items-center">
+                          <span className="text-gray-500 font-bold">Total Cost</span>
+                          <span className="font-extrabold text-emerald-600 text-lg">{isFree ? 'FREE' : `KES ${price * regQuantity}`}</span>
+                        </div>
+                      </div>
+                    );
+                  })()}
+                  <div className="flex gap-3 mt-4">
+                    <button type="button" onClick={() => setRegStep(1)} className="w-1/3 bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold p-3 rounded-xl transition cursor-pointer text-xs uppercase tracking-wide shadow">
+                      Back
+                    </button>
+                    {(() => {
+                      const evState = eventsData.find(e => e.id === regEventId);
+                      const price = regRole === 'vendor' ? (Number(evState?.vendor_price) || 0) : (Number(evState?.price) || 0);
+                      return (
+                        <button type="submit" className="w-2/3 bg-emerald-800 hover:bg-emerald-700 text-white font-bold p-3 rounded-xl transition cursor-pointer text-xs uppercase tracking-wide shadow">
+                          {price === 0 ? "Confirm Registration" : "Proceed to Payment"}
+                        </button>
+                      );
+                    })()}
+                  </div>
+                </>
+              )}
             </form>
           </div>
         </div>
@@ -1503,7 +1452,7 @@ export default function CustomerStore({
                 <button 
                   onClick={() => {
                     setIsCartOpen(false);
-                    setIsCheckoutOpen(true);
+                    navigate('/checkout'); setIsCartOpen(false);
                     setCheckoutStep(1);
                   }}
                   className="w-full bg-emerald-800 hover:bg-emerald-800 text-white font-bold p-3.5 rounded-xl transition cursor-pointer text-xs uppercase tracking-wide shadow flex items-center justify-center gap-1.5"
@@ -1568,7 +1517,7 @@ export default function CustomerStore({
                       type="text" 
                       value={checkoutPhone}
                       onChange={(e) => setCheckoutPhone(e.target.value)}
-                      placeholder="e.g. 254702283637" 
+                      placeholder="e.g. 254116794448" 
                       className="w-full text-xs p-3 border border-gray-200 rounded-xl focus:outline-none focus:border-emerald-700" 
                     />
                     <span className="text-[10px] text-gray-400 italic block mt-0.5">Format MUST follow 2547XXXXXXXX to align with Daraja APIs.</span>
@@ -2079,3 +2028,5 @@ function Stars({ rating }: { rating: number }) {
     </div>
   );
 }
+
+

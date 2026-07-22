@@ -83,7 +83,7 @@ function ReturnsContent() {
         <ol className="list-decimal pl-5 space-y-2">
           <li><strong>Order Confirmation</strong>: Sent to your email + dashboard immediately.</li>
           <li><strong>Processing Time</strong>: 1-2 business days. Coffee is roasted-to-order and may take 2-3 business days.</li>
-          <li><strong>Order Cancellation</strong>: Cancel within <strong>12 hours</strong> via your dashboard or WhatsApp +254 702 283637. After this, your order enters production and cannot be cancelled.</li>
+          <li><strong>Order Cancellation</strong>: Cancel within <strong>12 hours</strong> via your dashboard or WhatsApp +254 116 794448. After this, your order enters production and cannot be cancelled.</li>
         </ol>
       </section>
 
@@ -130,7 +130,7 @@ function ReturnsContent() {
         <h2 className="text-lg font-bold text-gray-900 mb-2">5. INQUIRIES</h2>
         <p>
           Response within 24 hours Mon-Sat 8am-6pm.<br />
-          Email: info@aloefloraproducts.com | WhatsApp: +254 702 283637 | Dashboard Chat
+          Email: info@aloefloraproducts.com | WhatsApp: +254 116 794448 | Dashboard Chat
         </p>
       </section>
 

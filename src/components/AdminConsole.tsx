@@ -124,6 +124,7 @@ export default function AdminConsole({
   const [eventDate, setEventDate] = useState<string>("");
   const [eventLocation, setEventLocation] = useState<string>("");
   const [eventCapacity, setEventCapacity] = useState<string>("50");
+  const [faqCategory, setFaqCategory] = useState<string>("Getting Started");
 
   // SEO config fields
   const [seoTitle, setSeoTitle] = useState<string>(storeSettings?.seoTitle || "");
@@ -436,12 +437,23 @@ export default function AdminConsole({
     e.preventDefault();
     if (!cmsTitle || !cmsContent) return;
 
-    let finalImageUrl = cmsImageUrls.join(',');
+    const validUrls = cmsImageUrls.filter(url => url && url.trim() !== '');
+    let finalImageUrl = validUrls.length > 0 ? validUrls.join(',') : null;
 
     if (editingCmsId) {
       const updatedPosts = cmsPosts.map(p => {
         if (p.id === editingCmsId) {
-          return { ...p, title: sanitizeInput(cmsTitle), content: sanitizeInput(cmsContent), type: cmsType, status: cmsStatus, imageUrl: finalImageUrl || p.imageUrl, seoTitle: cmsType === 'promotion' ? sanitizeInput(eventDate) : p.seoTitle, seoDesc: cmsType === 'promotion' ? sanitizeInput(eventLocation) : p.seoDesc, seoKeywords: cmsType === 'promotion' ? sanitizeInput(eventCapacity) : p.seoKeywords };
+          return { 
+            ...p, 
+            title: sanitizeInput(cmsTitle), 
+            content: sanitizeInput(cmsContent), 
+            type: cmsType, 
+            status: cmsStatus, 
+            imageUrl: finalImageUrl || undefined, 
+            seoTitle: cmsType === 'promotion' ? sanitizeInput(eventDate) : (cmsType === 'faq' ? faqCategory : p.seoTitle), 
+            seoDesc: cmsType === 'promotion' ? sanitizeInput(eventLocation) : p.seoDesc, 
+            seoKeywords: cmsType === 'promotion' ? sanitizeInput(eventCapacity) : p.seoKeywords 
+          };
         }
         return p;
       });
@@ -450,7 +462,14 @@ export default function AdminConsole({
       if(modified) {
         try {
           const { error } = await supabase.from("cms_posts").update({
-            title: modified.title, content: modified.content, type: modified.type, status: modified.status, image_url: modified.imageUrl, seo_title: modified.seoTitle, seo_desc: modified.seoDesc, seo_keywords: modified.seoKeywords
+            title: modified.title, 
+            content: modified.content, 
+            type: modified.type, 
+            status: modified.status, 
+            image_url: finalImageUrl, 
+            seo_title: modified.seoTitle, 
+            seo_desc: modified.seoDesc, 
+            seo_keywords: modified.seoKeywords
           }).eq('id', editingCmsId);
           if (error) throw error;
           
@@ -467,10 +486,17 @@ export default function AdminConsole({
               vendor_price: parseFloat(vendorPrice) || 0,
               vendor_capacity: parseInt(vendorCapacity) || 10,
               attendee_enabled: attendeeEnabled,
-              image_url: modified.imageUrl || null
+              image_url: finalImageUrl,
+              status: "upcoming"
             };
             const { error: evtErr } = await supabase.from('events').upsert(modEvt);
-            if (!evtErr) setEventsData(eventsData.map(e => e.id === modEvt.id ? { ...e, ...modEvt } : e));
+            if (!evtErr) {
+              setEventsData(prev => {
+                const exists = prev.find(e => e.id === modEvt.id);
+                if (exists) return prev.map(e => e.id === modEvt.id ? { ...e, ...modEvt } : e);
+                return [...prev, modEvt as any];
+              });
+            }
           }
         } catch(err: any) { 
           console.error(err); 
@@ -494,16 +520,24 @@ export default function AdminConsole({
         author: "Admin Master",
         createdAt: new Date().toISOString().split("T")[0],
         imageUrl: finalImageUrl || undefined,
-        seoTitle: cmsType === 'promotion' ? sanitizeInput(eventDate) : undefined,
-        seoDesc: cmsType === 'promotion' ? sanitizeInput(eventLocation) : undefined,
-        seoKeywords: cmsType === 'promotion' ? sanitizeInput(eventCapacity) : undefined,
+        seoTitle: cmsType === 'promotion' ? sanitizeInput(eventDate) : (cmsType === 'faq' ? faqCategory : ""),
+        seoDesc: cmsType === 'promotion' ? sanitizeInput(eventLocation) : "",
+        seoKeywords: cmsType === 'promotion' ? sanitizeInput(eventCapacity) : ""
       };
       
       try {
-        const { error } = await supabase.from("cms_posts").insert({
-            id: newPost.id, title: newPost.title, content: newPost.content, type: newPost.type, status: newPost.status, author: newPost.author,
-            image_url: newPost.imageUrl, created_at: newPost.createdAt, seo_title: newPost.seoTitle, seo_desc: newPost.seoDesc, seo_keywords: newPost.seoKeywords
-        });
+        const { error } = await supabase.from("cms_posts").insert([{
+          id: newPost.id,
+          title: newPost.title,
+          content: newPost.content,
+          type: newPost.type,
+          status: newPost.status,
+          author: newPost.author,
+          image_url: newPost.imageUrl,
+          seo_title: newPost.seoTitle,
+          seo_desc: newPost.seoDesc,
+          seo_keywords: newPost.seoKeywords
+        }]);
         if (error) throw error;
 
         if (newPost.type === 'promotion') {
@@ -519,11 +553,11 @@ export default function AdminConsole({
             vendor_price: parseFloat(vendorPrice) || 0,
             vendor_capacity: parseInt(vendorCapacity) || 10,
             attendee_enabled: attendeeEnabled,
-            image_url: newPost.imageUrl || null,
+            image_url: finalImageUrl,
             status: "upcoming"
           };
           const { error: evtErr } = await supabase.from('events').insert(newEvt);
-          if (!evtErr) setEventsData([...eventsData, newEvt]);
+          if (!evtErr) setEventsData([...eventsData, newEvt as any]);
         }
       } catch(err: any) { 
         console.error(err);
@@ -548,7 +582,7 @@ export default function AdminConsole({
     setCmsStatus(post.status as any);
     setEditingCmsId(post.id);
     setIsAddingCms(true);
-    setCmsImageUrls(post.imageUrl ? post.imageUrl.split(',') : []);
+    setCmsImageUrls(post.imageUrl ? post.imageUrl.split(',').filter(url => url && url.trim() !== '') : []);
     setEventDate(post.seoTitle || "");
     setEventLocation(post.seoDesc || "");
     setEventCapacity(post.seoKeywords || "50");
@@ -578,6 +612,19 @@ export default function AdminConsole({
       } catch (err: any) {
         console.error(err);
         toast.error(`Failed to delete CMS post: ${err.message}`);
+      }
+    }
+  };
+
+  const handleDeleteEvent = async (id: string) => {
+    if (confirm("Are you sure you want to permanently delete this Event?")) {
+      try {
+        const { error } = await supabase.from('events').delete().eq('id', id);
+        if (error) throw error;
+        setEventsData(eventsData.filter(e => e.id !== id));
+        toast.success("Event deleted successfully!");
+      } catch (err: any) {
+        toast.error(`Failed to delete event: ${err.message}`);
       }
     }
   };
@@ -1467,6 +1514,21 @@ export default function AdminConsole({
                   </div>
                 </div>
 
+                {cmsType === 'faq' && (
+                  <div className="space-y-1">
+                    <label className="font-bold">FAQ Category</label>
+                    <select value={faqCategory} onChange={(e) => setFaqCategory(e.target.value)} className="w-full p-2.5 bg-white border rounded-lg focus:outline-none">
+                      <option value="Getting Started">Getting Started</option>
+                      <option value="Products">Products</option>
+                      <option value="Orders">Orders</option>
+                      <option value="Payments">Payments</option>
+                      <option value="Shipping & Delivery">Shipping & Delivery</option>
+                      <option value="Returns & Refunds">Returns & Refunds</option>
+                      <option value="Discounts & Promotions">Discounts & Promotions</option>
+                    </select>
+                  </div>
+                )}
+
                 {cmsType === 'promotion' && (
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-3 p-4 border border-emerald-100 bg-emerald-50/30 rounded-xl mb-4">
                     <div className="md:col-span-3 pb-2 border-b border-emerald-100 flex items-center justify-between">
@@ -1517,8 +1579,8 @@ export default function AdminConsole({
                 )}
 
                 <div className="space-y-1">
-                  <label className="font-bold">Image Upload (for Hero/Award/Blog)</label>
-                  <MediaUploader urls={cmsImageUrls} onChange={setCmsImageUrls} multiple={true} maxFiles={10} bucket="images" category={cmsType} />
+                  <label className="font-bold">Image Upload {cmsType !== 'hero' ? "(1 Image Max)" : "(Multiple Allowed)"}</label>
+                  <MediaUploader urls={cmsImageUrls} onChange={setCmsImageUrls} multiple={cmsType === 'hero'} maxFiles={cmsType === 'hero' ? 10 : 1} bucket="images" category={cmsType} />
                 </div>
 
                 <div className="space-y-1">
@@ -1785,7 +1847,12 @@ export default function AdminConsole({
                   <div key={event.id} className="bg-white border rounded-2xl p-6 shadow-sm">
                     <div className="flex justify-between items-start mb-4 pb-4 border-b">
                       <div>
-                        <h4 className="font-bold text-gray-900 text-lg">{event.title}</h4>
+                        <h4 className="font-bold text-gray-900 text-lg flex items-center gap-3">
+                          {event.title}
+                          <button onClick={() => handleDeleteEvent(event.id)} className="bg-red-50 text-red-600 border border-red-100 hover:bg-red-100 px-2 py-0.5 rounded text-[10px] uppercase font-bold tracking-wider cursor-pointer">
+                            Delete Event
+                          </button>
+                        </h4>
                         <div className="flex gap-4 mt-2 text-xs text-gray-500">
                           <span className="flex items-center gap-1"><Calendar className="w-3.5 h-3.5" /> {event.date}</span>
                           <span>|</span>
