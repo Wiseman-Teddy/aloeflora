@@ -84,14 +84,29 @@ export default function CheckoutPage({ onAddOrder, promos }: CheckoutPageProps) 
   const finalizeOrder = async () => {
     const newOrder: Order = {
       id: "ORD-" + generatedOrderId,
-      date: new Date().toISOString().split('T')[0],
-      items: cart,
+      createdAt: new Date().toISOString(),
+      items: cart.map(item => ({
+        productId: item.product.id,
+        productName: item.product.name,
+        quantity: item.quantity,
+        price: item.product.price,
+        costPrice: item.product.costPrice,
+        selectedVariant: item.selectedVariant
+      })),
+      subtotal: total, // simplified, assuming delivery is 0 for now
+      deliveryFee: 0,
       total: total,
-      status: "processing",
-      shippingAddress: `${checkoutHouseNum ? checkoutHouseNum + ', ' : ''}${checkoutBuilding ? checkoutBuilding + ', ' : ''}${checkoutEstate}, ${checkoutSubCounty}, ${checkoutCounty}`,
+      paymentMethod: "mpesa_stk",
+      paymentStatus: "paid",
+      deliveryStatus: "pending",
+      county: checkoutCounty,
+      subCounty: checkoutSubCounty,
+      estate: checkoutEstate,
+      building: checkoutBuilding,
+      houseNumber: checkoutHouseNum,
       customerName: checkoutName,
-      customerEmail: checkoutEmail,
-      customerPhone: checkoutPhone,
+      email: checkoutEmail,
+      phone: checkoutPhone,
       deliveryNotes: checkoutNotes
     };
 

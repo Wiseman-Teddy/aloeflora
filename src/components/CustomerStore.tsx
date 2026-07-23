@@ -61,7 +61,7 @@ export default function CustomerStore({
   onUpdateProductStock,
   promos
 }: CustomerStoreProps) {
-  const { cart, wishlist, searchQuery, setSearchQuery, setIsCartOpen, addToCart, toggleWishlist } = useShop();
+  const { cart, wishlist, searchQuery, setSearchQuery, setIsCartOpen, addToCart, toggleWishlist, clearCart } = useShop();
 
   // Storefront navigation
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
@@ -399,7 +399,7 @@ export default function CustomerStore({
       setLoyaltyPoints((prev) => prev + pointsEarned);
 
       setStkStatus("success");
-      setCart([]);
+      clearCart();
     } catch (error) {
       console.error(error);
       setStkStatus("failed");

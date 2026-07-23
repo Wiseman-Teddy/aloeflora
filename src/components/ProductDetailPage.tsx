@@ -2,6 +2,8 @@ import React, { useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { ArrowLeft, ShoppingCart, Info, Star, MessageSquare } from "lucide-react";
 import { Product } from "../types";
+import { useShop } from "../contexts/ShopContext";
+import toast from "react-hot-toast";
 
 const CUSTOMER_RATING_ACCENTS = ["Amazing!", "Loved it.", "Smells great.", "Good texture.", "Highly recommended!", "Will buy again."];
 
@@ -20,13 +22,13 @@ export function Stars({ rating }: { rating: number }) {
 
 interface ProductDetailPageProps {
   products: Product[];
-  onAddToCart: (product: Product, selectedVariant?: string) => void;
 }
 
-export default function ProductDetailPage({ products, onAddToCart }: ProductDetailPageProps) {
+export default function ProductDetailPage({ products }: ProductDetailPageProps) {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [selectedImageIdx, setSelectedImageIdx] = useState(0);
+  const { addToCart } = useShop();
 
   const product = products.find(p => p.id === id);
 
@@ -45,7 +47,7 @@ export default function ProductDetailPage({ products, onAddToCart }: ProductDeta
     : (product.imageUrl ? product.imageUrl.split(',') : []);
 
   const relatedProducts = products
-    .filter(p => p.category === product.category && p.id !== product.id && p.status === 'active')
+    .filter(p => p.category === product.category && p.id !== product.id)
     .slice(0, 4);
 
   return (
@@ -136,8 +138,8 @@ export default function ProductDetailPage({ products, onAddToCart }: ProductDeta
           <div className="pt-6 mt-6 border-t border-gray-100 dark:border-gray-800">
             <button
               onClick={() => {
-                onAddToCart(product);
-                toast?.success(`${product.name} added to cart`);
+                addToCart(product, 1, product.variants?.[0]);
+                toast.success(`${product.name} added to cart`);
               }}
               disabled={product.stock === 0}
               className="w-full bg-emerald-800 text-white font-bold py-4 rounded-2xl hover:bg-emerald-700 shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-2 cursor-pointer disabled:bg-gray-300 disabled:cursor-not-allowed"

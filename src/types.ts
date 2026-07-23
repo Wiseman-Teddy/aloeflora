@@ -122,6 +122,8 @@ export interface BookingEvent {
   attendee_price?: number;
   status: "upcoming" | "active" | "passed" | "draft";
   created_at?: string;
+  registrants?: { email: string }[];
+  registrantCount?: number;
 }
 
 export interface EventRegistration {

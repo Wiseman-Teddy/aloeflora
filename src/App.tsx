@@ -38,6 +38,18 @@ import CustomerAuth from "./components/auth/CustomerAuth";
 import AdminAuth from "./components/auth/AdminAuth";
 import NotFound from './components/NotFound';
 import GlobalNavbar from "./components/GlobalNavbar";
+import { 
+  Product, 
+  Order, 
+  SupportTicket, 
+  MarketingCampaign, 
+  BookingEvent, 
+  CMSPost, 
+  AuditAnomaly, 
+  StoreSettings, 
+  UserProfile, 
+  Promo 
+} from "./types";
 import CartSidebar from "./components/CartSidebar";
 import WishlistSidebar from "./components/WishlistSidebar";
 import toast, { Toaster } from "react-hot-toast";
@@ -210,7 +222,8 @@ export default function App() {
           const mappedEvts: BookingEvent[] = evtData.map((e: any) => ({
             id: e.id, title: e.title, date: e.date, time: e.time || "TBA", location: e.location,
             description: e.description, imageUrl: e.image_url, capacity: e.capacity,
-            registrantCount: e.registrant_count, registrants: e.registrants || [], status: e.status || "upcoming"
+            registrantCount: e.registrant_count, registrants: e.registrants || [], status: e.status || "upcoming",
+            price: e.price || 0
           }));
           setEvents(mappedEvts);
         }
