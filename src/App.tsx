@@ -486,7 +486,7 @@ export default function App() {
       </section>
 
       {/* GLOBAL BRAND FOOTER SIGNALS */}
-      <footer id="footer-contacts" className="border-t border-emerald-950 dark:border-gray-900 bg-emerald-950 text-white py-12 mt-12">
+      <footer id="footer-contacts" className="border-t border-emerald-950 dark:border-gray-900 bg-emerald-950 text-white pt-12 pb-28 md:pb-12 mt-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-8">
             <div className="space-y-4">

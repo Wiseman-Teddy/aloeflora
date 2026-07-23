@@ -1239,7 +1239,7 @@ export default function CustomerStore({
 
 
       {/* 11. DOCK FLOATING WIDGETS: Chat & Cart */}
-      <div className="fixed bottom-6 right-6 z-40 flex flex-col gap-4">
+      <div className="fixed bottom-24 md:bottom-6 right-6 z-40 flex flex-col gap-4">
         {/* Floating Cart Button */}
         {cart.length > 0 && (
           <button 
@@ -1263,7 +1263,7 @@ export default function CustomerStore({
         </button>
 
         {openAiAssistant && (
-          <div id="ai-specialist-terminal" className="absolute bottom-16 right-0 bg-white dark:bg-gray-900 w-80 md:w-96 rounded-3xl shadow-2xl border border-gray-100 dark:border-gray-800 overflow-hidden text-left flex flex-col h-[450px] animate-in fade-in slide-in-from-bottom duration-200">
+          <div id="ai-specialist-terminal" className="fixed md:absolute bottom-0 md:bottom-[calc(100%+1rem)] right-0 left-0 md:left-auto bg-white dark:bg-gray-900 w-full md:w-96 rounded-t-3xl md:rounded-3xl shadow-2xl border border-gray-100 dark:border-gray-800 overflow-hidden text-left flex flex-col h-[85vh] md:h-[450px] z-[60] md:z-auto animate-in fade-in slide-in-from-bottom duration-200">
             {/* Header branding */}
             <div className="bg-emerald-950 text-white p-4 flex items-center justify-between">
               <div className="flex items-center gap-3">

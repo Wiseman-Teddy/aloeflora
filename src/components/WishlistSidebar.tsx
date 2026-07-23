@@ -13,7 +13,7 @@ export default function WishlistSidebar({ products }: WishlistSidebarProps) {
   if (!isWishlistOpen) return null;
 
   return (
-    <div id="wishlist-sidebar-backdrop" className="fixed inset-0 bg-black/40 backdrop-blur-xs z-50 flex justify-end">
+    <div id="wishlist-sidebar-backdrop" className="fixed inset-0 bg-black/40 backdrop-blur-xs z-[60] flex justify-end">
       <div className="bg-white dark:bg-gray-900 w-full max-w-sm h-full shadow-2xl flex flex-col justify-between p-6 animate-in slide-in-from-right duration-250 relative">
         <button 
           onClick={() => setIsWishlistOpen(false)}
