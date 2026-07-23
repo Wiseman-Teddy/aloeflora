@@ -28,7 +28,7 @@ import {
   ShoppingCart,
   Instagram,
   Facebook,
-  Twitter
+  MessageCircle
 } from "lucide-react";
 import { supabase } from "./lib/supabase";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
@@ -533,14 +533,14 @@ export default function App() {
             <div>
               <h4 className="font-bold text-sm text-white mb-4">Connect With Us</h4>
               <div className="flex items-center gap-3">
-                <a href="https://instagram.com/aloeflora" target="_blank" rel="noopener noreferrer" className="bg-emerald-900/50 p-2 rounded-xl hover:bg-emerald-800 hover:text-white transition cursor-pointer text-emerald-100/70">
+                <a href="https://www.instagram.com/aloefloraproducts?igsh=NjZmYWFkOWp2b290" target="_blank" rel="noopener noreferrer" className="bg-emerald-900/50 p-2 rounded-xl hover:bg-emerald-800 hover:text-white transition cursor-pointer text-emerald-100/70">
                   <Instagram className="w-4 h-4" />
                 </a>
-                <a href="https://facebook.com/aloeflora" target="_blank" rel="noopener noreferrer" className="bg-emerald-900/50 p-2 rounded-xl hover:bg-emerald-800 hover:text-white transition cursor-pointer text-emerald-100/70">
+                <a href="https://www.facebook.com/share/1BZ23fA3FJ/" target="_blank" rel="noopener noreferrer" className="bg-emerald-900/50 p-2 rounded-xl hover:bg-emerald-800 hover:text-white transition cursor-pointer text-emerald-100/70">
                   <Facebook className="w-4 h-4" />
                 </a>
-                <a href="https://twitter.com/aloeflora" target="_blank" rel="noopener noreferrer" className="bg-emerald-900/50 p-2 rounded-xl hover:bg-emerald-800 hover:text-white transition cursor-pointer text-emerald-100/70">
-                  <Twitter className="w-4 h-4" />
+                <a href="https://wa.me/254116794448" target="_blank" rel="noopener noreferrer" className="bg-emerald-900/50 p-2 rounded-xl hover:bg-emerald-800 hover:text-white transition cursor-pointer text-emerald-100/70">
+                  <MessageCircle className="w-4 h-4" />
                 </a>
               </div>
             </div>
