@@ -1239,7 +1239,7 @@ export default function CustomerStore({
 
 
       {/* 11. DOCK FLOATING WIDGETS: Chat & Cart */}
-      <div className="fixed bottom-24 md:bottom-6 right-6 z-40 flex flex-col gap-4">
+      <div className="fixed bottom-24 md:bottom-6 right-6 z-[60] flex flex-col gap-4">
         {/* Floating Cart Button */}
         {cart.length > 0 && (
           <button 
