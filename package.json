@@ -46,7 +46,6 @@
     "esbuild": "^0.25.0",
     "install": "^0.13.0",
     "jsdom": "^26.0.0",
-    "ngrok": "^4.3.3",
     "supabase": "^2.108.0",
     "tailwindcss": "^4.1.14",
     "tsx": "^4.21.0",

@@ -3,7 +3,6 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import ngrok from 'ngrok';
 import { GoogleGenAI } from '@google/genai';
 
 dotenv.config();
@@ -180,15 +179,4 @@ if (process.env.NODE_ENV === 'production') {
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, async () => {
   console.log(`Express API Server running on port ${PORT}`);
-
-  if (process.env.NODE_ENV !== 'production') {
-    try {
-      const url = await ngrok.connect(PORT);
-      currentAppUrl = url;
-      console.log(`[ngrok] Tunnel created: ${url}`);
-      console.log(`[ngrok] M-Pesa Callbacks will be sent to: ${url}/api/mpesa/callback`);
-    } catch (err) {
-      console.error('[ngrok] Failed to start ngrok:', err);
-    }
-  }
 });
