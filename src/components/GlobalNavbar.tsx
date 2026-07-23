@@ -40,7 +40,7 @@ export default function GlobalNavbar({ darkMode, setDarkMode }: GlobalNavbarProp
             <div className="text-[10px] sm:text-sm font-extrabold tracking-tight text-emerald-800 dark:text-lime-400 block scale-y-105 leading-none uppercase whitespace-nowrap">
               ALOEFLORA PRODUCTS
             </div>
-            <div className="hidden sm:block text-[9px] uppercase font-bold tracking-wider text-gray-400 mt-1 font-mono leading-none whitespace-nowrap">
+            <div className="text-[7px] sm:text-[9px] uppercase font-bold tracking-wider text-gray-400 mt-1 font-mono leading-none whitespace-nowrap">
               Quality, Affordable & Natural
             </div>
           </div>
