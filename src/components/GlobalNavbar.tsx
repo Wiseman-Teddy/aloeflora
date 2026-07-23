@@ -36,11 +36,11 @@ export default function GlobalNavbar({ darkMode, setDarkMode }: GlobalNavbarProp
           <div className="bg-white p-0.5 rounded-xl shadow-sm border border-emerald-900/10 dark:border-gray-800">
             <img src="/logo.jpeg" alt="ALOEFLORA Logo" className="h-10 w-auto object-contain rounded-lg" />
           </div>
-          <div className="text-left select-none hidden sm:block">
-            <div className="text-sm font-extrabold tracking-tight text-emerald-800 dark:text-lime-400 block scale-y-105 leading-none uppercase whitespace-nowrap">
+          <div className="text-left select-none">
+            <div className="text-[10px] sm:text-sm font-extrabold tracking-tight text-emerald-800 dark:text-lime-400 block scale-y-105 leading-none uppercase whitespace-nowrap">
               ALOEFLORA PRODUCTS
             </div>
-            <div className="text-[9px] uppercase font-bold tracking-wider text-gray-400 mt-1 block font-mono leading-none whitespace-nowrap">
+            <div className="hidden sm:block text-[9px] uppercase font-bold tracking-wider text-gray-400 mt-1 font-mono leading-none whitespace-nowrap">
               Quality, Affordable & Natural
             </div>
           </div>
