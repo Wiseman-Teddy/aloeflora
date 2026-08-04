@@ -31,7 +31,10 @@ import {
   Globe,
   Trash2,
   LayoutGrid,
-  List as ListIcon
+  List as ListIcon,
+  ShieldCheck,
+  Tag,
+  Truck
 } from "lucide-react";
 import { Product, CartItem, Order, BookingEvent, CMSPost, Promo } from "../types";
 
@@ -574,105 +577,175 @@ export default function CustomerStore({
   return (
     <div id="customer-storefront-wrapper" className="space-y-10">
       
-      {/* 1. HERO MAIN AREA: Featuring Logo Colors & 10-Product Sliding Carousel */}
-      <section id="hero-slider-section" className="relative bg-emerald-950 text-white overflow-hidden shadow-2xl min-h-[calc(100vh-80px)] flex items-center w-[100vw] ml-[calc(50%-50vw)] rounded-b-[2rem] md:rounded-b-[4rem] mb-12">
-        {/* Vector brand leaf backgrounds */}
-        <div className="absolute inset-0 bg-cover bg-center mix-blend-overlay opacity-20 bg-[url('https://images.unsplash.com/photo-1596547609652-9cf5d8d76921?auto=format&fit=crop&q=80&w=1200')]"></div>
-        <div className="absolute -left-10 -bottom-10 w-96 h-96 bg-gradient-to-tr from-emerald-600/30 via-lime-500/10 to-transparent rounded-full blur-2xl"></div>
-        <div className="absolute -right-10 -top-10 w-96 h-96 bg-gradient-to-bl from-lime-500/20 via-emerald-800/20 to-transparent rounded-full blur-2xl"></div>
+      {/* 1. HERO MAIN AREA: PROTOTYPE 1 - Lifestyle + Featured Product */}
+      <section id="hero-slider-section" className="relative w-full overflow-hidden rounded-3xl md:rounded-[2.5rem] shadow-2xl mb-12 bg-white dark:bg-gray-950 border border-gray-100 dark:border-gray-800">
+        
+        {/* Rich Lifestyle Background Photograph showcasing Homecare, Coffee, Bodycare, Skincare & Botanicals */}
+        <div className="absolute inset-0 bg-cover bg-center bg-no-repeat transition-all duration-700 opacity-90" style={{ backgroundImage: `url('/hero_lifestyle.png')` }}>
+          {/* Subtle light/dark gradient overlays to ensure max readability */}
+          <div className="absolute inset-0 bg-gradient-to-r from-white/95 via-white/85 to-white/40 dark:from-gray-950/95 dark:via-gray-950/85 dark:to-gray-950/40"></div>
+          <div className="absolute inset-0 bg-gradient-to-t from-white/60 via-transparent to-transparent dark:from-gray-950/80"></div>
+        </div>
 
-        <div className="relative max-w-7xl mx-auto px-6 py-12 md:py-20 w-full grid grid-cols-1 lg:grid-cols-12 gap-10 items-center">
-          {/* Brand messages */}
-          <div className="lg:col-span-5 space-y-6">
-            <div className="inline-flex items-center gap-2 bg-emerald-900/60 backdrop-blur-sm border border-emerald-800 px-3.5 py-1.5 rounded-full text-xs font-bold text-lime-400">
-              <Sparkles className="w-4 h-4 text-[#50A63C]" /> Premium Natural Products Made in Kenya
+        <div className="relative max-w-7xl mx-auto px-6 py-10 md:py-16 lg:py-20 w-full grid grid-cols-1 lg:grid-cols-12 gap-10 items-center">
+          
+          {/* LEFT COLUMN: Brand Messages & Actions */}
+          <div className="lg:col-span-7 space-y-6 text-left">
+            
+            {/* Top Badge */}
+            <div className="inline-flex items-center gap-2 bg-white/90 dark:bg-gray-900/90 backdrop-blur-md border border-[#50A63C]/40 px-4 py-2 rounded-full shadow-sm">
+              <Sparkles className="w-4 h-4 text-[#50A63C]" />
+              <span className="text-xs font-extrabold text-[#2B4E22] dark:text-emerald-300">
+                Premium Natural Products Made in Kenya
+              </span>
             </div>
             
-            <h1 className="text-4xl md:text-5xl lg:text-5xl font-extrabold tracking-tight leading-tight">
-              {cmsPosts.find(p => p.id === 'hero-title')?.content || "Naturally Better Living Starts Here"}
+            {/* Main Headline */}
+            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black text-[#2B4E22] dark:text-white tracking-tight leading-[1.12]">
+              Naturally Better <br/>
+              <span className="text-[#50A63C]">Living Starts Here</span>
             </h1>
             
-            <p className="text-sm md:text-base text-emerald-100/90 max-w-md leading-relaxed">
-              {cmsPosts.find(p => p.id === 'hero-subtitle')?.content || "Discover high-quality, affordable products crafted with care for your home and everyday wellness. From Home Care, Body Care, and Skin Care to Premium Coffee Products, AloeFloraProducts brings you trusted natural solutions designed to enrich your lifestyle."}
+            {/* Subtitle */}
+            <p className="text-sm sm:text-base text-gray-700 dark:text-gray-200 max-w-xl leading-relaxed font-medium">
+              Discover high-quality, affordable products crafted with care for your home and everyday wellness. From <strong className="text-[#2B4E22] dark:text-emerald-300 font-bold">Home Care</strong>, <strong className="text-[#2B4E22] dark:text-emerald-300 font-bold">Body Care</strong>, and <strong className="text-[#2B4E22] dark:text-emerald-300 font-bold">Skin Care</strong> to <strong className="text-[#2B4E22] dark:text-emerald-300 font-bold">Premium Coffee Products</strong>, AloeFlora brings you trusted natural solutions designed to enrich your lifestyle.
             </p>
 
-            {/* Tagline Pill */}
-            <div className="inline-flex items-center gap-2.5 text-xs font-bold text-lime-400 bg-emerald-950/70 border border-emerald-800/80 px-4 py-2 rounded-xl">
-              <span>Natural</span>
-              <span className="text-emerald-500 font-extrabold">•</span>
-              <span>Quality</span>
-              <span className="text-emerald-500 font-extrabold">•</span>
-              <span>Affordable</span>
+            {/* Dual Action Buttons */}
+            <div className="flex flex-wrap gap-4 pt-2">
+              <a href="#store-catalog" className="inline-flex items-center gap-2 bg-[#50A63C] hover:bg-[#3f8b2e] text-white font-extrabold px-8 py-3.5 rounded-full transition-all duration-200 shadow-lg hover:shadow-xl text-sm border-b-4 border-[#2B4E22] cursor-pointer">
+                <span>Shop Now</span>
+                <ArrowRight className="w-4 h-4" />
+              </a>
+              <a href="#organic-formulations" className="inline-flex items-center gap-2 bg-white/95 dark:bg-gray-900/95 hover:bg-gray-50 border-2 border-gray-200 dark:border-gray-700 text-[#2B4E22] dark:text-white font-extrabold px-7 py-3.5 rounded-full transition-all duration-200 text-sm shadow-sm cursor-pointer">
+                <span>Explore Collections</span>
+              </a>
             </div>
 
-            <div className="flex flex-wrap gap-3 pt-1">
-              <a href="#store-catalog" className="bg-[#50A63C] hover:bg-emerald-600 text-white font-bold px-6 py-3 rounded-xl transition duration-300 shadow-md text-sm text-center">
-                Shop Now
-              </a>
-              <a href="#organic-formulations" className="bg-[#2B4E22] border border-emerald-700 hover:bg-emerald-900 text-white font-bold px-6 py-3 rounded-xl transition duration-300 text-sm text-center">
-                Explore Our Products
-              </a>
+            {/* 4 Bottom Feature Highlights */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-6 border-t border-gray-200/80 dark:border-gray-800/80">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 bg-[#50A63C]/10 rounded-xl text-[#50A63C] shrink-0">
+                  <ShieldCheck className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="text-xs font-black text-gray-900 dark:text-white">100% Natural</div>
+                  <div className="text-[10px] text-gray-500 font-medium">Pure & Safe</div>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 bg-[#2B4E22]/10 rounded-xl text-[#2B4E22] dark:text-emerald-400 shrink-0">
+                  <Globe className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="text-xs font-black text-gray-900 dark:text-white">Made in Kenya</div>
+                  <div className="text-[10px] text-gray-500 font-medium">Locally Crafted</div>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 bg-[#50A63C]/10 rounded-xl text-[#50A63C] shrink-0">
+                  <Tag className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="text-xs font-black text-gray-900 dark:text-white">Affordable</div>
+                  <div className="text-[10px] text-gray-500 font-medium">Premium Quality</div>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 bg-[#2B4E22]/10 rounded-xl text-[#2B4E22] dark:text-emerald-400 shrink-0">
+                  <Truck className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="text-xs font-black text-gray-900 dark:text-white">Fast Delivery</div>
+                  <div className="text-[10px] text-gray-500 font-medium">Across Kenya</div>
+                </div>
+              </div>
             </div>
+
           </div>
 
-          {/* CMS Hero Slider Section */}
-          <div className="lg:col-span-7 flex flex-col justify-center h-full relative">
-            <div className="relative bg-white/5 backdrop-blur-md border border-white/10 rounded-3xl p-6 shadow-2xl overflow-hidden min-h-[300px] flex items-center">
-              
-              {heroSlides.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-center w-full">
-                  <div className="md:col-span-5 h-48 md:h-56 rounded-2xl overflow-hidden shadow-lg border border-white/10 relative bg-emerald-950 flex items-center justify-center">
-                    <img 
-                      src={heroSlides[heroIndex]?.imageUrl || "https://images.unsplash.com/photo-1596547609652-9cf5d8d76921"} 
-                      alt={heroSlides[heroIndex]?.title} 
-                      className="w-full h-full object-cover select-none"
-                      referrerPolicy="no-referrer"
-                    />
+          {/* RIGHT COLUMN: Floating Featured Product Card Overlay */}
+          <div className="lg:col-span-5 flex justify-center items-center">
+            {products.length > 0 ? (
+              <div className="relative w-full max-w-sm bg-white/95 dark:bg-gray-900/95 backdrop-blur-md border border-gray-100 dark:border-gray-800 rounded-3xl p-6 shadow-2xl transition duration-500 hover:shadow-emerald-500/10 text-left">
+                {/* BEST SELLER Badge */}
+                <div className="absolute top-4 right-4 bg-[#2B4E22] text-white text-[10px] uppercase font-black px-3 py-1 rounded-full tracking-wider shadow-sm z-10">
+                  BEST SELLER
+                </div>
+
+                {/* Featured Product Image */}
+                <div className="w-full h-56 rounded-2xl bg-gray-50 dark:bg-gray-800 overflow-hidden mb-4 flex items-center justify-center p-3 border border-gray-100 dark:border-gray-800 relative group">
+                  <img 
+                    src={(products[heroIndex % products.length]?.mediaUrls && products[heroIndex % products.length]?.mediaUrls!.length > 0)
+                      ? products[heroIndex % products.length].mediaUrls![0] 
+                      : (products[heroIndex % products.length]?.imageUrl?.split(',')[0] || "https://images.unsplash.com/photo-1596547609652-9cf5d8d76921")} 
+                    alt={products[heroIndex % products.length]?.name} 
+                    className="w-full h-full object-contain group-hover:scale-105 transition duration-300"
+                  />
+                </div>
+
+                {/* Product Title & Reviews */}
+                <div className="space-y-2">
+                  <h3 className="font-extrabold text-lg text-gray-900 dark:text-white leading-snug line-clamp-1">
+                    {products[heroIndex % products.length]?.name}
+                  </h3>
+                  
+                  <div className="flex items-center gap-2">
+                    <Stars rating={products[heroIndex % products.length]?.rating || 5} />
+                    <span className="text-xs font-bold text-gray-500">
+                      ({products[heroIndex % products.length]?.reviewsCount || 125} Reviews)
+                    </span>
                   </div>
 
-                  <div className="md:col-span-7 space-y-3.5 text-left">
-                    <h3 className="text-lg md:text-xl font-bold font-sans tracking-tight line-clamp-2">
-                      {heroSlides[heroIndex]?.title}
-                    </h3>
-                    <p className="text-xs text-emerald-100/90 line-clamp-3 leading-relaxed">
-                      {heroSlides[heroIndex]?.content}
-                    </p>
+                  <p className="text-xs text-gray-600 dark:text-gray-400 line-clamp-2 leading-relaxed">
+                    {products[heroIndex % products.length]?.description}
+                  </p>
+
+                  <div className="pt-3 flex items-center justify-between">
+                    <div className="text-xl font-black text-[#2B4E22] dark:text-emerald-400">
+                      KES {products[heroIndex % products.length]?.price}
+                    </div>
+
+                    <button 
+                      onClick={() => {
+                        const targetProd = products[heroIndex % products.length];
+                        addToCart(targetProd, 1, targetProd?.variants?.[0]);
+                        toast.success(`${targetProd?.name} added to cart!`);
+                      }}
+                      className="bg-[#50A63C] hover:bg-[#3f8b2e] text-white font-extrabold px-5 py-2.5 rounded-full text-xs transition flex items-center gap-1.5 shadow-md border-b-2 border-[#2B4E22] cursor-pointer"
+                    >
+                      <span>Buy Now</span>
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </button>
                   </div>
                 </div>
-              ) : (
-                <div className="text-center w-full text-emerald-200">No Hero Slides configured.</div>
-              )}
-
-              {/* Slider Controls */}
-              {heroSlides.length > 1 && (
-                <>
-                  <button 
-                    onClick={() => setHeroIndex((prev) => (prev - 1 + heroSlides.length) % heroSlides.length)}
-                    className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/40 hover:bg-black/60 p-3 rounded-full cursor-pointer transition select-none text-white border border-white/5 min-h-[44px] min-w-[44px] flex items-center justify-center"
-                  >
-                    <ChevronLeft className="w-5 h-5" />
-                  </button>
-                  <button 
-                    onClick={() => setHeroIndex((prev) => (prev + 1) % heroSlides.length)}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/40 hover:bg-black/60 p-3 rounded-full cursor-pointer transition select-none text-white border border-white/5 min-h-[44px] min-w-[44px] flex items-center justify-center"
-                  >
-                    <ChevronRight className="w-5 h-5" />
-                  </button>
-                </>
-              )}
-            </div>
-
-            {/* Progress indicators */}
-            <div className="flex gap-1.5 justify-center mt-4">
-              {heroSlides.map((_, idx) => (
-                <div 
-                  key={idx} 
-                  className={`h-1.5 rounded-full transition-all duration-300 ${idx === heroIndex ? "bg-lime-400 w-6" : "bg-white/20 w-1.5"}`}
-                ></div>
-              ))}
-            </div>
+              </div>
+            ) : null}
           </div>
+
         </div>
+
+        {/* Carousel Indicators (Dots at bottom center) */}
+        {products.length > 1 && (
+          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2 z-20">
+            {products.slice(0, 5).map((_, idx) => (
+              <button
+                key={idx}
+                onClick={() => setHeroIndex(idx)}
+                className={`transition-all duration-300 rounded-full cursor-pointer ${
+                  heroIndex % products.length === idx 
+                    ? "w-8 h-2.5 bg-[#50A63C]" 
+                    : "w-2.5 h-2.5 bg-gray-400/50 hover:bg-[#50A63C]/50"
+                }`}
+                title={`Featured Product ${idx + 1}`}
+              />
+            ))}
+          </div>
+        )}
+
       </section>
 
       {/* 2. MAIN CATALOG ZONE: With Dynamic Filters, Product Comparisons and CRUD operations */}
