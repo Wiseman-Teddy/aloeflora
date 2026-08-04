@@ -8,7 +8,14 @@ async function updateAboutUs() {
 
   await client.connect();
 
-  const content = `Growing up in a large family in Kenya, our founder Doris Obondo experienced firsthand how poverty can make personal hygiene difficult, with simple necessities like soap often being inaccessible. Instead of allowing these early challenges to discourage her, they became the foundation and inspiration for Aloe Flora Products.
+  const content = `Mission Statement:
+At Aloe Flora Product Limited, we are committed to manufacturing high-quality, eco-friendly cleaning detergents and hair care as well as body care products that enhance everyday hygiene and well-being. We aim to combine innovation with nature’s finest ingredients to deliver safe, effective, and sustainable solutions for homes and businesses.
+
+Vision Statement:
+To be a leading manufacturer of premium, nature-inspired hygiene and personal care products, setting the standard for quality, sustainability, and customer satisfaction across the industry.
+
+Our Story:
+Growing up in a large family in Kenya, our founder Doris Obondo experienced firsthand how poverty can make personal hygiene difficult, with simple necessities like soap often being inaccessible. Instead of allowing these early challenges to discourage her, they became the foundation and inspiration for Aloe Flora Products.
 
 Driven by a strong desire to create affordable, high-quality products that could help families maintain proper hygiene and skincare, Doris established Aloe Flora Products to transform everyday local resources into products that improve people's lives.
 

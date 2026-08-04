@@ -4,6 +4,90 @@
 @theme {
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+
+  /* ALOEFLORA Official 50/50 Dual Theme Palette */
+  /* Tone 1 (ALOE F - Leaf Green): #50A63C */
+  /* Tone 2 (LORA / PRODUCTS - Forest Green): #2B4E22 */
+  /* Tone 3 (Sprout Accent): #74C748 */
+  --color-emerald-50: #f0f7ef;
+  --color-emerald-100: #def0dc;
+  --color-emerald-200: #bee1ba;
+  --color-emerald-300: #93cb8e;
+  --color-emerald-400: #74c748; /* Sprout Highlight */
+  --color-emerald-500: #50a63c; /* ALOE F Vibrant Leaf Green */
+  --color-emerald-600: #3f8b2e;
+  --color-emerald-700: #336e25;
+  --color-emerald-800: #2b4e22; /* LORA Deep Forest Green */
+  --color-emerald-900: #1f3919;
+  --color-emerald-950: #12220f;
+
+  --color-lime-300: #93cb8e;
+  --color-lime-400: #74c748;
+  --color-lime-500: #50a63c;
+  --color-lime-600: #3f8b2e;
+}
+
+:root {
+  --color-aloeflora-leaf: #50a63c;
+  --color-aloeflora-forest: #2b4e22;
+  --color-aloeflora-sprout: #74c748;
+}
+
+/* Dual-Tone Utility Classes for 50/50 Equal Distribution */
+.bg-aloeflora-dual {
+  background: linear-gradient(135deg, #50a63c 0%, #2b4e22 100%);
+}
+
+.bg-aloeflora-split {
+  background: linear-gradient(to right, #50a63c 50%, #2b4e22 50%);
+}
+
+.border-aloeflora-split {
+  border-image: linear-gradient(to right, #50a63c 50%, #2b4e22 50%) 1;
+}
+
+.text-aloeflora-leaf {
+  color: #50a63c;
+}
+
+.text-aloeflora-forest {
+  color: #2b4e22;
+}
+
+.btn-leaf {
+  background-color: #50a63c;
+  color: #ffffff;
+  border-bottom: 3px solid #2b4e22;
+  transition: all 0.2s ease-in-out;
+}
+
+.btn-leaf:hover {
+  background-color: #3f8b2e;
+  transform: translateY(-1px);
+}
+
+.btn-forest {
+  background-color: #2b4e22;
+  color: #ffffff;
+  border-bottom: 3px solid #50a63c;
+  transition: all 0.2s ease-in-out;
+}
+
+.btn-forest:hover {
+  background-color: #1f3919;
+  transform: translateY(-1px);
+}
+
+.badge-leaf {
+  background-color: rgba(80, 166, 60, 0.12);
+  color: #50a63c;
+  border: 1px solid rgba(80, 166, 60, 0.3);
+}
+
+.badge-forest {
+  background-color: #2b4e22;
+  color: #74c748;
+  border: 1px solid rgba(116, 199, 72, 0.3);
 }
 
 /* Custom background animations and overrides */
@@ -12,3 +96,6 @@
     scroll-behavior: smooth;
   }
 }
+
+
+

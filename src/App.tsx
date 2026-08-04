@@ -475,10 +475,10 @@ export default function App() {
       <section id="partners-section" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-12 text-left w-full">
         <div className="flex items-center justify-between pb-4 border-b border-gray-100 dark:border-gray-800 mb-6 mt-12">
           <div>
-            <span className="text-[10px] text-emerald-800 dark:text-emerald-400 uppercase font-bold tracking-widest">Our Partners</span>
-            <h3 className="text-lg font-bold text-gray-900 dark:text-white mt-1">Trusted & Certified By</h3>
+            <span className="text-[10px] text-[#50A63C] uppercase font-extrabold tracking-widest">Our Partners</span>
+            <h3 className="text-lg font-bold text-[#2B4E22] dark:text-white mt-1">Trusted & Certified By</h3>
           </div>
-          <Globe className="w-5 h-5 text-emerald-800 dark:text-emerald-400" />
+          <Globe className="w-5 h-5 text-[#50A63C]" />
         </div>
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
           {[
@@ -488,7 +488,7 @@ export default function App() {
             { id: "madeinkenya", name: "Made In Kenya", src: "/partners/Made In Kenya.jpeg" },
             { id: "markup2", name: "Markup II", src: "/partners/Markup II.jpeg" },
           ].map((partner) => (
-            <div key={partner.id} className="bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-2xl p-6 shadow-sm flex items-center justify-center transition duration-300">
+            <div key={partner.id} className="bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-2xl p-6 shadow-sm flex items-center justify-center transition duration-300 hover:border-[#50A63C]">
               <div className="flex flex-col items-center gap-2">
                 <img src={partner.src} alt={partner.name} className="h-16 w-auto object-contain" />
                 <span className="text-[10px] font-bold text-gray-400 mt-2">{partner.name}</span>
@@ -499,7 +499,10 @@ export default function App() {
       </section>
 
       {/* GLOBAL BRAND FOOTER SIGNALS */}
-      <footer id="footer-contacts" className="border-t border-emerald-950 dark:border-gray-900 bg-emerald-950 text-white pt-12 pb-28 md:pb-12 mt-12">
+      <footer id="footer-contacts" className="relative bg-[#2B4E22] dark:bg-gray-950 text-white pt-12 pb-28 md:pb-12 mt-12 overflow-hidden">
+        {/* 50/50 Dual Brand Gradient Accent Bar */}
+        <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-[#50A63C] via-[#74C748] to-[#2B4E22]"></div>
+        
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-8">
             <div className="space-y-4">
@@ -507,38 +510,46 @@ export default function App() {
                 <div className="bg-white p-0.5 rounded-xl shadow-sm border border-emerald-900/10">
                   <img src="/logo.jpeg" alt="ALOEFLORA Logo" className="h-12 w-auto object-contain rounded-lg" />
                 </div>
-                <span className="font-extrabold tracking-tight text-emerald-800 dark:text-lime-400 uppercase text-lg">ALOEFLORA PRODUCTS</span>
+                <div className="text-left select-none">
+                  <div className="font-black text-lg tracking-tight uppercase leading-none">
+                    <span className="text-[#50A63C]">ALOE F</span>
+                    <span className="text-[#74C748]">LORA</span>
+                  </div>
+                  <div className="text-[10px] font-black tracking-widest text-emerald-200 uppercase leading-none mt-1">
+                    PRODUCTS
+                  </div>
+                </div>
               </div>
-              <p className="text-xs text-emerald-100/70 leading-relaxed">
+              <p className="text-xs text-emerald-100/80 leading-relaxed">
                 Quality, Affordable & Natural Products.<br/>
-                Locally sourced. Zero toxic components. Pure, intense hydration for Kenyan curls and skin.
+                Locally sourced. Zero toxic components. Pure, intense hydration for Kenyan curls, skin cells, and healthy household surfaces.
               </p>
             </div>
             
             <div>
               <h4 className="font-bold text-sm text-white mb-4">Quick Links</h4>
-              <ul className="space-y-2 text-xs text-emerald-100/70">
-                <li><Link to="/store#organic-formulations" className="hover:text-emerald-600 transition">Shop Products</Link></li>
-                <li><Link to="/store#events-marketing-section" className="hover:text-emerald-600 transition">Events & Workshops</Link></li>
-                <li><button onClick={() => toast.success('Track Order portal coming soon!')} className="hover:text-emerald-600 transition cursor-pointer">Track Order</button></li>
-                <li><Link to="/policies/returns" className="hover:text-emerald-600 transition cursor-pointer">Return Policy</Link></li>
+              <ul className="space-y-2 text-xs text-emerald-100/80">
+                <li><Link to="/store#organic-formulations" className="hover:text-[#74C748] transition">Shop Products</Link></li>
+                <li><Link to="/store#events-marketing-section" className="hover:text-[#74C748] transition">Events & Workshops</Link></li>
+                <li><button onClick={() => toast.success('Track Order portal coming soon!')} className="hover:text-[#74C748] transition cursor-pointer">Track Order</button></li>
+                <li><Link to="/policies/returns" className="hover:text-[#74C748] transition cursor-pointer">Return Policy</Link></li>
               </ul>
             </div>
 
             <div>
               <h4 className="font-bold text-sm text-white mb-4">Contact Info</h4>
-              <ul className="space-y-3 text-xs text-emerald-100/70">
+              <ul className="space-y-3 text-xs text-emerald-100/80">
                 <li className="flex items-start gap-2">
-                  <MapPin className="w-4 h-4 text-lime-400 shrink-0" />
+                  <MapPin className="w-4 h-4 text-[#74C748] shrink-0" />
                   <span>Nairobi CBD Depot, Kenya</span>
                 </li>
                 <li className="flex items-center gap-2">
-                  <Phone className="w-4 h-4 text-lime-400 shrink-0" />
-                  <a href="tel:+254116794448" className="hover:text-emerald-600 transition">+254 116 794 448</a>
+                  <Phone className="w-4 h-4 text-[#74C748] shrink-0" />
+                  <a href="tel:+254116794448" className="hover:text-[#74C748] transition">+254 116 794 448</a>
                 </li>
                 <li className="flex items-center gap-2">
-                  <Mail className="w-4 h-4 text-lime-400 shrink-0" />
-                  <a href="mailto:obondodoris@gmail.com" className="hover:text-emerald-600 transition">obondodoris@gmail.com</a>
+                  <Mail className="w-4 h-4 text-[#74C748] shrink-0" />
+                  <a href="mailto:info@aloefloraproducts.com" className="hover:text-[#74C748] transition">info@aloefloraproducts.com</a>
                 </li>
               </ul>
             </div>

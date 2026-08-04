@@ -381,14 +381,27 @@ export default function AdminConsole({
   };
 
   // Handles Inline Quantity Replenishment
-  const handleReplenishStock = (productId: string, increment: number) => {
+  const handleReplenishStock = async (productId: string, increment: number) => {
+    const targetProduct = products.find((p) => p.id === productId);
+    if (!targetProduct) return;
+    const newStock = targetProduct.stock + increment;
+
     const nextArr = products.map((p) => {
       if (p.id === productId) {
-        return { ...p, stock: p.stock + increment };
+        return { ...p, stock: newStock };
       }
       return p;
     });
     onUpdateInventory(nextArr);
+
+    try {
+      const { error } = await supabase.from("products").update({ stock: newStock }).eq("id", productId);
+      if (error) throw error;
+      toast.success(`Restocked ${targetProduct.name} (+${increment})`);
+    } catch (err: any) {
+      console.error("Supabase stock update error:", err);
+      toast.error("Failed to sync stock to database: " + err.message);
+    }
   };
 
   const handleCreatePromo = async (e: React.FormEvent) => {

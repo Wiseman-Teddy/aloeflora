@@ -584,31 +584,35 @@ export default function CustomerStore({
         <div className="relative max-w-7xl mx-auto px-6 py-12 md:py-20 w-full grid grid-cols-1 lg:grid-cols-12 gap-10 items-center">
           {/* Brand messages */}
           <div className="lg:col-span-5 space-y-6">
-            <div className="inline-flex items-center gap-2 bg-emerald-900/50 backdrop-blur-sm border border-emerald-800 px-3 py-1.5 rounded-full text-xs font-semibold text-lime-400">
-              <Sparkles className="w-4 h-4" /> Nairobi's Supreme Eco Formulations
+            <div className="inline-flex items-center gap-2 bg-emerald-900/60 backdrop-blur-sm border border-emerald-800 px-3.5 py-1.5 rounded-full text-xs font-bold text-lime-400">
+              <Sparkles className="w-4 h-4 text-[#50A63C]" /> Premium Natural Products Made in Kenya
             </div>
             
             <h1 className="text-4xl md:text-5xl lg:text-5xl font-extrabold tracking-tight leading-tight">
-              {cmsPosts.find(p => p.id === 'hero-title')?.content || "Nature's Absolute Repair System"}
+              {cmsPosts.find(p => p.id === 'hero-title')?.content || "Naturally Better Living Starts Here"}
             </h1>
             
-            <p className="text-sm md:text-base text-emerald-100 max-w-md leading-relaxed">
-              {cmsPosts.find(p => p.id === 'hero-subtitle')?.content || "Locally sourced. Zero toxic components. Pure, intense hydration for Kenyan curl structures, skin cells, and healthy household surfaces."}
+            <p className="text-sm md:text-base text-emerald-100/90 max-w-md leading-relaxed">
+              {cmsPosts.find(p => p.id === 'hero-subtitle')?.content || "Discover high-quality, affordable products crafted with care for your home and everyday wellness. From Home Care, Body Care, and Skin Care to Premium Coffee Products, AloeFloraProducts brings you trusted natural solutions designed to enrich your lifestyle."}
             </p>
 
-            <div className="flex flex-wrap gap-3">
-              <a href="#store-catalog" className="bg-lime-500 hover:bg-lime-400 text-emerald-950 font-bold px-6 py-3 rounded-xl transition duration-300 shadow-md text-sm text-center">
-                Explore Products
-              </a>
-              <button 
-                onClick={() => setOpenAiAssistant(true)} 
-                className="bg-emerald-900/60 border border-emerald-800 hover:bg-emerald-800 text-white font-medium px-5 py-3 rounded-xl transition duration-300 text-sm"
-              >
-                Consult Assistant
-              </button>
+            {/* Tagline Pill */}
+            <div className="inline-flex items-center gap-2.5 text-xs font-bold text-lime-400 bg-emerald-950/70 border border-emerald-800/80 px-4 py-2 rounded-xl">
+              <span>Natural</span>
+              <span className="text-emerald-500 font-extrabold">•</span>
+              <span>Quality</span>
+              <span className="text-emerald-500 font-extrabold">•</span>
+              <span>Affordable</span>
             </div>
 
-
+            <div className="flex flex-wrap gap-3 pt-1">
+              <a href="#store-catalog" className="bg-[#50A63C] hover:bg-emerald-600 text-white font-bold px-6 py-3 rounded-xl transition duration-300 shadow-md text-sm text-center">
+                Shop Now
+              </a>
+              <a href="#organic-formulations" className="bg-[#2B4E22] border border-emerald-700 hover:bg-emerald-900 text-white font-bold px-6 py-3 rounded-xl transition duration-300 text-sm text-center">
+                Explore Our Products
+              </a>
+            </div>
           </div>
 
           {/* CMS Hero Slider Section */}

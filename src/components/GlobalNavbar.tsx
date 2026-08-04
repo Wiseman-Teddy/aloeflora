@@ -37,11 +37,12 @@ export default function GlobalNavbar({ darkMode, setDarkMode }: GlobalNavbarProp
             <img src="/logo.jpeg" alt="ALOEFLORA Logo" className="h-10 w-auto object-contain rounded-lg" />
           </div>
           <div className="text-left select-none">
-            <div className="text-[10px] sm:text-sm font-extrabold tracking-tight text-emerald-800 dark:text-lime-400 block scale-y-105 leading-none uppercase whitespace-nowrap">
-              ALOEFLORA PRODUCTS
+            <div className="text-xs sm:text-base font-black tracking-tight block scale-y-105 leading-none uppercase whitespace-nowrap">
+              <span className="text-[#50A63C]">ALOE F</span>
+              <span className="text-[#2B4E22] dark:text-emerald-300">LORA</span>
             </div>
-            <div className="text-[7px] sm:text-[9px] uppercase font-bold tracking-wider text-gray-400 mt-1 font-mono leading-none whitespace-nowrap">
-              Quality, Affordable & Natural
+            <div className="text-[8px] sm:text-[10px] font-black tracking-widest text-[#2B4E22] dark:text-emerald-400 mt-1 uppercase leading-none whitespace-nowrap">
+              PRODUCTS
             </div>
           </div>
         </Link>

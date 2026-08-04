@@ -1,5 +1,5 @@
 import React from "react";
-import { Info, User, ArrowLeft } from "lucide-react";
+import { Info, User, ArrowLeft, Target, Eye } from "lucide-react";
 import { Link } from "react-router-dom";
 import { CMSPost } from "../types";
 
@@ -18,6 +18,43 @@ export default function AboutUsPage({ cmsPosts }: AboutUsPageProps) {
           <ArrowLeft className="w-4 h-4" /> Back to Store
         </Link>
         
+        {/* MISSION & VISION SECTION */}
+        <section id="mission-vision" className="mb-12 text-left">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            {/* Mission Statement */}
+            <div className="bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-950/40 dark:to-teal-950/20 border border-emerald-100 dark:border-emerald-900/40 rounded-3xl p-8 shadow-sm hover:shadow-md transition">
+              <div className="flex items-center gap-4 mb-4">
+                <div className="p-3 bg-emerald-700 text-white rounded-2xl shadow-sm">
+                  <Target className="w-6 h-6" />
+                </div>
+                <div>
+                  <span className="text-xs text-emerald-800 dark:text-emerald-400 uppercase font-bold tracking-widest">Our Purpose</span>
+                  <h2 className="text-xl font-bold text-gray-900 dark:text-white">Mission Statement</h2>
+                </div>
+              </div>
+              <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed font-medium">
+                At Aloe Flora Product Limited, we are committed to manufacturing high-quality, eco-friendly cleaning detergents and hair care as well as body care products that enhance everyday hygiene and well-being. We aim to combine innovation with nature’s finest ingredients to deliver safe, effective, and sustainable solutions for homes and businesses.
+              </p>
+            </div>
+
+            {/* Vision Statement */}
+            <div className="bg-gradient-to-br from-lime-50 to-emerald-50 dark:from-lime-950/30 dark:to-emerald-950/20 border border-lime-100 dark:border-lime-900/40 rounded-3xl p-8 shadow-sm hover:shadow-md transition">
+              <div className="flex items-center gap-4 mb-4">
+                <div className="p-3 bg-emerald-800 text-white rounded-2xl shadow-sm">
+                  <Eye className="w-6 h-6" />
+                </div>
+                <div>
+                  <span className="text-xs text-emerald-800 dark:text-emerald-400 uppercase font-bold tracking-widest">Our Future</span>
+                  <h2 className="text-xl font-bold text-gray-900 dark:text-white">Vision Statement</h2>
+                </div>
+              </div>
+              <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed font-medium">
+                To be a leading manufacturer of premium, nature-inspired hygiene and personal care products, setting the standard for quality, sustainability, and customer satisfaction across the industry.
+              </p>
+            </div>
+          </div>
+        </section>
+
         <section id="about-us" className="mb-12 text-left">
           <div className="flex items-center justify-between pb-4 border-b border-gray-100 dark:border-gray-800 mb-8">
             <div>
