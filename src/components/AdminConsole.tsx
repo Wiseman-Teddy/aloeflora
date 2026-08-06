@@ -943,12 +943,12 @@ export default function AdminConsole({
                 (adminName || "Admin").charAt(0).toUpperCase()
               )}
             </div>
-            <div className="hidden sm:block text-left">
+            <div className="text-left flex flex-col justify-center">
               <div className="text-xs font-bold text-gray-900 dark:text-white leading-none group-hover:text-emerald-800 dark:group-hover:text-emerald-300 transition-colors flex items-center gap-1">
                 {adminName || "Administrator"}
                 <Settings className="w-3 h-3 text-emerald-600 dark:text-emerald-400 opacity-0 group-hover:opacity-100 transition-opacity" />
               </div>
-              <div className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium mt-0.5 truncate max-w-[160px]">
+              <div className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium mt-0.5 truncate max-w-[120px] sm:max-w-[160px]">
                 {adminEmail || "admin@aloeflora.com"}
               </div>
             </div>

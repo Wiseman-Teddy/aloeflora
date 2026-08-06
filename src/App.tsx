@@ -396,7 +396,7 @@ export default function App() {
         <WishlistSidebar products={products} />
       
       {/* CENTRAL CORE WRAPPER SECTION */}
-      <main className={`${isDashboardMode ? 'w-full p-0' : 'max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 min-h-[calc(100vh-160px)]'}`}>
+      <main className={`${isDashboardMode ? 'w-full p-0' : 'max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-8 min-h-[calc(100vh-160px)] w-full overflow-x-hidden'}`}>
         <Suspense fallback={<div className="flex items-center justify-center py-20"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-800"></div></div>}>
           <Routes>
             <Route path="/" element={<PublicOnlyRoute><Navigate to="/store" replace /></PublicOnlyRoute>} />

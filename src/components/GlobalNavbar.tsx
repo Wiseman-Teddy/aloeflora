@@ -53,12 +53,12 @@ export default function GlobalNavbar({ darkMode, setDarkMode }: GlobalNavbarProp
           <div className="bg-white p-1 rounded-2xl shadow-xs border border-emerald-900/10 dark:border-gray-800 group-hover:scale-105 transition duration-200">
             <img src="/logo.jpeg" alt="ALOEFLORA Logo" className="h-10 w-auto object-contain rounded-xl" />
           </div>
-          <div className="text-left select-none hidden sm:block">
-            <div className="text-sm font-black tracking-tight leading-none uppercase">
+          <div className="text-left select-none flex flex-col justify-center">
+            <div className="text-xs sm:text-sm font-black tracking-tight leading-none uppercase">
               <span className="text-[#348C21]">ALOE F</span>
               <span className="text-[#152E15] dark:text-emerald-300">LORA</span>
             </div>
-            <div className="text-[9px] font-extrabold tracking-widest text-[#2B4E22] dark:text-emerald-400 mt-0.5 uppercase leading-none">
+            <div className="text-[8px] sm:text-[9px] font-extrabold tracking-widest text-[#2B4E22] dark:text-emerald-400 mt-0.5 uppercase leading-none">
               PRODUCTS
             </div>
           </div>
