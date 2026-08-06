@@ -32,7 +32,7 @@ import {
 } from "lucide-react";
 import { supabase } from "./lib/supabase";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
-import { ShopProvider } from "./contexts/ShopContext";
+import { ShopProvider, useShop } from "./contexts/ShopContext";
 import ProtectedRoute from "./components/ProtectedRoute";
 import CustomerAuth from "./components/auth/CustomerAuth";
 import AdminAuth from "./components/auth/AdminAuth";
@@ -64,10 +64,25 @@ const AboutUsPage = lazy(() => import("./components/AboutUsPage"));
 const BlogsPage = lazy(() => import("./components/BlogsPage"));
 const ProductDetailPage = lazy(() => import("./components/ProductDetailPage"));
 const CheckoutPage = lazy(() => import("./components/CheckoutPage"));
+const PoliciesPage = lazy(() => import("./components/PoliciesPage"));
+
+// Public-only route wrapper to redirect authenticated users to their respective SaaS dashboard
+function PublicOnlyRoute({ children }: { children: React.ReactNode }) {
+  const { user, role, loading } = useAuth();
+  if (loading) return null;
+  if (user) {
+    if (role === 'admin') {
+      return <Navigate to="/admin/dashboard" replace />;
+    }
+    return <Navigate to="/dashboard" replace />;
+  }
+  return <>{children}</>;
+}
 
 export default function App() {
   const { user, role, signOut } = useAuth();
   const location = useLocation();
+  const isDashboardMode = !!user || location.pathname.includes('/dashboard') || location.pathname.includes('/admin');
   
   // Theme state
   const [darkMode, setDarkMode] = useState<boolean>(() => {
@@ -376,36 +391,55 @@ export default function App() {
       <CookieBanner />
       
       <ShopProvider>
-        <GlobalNavbar darkMode={darkMode} setDarkMode={setDarkMode} />
+        {!isDashboardMode && <GlobalNavbar darkMode={darkMode} setDarkMode={setDarkMode} />}
         <CartSidebar promos={promos} />
         <WishlistSidebar products={products} />
       
       {/* CENTRAL CORE WRAPPER SECTION */}
-      <main className={`${location.pathname.includes('/dashboard') || location.pathname.includes('/admin') ? 'w-full max-w-[1920px]' : 'max-w-7xl'} mx-auto px-4 sm:px-6 lg:px-8 py-8 min-h-[calc(100vh-160px)]`}>
+      <main className={`${isDashboardMode ? 'w-full p-0' : 'max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 min-h-[calc(100vh-160px)]'}`}>
         <Suspense fallback={<div className="flex items-center justify-center py-20"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-800"></div></div>}>
           <Routes>
-            <Route path="/" element={<Navigate to="/store" replace />} />
-            <Route path="/about" element={<AboutUsPage cmsPosts={cmsPosts} />} />
-            <Route path="/blogs" element={<BlogsPage cmsPosts={cmsPosts} />} />
-            <Route path="/login" element={<CustomerAuth initialMode="login" />} />
-            <Route path="/register" element={<CustomerAuth initialMode="register" />} />
-            <Route path="/forgot-password" element={<CustomerAuth initialMode="forgot-password" />} />
-            <Route path="/admin/login" element={<AdminAuth initialMode="login" />} />
-            <Route path="/admin/forgot-password" element={<AdminAuth initialMode="forgot-password" />} />
+            <Route path="/" element={<PublicOnlyRoute><Navigate to="/store" replace /></PublicOnlyRoute>} />
+            <Route path="/about" element={<PublicOnlyRoute><AboutUsPage cmsPosts={cmsPosts} /></PublicOnlyRoute>} />
+            <Route path="/blogs" element={<PublicOnlyRoute><BlogsPage cmsPosts={cmsPosts} /></PublicOnlyRoute>} />
+            <Route path="/login" element={<PublicOnlyRoute><CustomerAuth initialMode="login" /></PublicOnlyRoute>} />
+            <Route path="/register" element={<PublicOnlyRoute><CustomerAuth initialMode="register" /></PublicOnlyRoute>} />
+            <Route path="/forgot-password" element={<PublicOnlyRoute><CustomerAuth initialMode="forgot-password" /></PublicOnlyRoute>} />
+            <Route path="/admin/login" element={<PublicOnlyRoute><AdminAuth initialMode="login" /></PublicOnlyRoute>} />
+            <Route path="/admin/forgot-password" element={<PublicOnlyRoute><AdminAuth initialMode="forgot-password" /></PublicOnlyRoute>} />
             <Route 
               path="/store/*" 
               element={
-                <CustomerStore 
-                  products={products}
-                  events={events}
-                  cmsPosts={cmsPosts}
-                  promos={promos}
-                  onAddOrder={handleAddNewOrder}
-                  onRegisterEvent={handleRegisterEventSeat}
-                  onUpdateProductStock={handleUpdateProductStock}
-                />
+                <PublicOnlyRoute>
+                  <CustomerStore 
+                    products={products}
+                    events={events}
+                    cmsPosts={cmsPosts}
+                    promos={promos}
+                    onAddOrder={handleAddNewOrder}
+                    onRegisterEvent={handleRegisterEventSeat}
+                    onUpdateProductStock={handleUpdateProductStock}
+                  />
+                </PublicOnlyRoute>
               } 
             />
+            <Route 
+              path="/dashboard/*" 
+              element={
+                <ProtectedRoute requiredRole="customer">
+                  <UserDashboard 
+                    orders={orders} 
+                    products={products} 
+                    events={events}
+                    cmsPosts={cmsPosts}
+                    onAddTicket={handleAddTicket}
+                    darkMode={darkMode}
+                    setDarkMode={setDarkMode}
+                  />
+                </ProtectedRoute>
+              } 
+            />
+            <Route path="/customer/dashboard/*" element={<Navigate to="/dashboard" replace />} />
             <Route 
               path="/admin/dashboard/*" 
               element={
@@ -435,9 +469,11 @@ export default function App() {
             <Route 
               path="/product/:id" 
               element={
-                <ProductDetailPage 
-                  products={products}
-                />
+                <PublicOnlyRoute>
+                  <ProductDetailPage 
+                    products={products}
+                  />
+                </PublicOnlyRoute>
               } 
             />
             <Route 
@@ -451,157 +487,224 @@ export default function App() {
                 />
               } 
             />
-            <Route path="/faq" element={<FAQPage cmsPosts={cmsPosts} />} />
+            <Route path="/faq" element={<PublicOnlyRoute><FAQPage cmsPosts={cmsPosts} /></PublicOnlyRoute>} />
+            <Route path="/policies/:policyId" element={<PoliciesPage />} />
             <Route path="/docs" element={<ArchitectureDocs />} />
-            <Route 
-              path="/customer/dashboard/*" 
-              element={
-                <ProtectedRoute requiredRole="customer">
-                  <UserDashboard 
-                    orders={orders} 
-                    products={products} 
-                    events={events}
-                    onAddTicket={handleAddTicket}
-                  />
-                </ProtectedRoute>
-              } 
-            />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </Suspense>
       </main>
 
-      {/* PARTNERS SHOWCASE SECTION (GLOBAL) */}
-      <section id="partners-section" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-12 text-left w-full">
-        <div className="flex items-center justify-between pb-4 border-b border-gray-100 dark:border-gray-800 mb-6 mt-12">
-          <div>
-            <span className="text-[10px] text-[#50A63C] uppercase font-extrabold tracking-widest">Our Partners</span>
-            <h3 className="text-lg font-bold text-[#2B4E22] dark:text-white mt-1">Trusted & Certified By</h3>
-          </div>
-          <Globe className="w-5 h-5 text-[#50A63C]" />
-        </div>
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
-          {[
-            { id: "kirdi", name: "KIRDI", src: "/partners/KIRDI.jpeg" },
-            { id: "kam", name: "Kenya Association of Manufacturers", src: "/partners/Kenya Association of Manufacturers.jpeg" },
-            { id: "handinhand", name: "Hand In Hand", src: "/partners/Hand In Hand.jpeg" },
-            { id: "madeinkenya", name: "Made In Kenya", src: "/partners/Made In Kenya.jpeg" },
-            { id: "markup2", name: "Markup II", src: "/partners/Markup II.jpeg" },
-          ].map((partner) => (
-            <div key={partner.id} className="bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-2xl p-6 shadow-sm flex items-center justify-center transition duration-300 hover:border-[#50A63C]">
-              <div className="flex flex-col items-center gap-2">
-                <img src={partner.src} alt={partner.name} className="h-16 w-auto object-contain" />
-                <span className="text-[10px] font-bold text-gray-400 mt-2">{partner.name}</span>
-              </div>
+      {/* PARTNERS SHOWCASE SECTION (GLOBAL PUBLIC ONLY) */}
+      {!isDashboardMode && (
+        <section id="partners-section" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-12 text-left w-full">
+          <div className="flex items-center justify-between pb-4 border-b border-gray-100 dark:border-gray-800 mb-6 mt-12">
+            <div>
+              <span className="text-[10px] text-[#50A63C] uppercase font-extrabold tracking-widest">Our Partners</span>
+              <h3 className="text-lg font-bold text-[#2B4E22] dark:text-white mt-1">Trusted & Certified By</h3>
             </div>
-          ))}
-        </div>
-      </section>
-
-      {/* GLOBAL BRAND FOOTER SIGNALS */}
-      <footer id="footer-contacts" className="relative bg-[#2B4E22] dark:bg-gray-950 text-white pt-12 pb-28 md:pb-12 mt-12 overflow-hidden">
-        {/* 50/50 Dual Brand Gradient Accent Bar */}
-        <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-[#50A63C] via-[#74C748] to-[#2B4E22]"></div>
-        
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-8">
-            <div className="space-y-4">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="bg-white p-0.5 rounded-xl shadow-sm border border-emerald-900/10">
-                  <img src="/logo.jpeg" alt="ALOEFLORA Logo" className="h-12 w-auto object-contain rounded-lg" />
-                </div>
-                <div className="text-left select-none">
-                  <div className="font-black text-lg tracking-tight uppercase leading-none">
-                    <span className="text-[#50A63C]">ALOE F</span>
-                    <span className="text-[#74C748]">LORA</span>
-                  </div>
-                  <div className="text-[10px] font-black tracking-widest text-emerald-200 uppercase leading-none mt-1">
-                    PRODUCTS
-                  </div>
+            <Globe className="w-5 h-5 text-[#50A63C]" />
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
+            {[
+              { id: "kirdi", name: "KIRDI", src: "/partners/KIRDI.jpeg" },
+              { id: "kam", name: "Kenya Association of Manufacturers", src: "/partners/Kenya Association of Manufacturers.jpeg" },
+              { id: "handinhand", name: "Hand In Hand", src: "/partners/Hand In Hand.jpeg" },
+              { id: "madeinkenya", name: "Made In Kenya", src: "/partners/Made In Kenya.jpeg" },
+              { id: "markup2", name: "Markup II", src: "/partners/Markup II.jpeg" },
+            ].map((partner) => (
+              <div key={partner.id} className="bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-2xl p-6 shadow-sm flex items-center justify-center transition duration-300 hover:border-[#50A63C]">
+                <div className="flex flex-col items-center gap-2">
+                  <img src={partner.src} alt={partner.name} className="h-16 w-auto object-contain" />
+                  <span className="text-[10px] font-bold text-gray-400 mt-2">{partner.name}</span>
                 </div>
               </div>
-              <p className="text-xs text-emerald-100/80 leading-relaxed">
-                Quality, Affordable & Natural Products.<br/>
-                Locally sourced. Zero toxic components. Pure, intense hydration for Kenyan curls, skin cells, and healthy household surfaces.
-              </p>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* GLOBAL BRAND FOOTER SIGNALS (PUBLIC ONLY) */}
+      {!isDashboardMode && (
+        <footer id="footer-contacts" className="relative bg-[#152E15] dark:bg-gray-950 text-white pt-14 pb-28 md:pb-14 mt-16 overflow-hidden border-t border-emerald-900/30 dark:border-gray-800 transition-colors">
+          {/* Dual Brand Gradient Accent Bar */}
+          <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-[#348C21] via-[#50A63C] to-[#152E15]"></div>
+          
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-10 mb-10">
+              <div className="space-y-4">
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="bg-white p-1 rounded-2xl shadow-sm border border-emerald-900/10">
+                    <img src="/logo.jpeg" alt="ALOEFLORA Logo" className="h-12 w-auto object-contain rounded-xl" />
+                  </div>
+                  <div className="text-left select-none">
+                    <div className="font-black text-lg tracking-tight uppercase leading-none">
+                      <span className="text-[#348C21]">ALOE F</span>
+                      <span className="text-emerald-300">LORA</span>
+                    </div>
+                    <div className="text-[10px] font-extrabold tracking-widest text-emerald-400 uppercase leading-none mt-1">
+                      PRODUCTS
+                    </div>
+                  </div>
+                </div>
+                <p className="text-xs text-emerald-100/90 leading-relaxed font-medium">
+                  Quality, Affordable & Natural Products.<br/>
+                  Locally sourced. Zero toxic components. Pure, intense hydration for Kenyan curls, skin cells, and healthy household surfaces.
+                </p>
+              </div>
+              
+              <div>
+                <h4 className="font-extrabold text-sm text-white mb-4 uppercase tracking-wider">Quick Links</h4>
+                <ul className="space-y-2.5 text-xs text-emerald-100/80 font-medium">
+                  <li><Link to="/store#organic-formulations" className="hover:text-[#348C21] dark:hover:text-emerald-400 transition-colors">Shop Products</Link></li>
+                  <li><Link to="/store#events-marketing-section" className="hover:text-[#348C21] dark:hover:text-emerald-400 transition-colors">Events & Workshops</Link></li>
+                  <li><button onClick={() => toast.success('Track Order portal coming soon!')} className="hover:text-[#348C21] dark:hover:text-emerald-400 transition-colors cursor-pointer">Track Order</button></li>
+                  <li><Link to="/policies/returns" className="hover:text-[#348C21] dark:hover:text-emerald-400 transition-colors cursor-pointer">Return Policy</Link></li>
+                </ul>
+              </div>
+
+              <div>
+                <h4 className="font-extrabold text-sm text-white mb-4 uppercase tracking-wider">Contact Info</h4>
+                <ul className="space-y-3 text-xs text-emerald-100/80 font-medium">
+                  <li className="flex items-start gap-2.5">
+                    <MapPin className="w-4 h-4 text-[#348C21] dark:text-emerald-400 shrink-0 mt-0.5" />
+                    <span>Nairobi CBD Depot, Kenya</span>
+                  </li>
+                  <li className="flex items-center gap-2.5">
+                    <Phone className="w-4 h-4 text-[#348C21] dark:text-emerald-400 shrink-0" />
+                    <a href="tel:+254116794448" className="hover:text-[#348C21] dark:hover:text-emerald-400 transition-colors">+254 116 794 448</a>
+                  </li>
+                  <li className="flex items-center gap-2.5">
+                    <Mail className="w-4 h-4 text-[#348C21] dark:text-emerald-400 shrink-0" />
+                    <a href="mailto:info@aloefloraproducts.com" className="hover:text-[#348C21] dark:hover:text-emerald-400 transition-colors">info@aloefloraproducts.com</a>
+                  </li>
+                </ul>
+              </div>
+
+              <div>
+                <h4 className="font-extrabold text-sm text-white mb-4 uppercase tracking-wider">Connect With Us</h4>
+                <div className="flex items-center gap-3">
+                  <a 
+                    href="https://www.instagram.com/aloefloraproducts?igsh=NjZmYWFkOWp2b290" 
+                    target="_blank" 
+                    rel="noopener noreferrer" 
+                    title="Instagram"
+                    className="bg-[#1C3B19] dark:bg-gray-900 border border-emerald-800/50 dark:border-gray-800 p-2.5 rounded-xl hover:bg-[#348C21] hover:text-white transition-all cursor-pointer text-emerald-200"
+                  >
+                    <Instagram className="w-4 h-4" />
+                  </a>
+                  <a 
+                    href="https://www.facebook.com/share/1BZ23fA3FJ/" 
+                    target="_blank" 
+                    rel="noopener noreferrer" 
+                    title="Facebook"
+                    className="bg-[#1C3B19] dark:bg-gray-900 border border-emerald-800/50 dark:border-gray-800 p-2.5 rounded-xl hover:bg-[#348C21] hover:text-white transition-all cursor-pointer text-emerald-200"
+                  >
+                    <Facebook className="w-4 h-4" />
+                  </a>
+                  <a 
+                    href="https://wa.me/254116794448" 
+                    target="_blank" 
+                    rel="noopener noreferrer" 
+                    title="WhatsApp"
+                    className="bg-[#1C3B19] dark:bg-gray-900 border border-emerald-800/50 dark:border-gray-800 p-2.5 rounded-xl hover:bg-[#348C21] hover:text-white transition-all cursor-pointer text-emerald-200"
+                  >
+                    <MessageCircle className="w-4 h-4" />
+                  </a>
+                </div>
+              </div>
             </div>
             
-            <div>
-              <h4 className="font-bold text-sm text-white mb-4">Quick Links</h4>
-              <ul className="space-y-2 text-xs text-emerald-100/80">
-                <li><Link to="/store#organic-formulations" className="hover:text-[#74C748] transition">Shop Products</Link></li>
-                <li><Link to="/store#events-marketing-section" className="hover:text-[#74C748] transition">Events & Workshops</Link></li>
-                <li><button onClick={() => toast.success('Track Order portal coming soon!')} className="hover:text-[#74C748] transition cursor-pointer">Track Order</button></li>
-                <li><Link to="/policies/returns" className="hover:text-[#74C748] transition cursor-pointer">Return Policy</Link></li>
-              </ul>
-            </div>
-
-            <div>
-              <h4 className="font-bold text-sm text-white mb-4">Contact Info</h4>
-              <ul className="space-y-3 text-xs text-emerald-100/80">
-                <li className="flex items-start gap-2">
-                  <MapPin className="w-4 h-4 text-[#74C748] shrink-0" />
-                  <span>Nairobi CBD Depot, Kenya</span>
-                </li>
-                <li className="flex items-center gap-2">
-                  <Phone className="w-4 h-4 text-[#74C748] shrink-0" />
-                  <a href="tel:+254116794448" className="hover:text-[#74C748] transition">+254 116 794 448</a>
-                </li>
-                <li className="flex items-center gap-2">
-                  <Mail className="w-4 h-4 text-[#74C748] shrink-0" />
-                  <a href="mailto:info@aloefloraproducts.com" className="hover:text-[#74C748] transition">info@aloefloraproducts.com</a>
-                </li>
-              </ul>
-            </div>
-
-            <div>
-              <h4 className="font-bold text-sm text-white mb-4">Connect With Us</h4>
-              <div className="flex items-center gap-3">
-                <a href="https://www.instagram.com/aloefloraproducts?igsh=NjZmYWFkOWp2b290" target="_blank" rel="noopener noreferrer" className="bg-emerald-900/50 p-2 rounded-xl hover:bg-emerald-800 hover:text-white transition cursor-pointer text-emerald-100/70">
-                  <Instagram className="w-4 h-4" />
-                </a>
-                <a href="https://www.facebook.com/share/1BZ23fA3FJ/" target="_blank" rel="noopener noreferrer" className="bg-emerald-900/50 p-2 rounded-xl hover:bg-emerald-800 hover:text-white transition cursor-pointer text-emerald-100/70">
-                  <Facebook className="w-4 h-4" />
-                </a>
-                <a href="https://wa.me/254116794448" target="_blank" rel="noopener noreferrer" className="bg-emerald-900/50 p-2 rounded-xl hover:bg-emerald-800 hover:text-white transition cursor-pointer text-emerald-100/70">
-                  <MessageCircle className="w-4 h-4" />
-                </a>
+            <div className="pt-8 border-t border-emerald-900/50 dark:border-gray-800/80 flex flex-col md:flex-row items-center justify-between gap-4 text-xs text-emerald-200/70">
+              <span>&copy; {new Date().getFullYear()} ALOEFLORA PRODUCTS Kenya. All rights reserved.</span>
+              <div className="flex gap-6 font-semibold">
+                <Link to="/policies/terms" className="hover:text-white transition-colors">Terms of Service</Link>
+                <Link to="/policies/privacy" className="hover:text-white transition-colors">Privacy Policy</Link>
               </div>
             </div>
           </div>
-          
-          <div className="pt-8 border-t border-emerald-900/50 flex flex-col md:flex-row items-center justify-between gap-4 text-[10px] text-emerald-100/50 font-mono">
-            <span>&copy; {new Date().getFullYear()} ALOEFLORA PRODUCTS Kenya. All rights reserved.</span>
-            <div className="flex gap-4">
-              <Link to="/policies/terms" className="hover:text-white transition">Terms of Service</Link>
-              <Link to="/policies/privacy" className="hover:text-white transition">Privacy Policy</Link>
-            </div>
-          </div>
-        </div>
-      </footer>
+        </footer>
+      )}
 
-      {/* MOBILE BOTTOM NAVIGATION BAR */}
-      <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white/80 dark:bg-gray-950/80 backdrop-blur-md border-t border-gray-200 dark:border-gray-800 z-50 pb-safe">
-        <div className="flex justify-around items-center h-16 px-4">
-          <Link to="/store" className={`flex flex-col items-center justify-center w-full h-full text-xs transition ${location.pathname === '/store' || location.pathname === '/' ? 'text-emerald-600 dark:text-emerald-400 font-bold' : 'text-gray-500 hover:text-gray-900 dark:hover:text-white'}`}>
-            <Home className="w-5 h-5 mb-1" />
-            <span>Home</span>
-          </Link>
-          <Link to="/store#organic-formulations" className={`flex flex-col items-center justify-center w-full h-full text-xs transition ${location.pathname.includes('/product') ? 'text-emerald-600 dark:text-emerald-400 font-bold' : 'text-gray-500 hover:text-gray-900 dark:hover:text-white'}`}>
-            <Search className="w-5 h-5 mb-1" />
-            <span>Explore</span>
-          </Link>
-          <Link to="/checkout" className={`flex flex-col items-center justify-center w-full h-full text-xs transition ${location.pathname === '/checkout' ? 'text-emerald-600 dark:text-emerald-400 font-bold' : 'text-gray-500 hover:text-gray-900 dark:hover:text-white'}`}>
-            <ShoppingCart className="w-5 h-5 mb-1" />
-            <span>Cart</span>
-          </Link>
-          <Link to={user ? (role === 'admin' ? '/admin/dashboard' : '/customer/dashboard') : '/login'} className={`flex flex-col items-center justify-center w-full h-full text-xs transition ${location.pathname.includes('dashboard') ? 'text-emerald-600 dark:text-emerald-400 font-bold' : 'text-gray-500 hover:text-gray-900 dark:hover:text-white'}`}>
-            <UserIcon className="w-5 h-5 mb-1" />
-            <span>Profile</span>
-          </Link>
-        </div>
-      </div>
+      {/* DYNAMIC MOBILE BOTTOM NAVIGATION BAR */}
+      <MobileBottomNav />
       </ShopProvider>
+    </div>
+  );
+}
+
+// DYNAMIC MOBILE BOTTOM NAVIGATION BAR COMPONENT
+function MobileBottomNav() {
+  const { user, role } = useAuth();
+  const { cart, isCartOpen, isWishlistOpen, setIsCartOpen } = useShop();
+  const location = useLocation();
+
+  const isDashboardMode = !!user || location.pathname.includes('/dashboard') || location.pathname.includes('/admin');
+  const isCheckoutOrAuthPage = ['/checkout', '/login', '/register', '/forgot-password', '/admin'].some(p => location.pathname.startsWith(p));
+
+  // Hide mobile bottom nav on dashboard, checkout, auth pages, or when cart/wishlist drawers are open
+  if (isDashboardMode || isCheckoutOrAuthPage || isCartOpen || isWishlistOpen) {
+    return null;
+  }
+
+  const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
+
+  return (
+    <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white/95 dark:bg-gray-950/95 backdrop-blur-lg border-t border-gray-200/80 dark:border-gray-800 z-40 pb-[calc(0.5rem+env(safe-area-inset-bottom,0px))] pt-1.5 px-4 shadow-lg transition-all duration-300">
+      <div className="flex justify-around items-center h-12">
+        <Link 
+          to="/store" 
+          className={`flex flex-col items-center justify-center w-full h-full text-[11px] font-medium transition ${
+            location.pathname === '/store' || location.pathname === '/' 
+              ? 'text-emerald-700 dark:text-emerald-400 font-extrabold' 
+              : 'text-gray-500 hover:text-gray-900 dark:hover:text-white'
+          }`}
+        >
+          <Home className="w-5 h-5 mb-0.5" />
+          <span>Home</span>
+        </Link>
+
+        <Link 
+          to="/store#organic-formulations" 
+          className={`flex flex-col items-center justify-center w-full h-full text-[11px] font-medium transition ${
+            location.pathname.includes('/product') 
+              ? 'text-emerald-700 dark:text-emerald-400 font-extrabold' 
+              : 'text-gray-500 hover:text-gray-900 dark:hover:text-white'
+          }`}
+        >
+          <Search className="w-5 h-5 mb-0.5" />
+          <span>Explore</span>
+        </Link>
+
+        <button 
+          onClick={() => setIsCartOpen(true)}
+          className={`flex flex-col items-center justify-center w-full h-full text-[11px] font-medium transition relative cursor-pointer ${
+            isCartOpen ? 'text-emerald-700 dark:text-emerald-400 font-extrabold' : 'text-gray-500 hover:text-gray-900 dark:hover:text-white'
+          }`}
+        >
+          <div className="relative">
+            <ShoppingCart className="w-5 h-5 mb-0.5" />
+            {cartCount > 0 && (
+              <span className="absolute -top-1.5 -right-2.5 min-w-[18px] h-[18px] px-1 bg-red-500 text-white rounded-full flex items-center justify-center text-[10px] font-bold border-2 border-white dark:border-gray-950">
+                {cartCount}
+              </span>
+            )}
+          </div>
+          <span>Cart</span>
+        </button>
+
+        <Link 
+          to={user ? (role === 'admin' ? '/admin/dashboard' : '/dashboard') : '/login'} 
+          className={`flex flex-col items-center justify-center w-full h-full text-[11px] font-medium transition ${
+            location.pathname.includes('dashboard') || location.pathname.includes('login')
+              ? 'text-emerald-700 dark:text-emerald-400 font-extrabold' 
+              : 'text-gray-500 hover:text-gray-900 dark:hover:text-white'
+          }`}
+        >
+          <UserIcon className="w-5 h-5 mb-0.5" />
+          <span>Profile</span>
+        </Link>
+      </div>
     </div>
   );
 }

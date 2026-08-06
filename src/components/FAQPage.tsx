@@ -29,7 +29,7 @@ export default function FAQPage({ cmsPosts }: FAQPageProps) {
 
   // Map cmsPosts to the local format
   const dynamicFAQs = cmsPosts
-    .filter(p => p.type === 'faq')
+    .filter(p => p.type === 'faq' && p.status === 'published')
     .map(p => ({
       category: p.seoTitle || "Getting Started",
       question: p.title,

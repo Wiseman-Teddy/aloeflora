@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { useParams, Link, Navigate } from 'react-router-dom';
 import { Shield, Scale, ArrowLeft, RefreshCcw } from 'lucide-react';
+import { SEO } from './SEO';
 
 export default function PoliciesPage() {
   const { policyId } = useParams<{ policyId: string }>();
@@ -13,8 +14,36 @@ export default function PoliciesPage() {
     return <Navigate to="/store" replace />;
   }
 
+  const getSeoDetails = () => {
+    switch (policyId) {
+      case 'returns':
+        return {
+          title: 'Return, Refund & Shipping Policy | ALOEFLORA PRODUCTS',
+          description: 'Read the official Aloeflora return, refund, replacement, and shipping policies for Kenya. Fresh natural hair, body, and coffee products.'
+        };
+      case 'terms':
+        return {
+          title: 'Terms of Service | ALOEFLORA PRODUCTS',
+          description: 'Review Aloeflora terms of service, account responsibilities, order rules, and governing law in Kenya.'
+        };
+      case 'privacy':
+        return {
+          title: 'Privacy Policy | ALOEFLORA PRODUCTS',
+          description: 'Learn how Aloeflora protects customer data in compliance with the Kenya Data Protection Act 2019.'
+        };
+      default:
+        return {
+          title: 'Policies | ALOEFLORA PRODUCTS',
+          description: 'Official store policies, terms of service, and privacy policy for Aloeflora Products.'
+        };
+    }
+  };
+
+  const seo = getSeoDetails();
+
   return (
     <div className="min-h-screen bg-gray-50/50 py-12 px-4 sm:px-6 lg:px-8">
+      <SEO title={seo.title} description={seo.description} url={`https://aloefloraproducts.com/policies/${policyId}`} />
       <div className="max-w-4xl mx-auto">
         <Link to="/store" className="inline-flex items-center text-sm text-gray-500 hover:text-emerald-700 mb-8 font-medium">
           <ArrowLeft className="w-4 h-4 mr-2" />

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { User, LogOut, 
   BarChart3, 
   Layers, 
@@ -74,12 +75,46 @@ export default function AdminConsole({
   promos,
   onUpdatePromos
 }: AdminConsoleProps) {
-  const { signOut } = useAuth();
-  const [adminName, setAdminName] = useState(storeSettings?.adminName || "");
-  const [adminEmail, setAdminEmail] = useState(storeSettings?.adminEmail || "");
+  const { user, signOut } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  const handleAdminSignOut = async () => {
+    await signOut();
+    navigate("/");
+    toast.success("Signed out successfully.");
+  };
+
+  const [adminName, setAdminName] = useState(user?.user_metadata?.full_name || storeSettings?.adminName || "Administrator");
+  const [adminEmail, setAdminEmail] = useState(user?.email || storeSettings?.adminEmail || "admin@aloeflora.com");
+  const [adminPhone, setAdminPhone] = useState(user?.user_metadata?.phone || "");
+  const [adminAvatarUrl, setAdminAvatarUrl] = useState(user?.user_metadata?.avatar_url || "");
   
   // Navigation
   const [activeModule, setActiveModule] = useState<string>("executive");
+
+  useEffect(() => {
+    if (location.state && ((location.state as any).module || (location.state as any).tab)) {
+      setActiveModule((location.state as any).module || (location.state as any).tab);
+    }
+  }, [location.state]);
+
+  useEffect(() => {
+    if (user) {
+      if (user.user_metadata?.full_name) setAdminName(user.user_metadata.full_name);
+      if (user.email) setAdminEmail(user.email);
+      if (user.user_metadata?.phone) setAdminPhone(user.user_metadata.phone);
+      if (user.user_metadata?.avatar_url) setAdminAvatarUrl(user.user_metadata.avatar_url);
+
+      supabase.from('profiles').select('*').eq('id', user.id).single().then(({ data }) => {
+        if (data) {
+          if (data.full_name) setAdminName(data.full_name);
+          if (data.phone) setAdminPhone(data.phone);
+          if (data.avatar_url) setAdminAvatarUrl(data.avatar_url);
+        }
+      });
+    }
+  }, [user]);
 
   // Inventory Management UI state
   const [searchProductQuery, setSearchProductQuery] = useState<string>("");
@@ -618,8 +653,15 @@ export default function AdminConsole({
   const handleDeleteCMS = async (id: string) => {
     if(confirm("Are you sure you want to permanently delete this CMS Post?")) {
       try {
+        const targetPost = cmsPosts.find(p => p.id === id);
         const { error } = await supabase.from('cms_posts').delete().eq('id', id);
         if (error) throw error;
+        
+        if (targetPost && targetPost.type === 'promotion') {
+          await supabase.from('events').delete().eq('id', id);
+          setEventsData(prev => prev.filter(e => e.id !== id));
+        }
+
         onUpdateCMS(cmsPosts.filter(p => p.id !== id));
         toast.success("CMS Post deleted successfully!");
       } catch (err: any) {
@@ -632,9 +674,11 @@ export default function AdminConsole({
   const handleDeleteEvent = async (id: string) => {
     if (confirm("Are you sure you want to permanently delete this Event?")) {
       try {
-        const { error } = await supabase.from('events').delete().eq('id', id);
-        if (error) throw error;
+        await supabase.from('events').delete().eq('id', id);
+        await supabase.from('cms_posts').delete().eq('id', id);
+        
         setEventsData(eventsData.filter(e => e.id !== id));
+        onUpdateCMS(cmsPosts.filter(p => p.id !== id));
         toast.success("Event deleted successfully!");
       } catch (err: any) {
         toast.error(`Failed to delete event: ${err.message}`);
@@ -683,8 +727,8 @@ export default function AdminConsole({
     try {
       const { error } = await supabase.from('store_settings').upsert({
         id: 'global',
-        admin_name: updatedSettings.adminName,
-        admin_email: updatedSettings.adminEmail,
+        admin_name: adminName,
+        admin_email: adminEmail,
         seo_title: updatedSettings.seoTitle,
         seo_desc: updatedSettings.seoDesc,
         seo_keywords: updatedSettings.seoKeywords,
@@ -693,8 +737,29 @@ export default function AdminConsole({
         updated_at: new Date().toISOString()
       });
       if (error) throw error;
+
+      if (user) {
+        await supabase.auth.updateUser({
+          data: {
+            full_name: adminName,
+            phone: adminPhone,
+            avatar_url: adminAvatarUrl
+          }
+        });
+
+        await supabase.from('profiles').upsert({
+          id: user.id,
+          full_name: adminName,
+          email: adminEmail,
+          phone: adminPhone,
+          avatar_url: adminAvatarUrl,
+          role: 'admin',
+          updated_at: new Date().toISOString()
+        });
+      }
+
       onUpdateSettings(updatedSettings);
-      toast.success("Admin Profile updated successfully.");
+      toast.success("Admin Profile updated and synced successfully.");
     } catch (err: any) {
       toast.error("Error saving profile: " + err.message);
     }
@@ -833,131 +898,237 @@ export default function AdminConsole({
   };
 
   return (
-    <div id="admin-unified-console-wrapper" className="flex flex-col lg:flex-row gap-6 text-left min-h-screen -mt-2">
+    <div id="admin-unified-console-wrapper" className="flex flex-col gap-6 text-left min-h-screen -mt-2">
       
-      {/* LEFT SIDEBAR NAVIGATION: Dark Theme ShopX Style */}
-      <div className="w-full lg:w-64 shrink-0 bg-[#0F172A] text-slate-300 rounded-3xl p-5 shadow-xl flex flex-col justify-between h-auto lg:h-[calc(100vh-120px)] lg:sticky top-24">
-        <div className="flex-1 overflow-y-auto no-scrollbar">
-          <div className="pb-6 mb-2 flex items-center gap-3 px-2">
-            <div className="bg-white p-0.5 rounded-xl shadow-sm border border-emerald-900/10 dark:border-gray-800">
-              <img src="/logo.jpeg" alt="ALOEFLORA Logo" className="h-8 w-auto object-contain rounded-lg" />
-            </div>
-            <h3 className="text-lg font-bold text-white tracking-tight">ALOEFLORA</h3>
+      {/* ADMIN CONSOLE TOPBAR HEADER */}
+      <header className="w-full bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-3xl px-6 py-4 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div className="bg-white p-1 rounded-xl shadow-xs border border-emerald-900/10 dark:border-gray-800">
+            <img src="/logo.jpeg" alt="ALOEFLORA Logo" className="h-8 w-auto object-contain rounded-lg" />
           </div>
-
-          <div className="space-y-6">
-            {/* OVERVIEW */}
-            <div>
-              <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 px-2">Overview</div>
-              <button
-                onClick={() => setActiveModule("executive")}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-semibold transition ${
-                  activeModule === "executive"
-                    ? "bg-emerald-600 text-white shadow-lg shadow-emerald-900/20"
-                    : "hover:bg-slate-800 hover:text-white"
-                }`}
-              >
-                <BarChart3 className="w-4 h-4" /> Dashboard
-              </button>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-black tracking-tight text-emerald-800 dark:text-lime-400 uppercase leading-none">
+                ALOEFLORA ERP
+              </span>
+              <span className="bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 text-[10px] font-bold px-2 py-0.5 rounded-full border border-emerald-200/50">
+                Admin Console
+              </span>
             </div>
-
-            {/* MANAGEMENT */}
-            <div>
-              <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 px-2">Management</div>
-              {[
-                { id: "inventory", label: "Inventory", icon: ShoppingBag },
-                { id: "users", label: "User Management", icon: Users },
-                { id: "support", label: "Support Tickets", icon: MessageSquare },
-                { id: "cms", label: "CMS Web Editor", icon: PenTool },
-                { id: "events", label: "Events & Registrations", icon: Calendar },
-                { id: "media", label: "Media Library", icon: Database },
-              ].map(item => (
-                <button
-                  key={item.id}
-                  onClick={() => setActiveModule(item.id)}
-                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-semibold transition mb-1 ${
-                    activeModule === item.id
-                      ? "bg-emerald-600 text-white shadow-lg shadow-emerald-900/20"
-                      : "hover:bg-slate-800 hover:text-white"
-                  }`}
-                >
-                  <item.icon className="w-4 h-4" /> {item.label}
-                </button>
-              ))}
-            </div>
-
-            {/* ANALYTICS & SALES */}
-            <div>
-              <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 px-2">Analytics & Sales</div>
-              {[
-                { id: "reports", label: "Advanced Reports", icon: FileText },
-                { id: "financial", label: "P&L Reports", icon: TrendingUp },
-                { id: "marketing", label: "Marketing", icon: Percent },
-              ].map(item => (
-                <button
-                  key={item.id}
-                  onClick={() => setActiveModule(item.id)}
-                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-semibold transition mb-1 ${
-                    activeModule === item.id
-                      ? "bg-emerald-600 text-white shadow-lg shadow-emerald-900/20"
-                      : "hover:bg-slate-800 hover:text-white"
-                  }`}
-                >
-                  <item.icon className="w-4 h-4" /> {item.label}
-                </button>
-              ))}
-            </div>
-
-            {/* SETTINGS */}
-            <div>
-              <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 px-2">Settings</div>
-              <button
-                onClick={() => setActiveModule("seo")}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-semibold transition mb-1 ${
-                  activeModule === "seo"
-                    ? "bg-emerald-600 text-white shadow-lg shadow-emerald-900/20"
-                    : "hover:bg-slate-800 hover:text-white"
-                }`}
-              >
-                <Settings className="w-4 h-4" /> Store Settings
-              </button>
-              <button
-                onClick={signOut}
-                className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-semibold text-red-400 hover:bg-red-900/20 transition"
-              >
-                <LogOut className="w-4 h-4" /> Log Out
-              </button>
+            <div className="text-[10px] text-gray-400 dark:text-gray-500 font-medium mt-0.5">
+              Enterprise Resource & Store Operations Control
             </div>
           </div>
         </div>
 
-        {/* Audit Log Flag badge widget inside Sidebar */}
-        <div className="mt-6 pt-4 border-t border-slate-800 shrink-0">
-          {anomalies.length > 0 ? (
-            <div className="bg-amber-900/30 border border-amber-500/30 rounded-xl p-3 flex items-start gap-3">
-              <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
-              <div className="text-[10px] leading-tight text-amber-200">
-                <span className="font-bold text-amber-400">Audit Alert:</span> {anomalies.length} potential triggers detected. Check financials.
+        {/* Topbar Right Controls: Interactive Admin Profile Badge */}
+        <div className="flex items-center gap-3">
+          <div className="hidden md:flex items-center gap-2 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 px-3 py-1.5 rounded-xl text-xs font-semibold border border-emerald-200/40">
+            <CheckCircle className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+            <span>Systems Nominal</span>
+          </div>
+
+          <div className="h-6 w-px bg-gray-200 dark:bg-gray-800 hidden sm:block"></div>
+
+          {/* Interactive Admin Profile Button (Click to open Admin Profile Settings) */}
+          <button
+            onClick={() => setActiveModule("settings")}
+            title="Click to edit Admin Profile Settings"
+            className="flex items-center gap-2.5 px-3 py-1.5 rounded-xl hover:bg-emerald-50 dark:hover:bg-emerald-950/60 transition cursor-pointer group border border-transparent hover:border-emerald-200/60 dark:hover:border-emerald-800/60 text-left"
+          >
+            <div className="w-8 h-8 rounded-full bg-emerald-800 text-white font-bold text-xs flex items-center justify-center overflow-hidden border border-emerald-700 shadow-xs group-hover:scale-105 group-hover:ring-2 group-hover:ring-emerald-500/40 transition-all shrink-0">
+              {adminAvatarUrl ? (
+                <img src={adminAvatarUrl} alt={adminName} className="w-full h-full object-cover" />
+              ) : (
+                (adminName || "Admin").charAt(0).toUpperCase()
+              )}
+            </div>
+            <div className="hidden sm:block text-left">
+              <div className="text-xs font-bold text-gray-900 dark:text-white leading-none group-hover:text-emerald-800 dark:group-hover:text-emerald-300 transition-colors flex items-center gap-1">
+                {adminName || "Administrator"}
+                <Settings className="w-3 h-3 text-emerald-600 dark:text-emerald-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+              </div>
+              <div className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium mt-0.5 truncate max-w-[160px]">
+                {adminEmail || "admin@aloeflora.com"}
               </div>
             </div>
-          ) : (
-             <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-3 flex items-center gap-3 text-emerald-400 text-[10px]">
-                <CheckCircle className="w-4 h-4" /> Systems Nominal
-             </div>
-          )}
-        </div>
-      </div>
+          </button>
 
-      {/* RIGHT WORKSPACE CONTEXT: Dynamic tab panels */}
-      <div className="flex-1 w-full max-w-full lg:max-w-[calc(100%-17.5rem)] bg-white dark:bg-gray-900 shadow-sm border border-gray-100 dark:border-gray-800 rounded-3xl p-6 md:p-8">
-        
-        {/* TAB 1: EXECUTIVE DASHBOARD MODULE */}
-        {activeModule === "executive" && (
-          <div className="space-y-6 animate-in fade-in duration-150">
-            <div>
-              <h3 className="text-lg font-bold text-gray-950">Director Executive Overview</h3>
-              <p className="text-xs text-gray-500 mt-0.5">Aggregating real-time Lipa Na M-Pesa merchant metrics from Nairobi CBD depot.</p>
+          <button
+            onClick={handleAdminSignOut}
+            title="Sign Out"
+            className="p-2 text-gray-500 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-xl transition cursor-pointer"
+          >
+            <LogOut className="w-4 h-4" />
+          </button>
+        </div>
+      </header>
+
+      <div className="flex flex-col lg:flex-row gap-6 w-full">
+        {/* LEFT SIDEBAR NAVIGATION: Dark Theme ShopX Style */}
+        <div className="w-full lg:w-64 shrink-0 bg-[#0F172A] text-slate-300 rounded-3xl p-5 shadow-xl flex flex-col justify-between h-auto lg:h-[calc(100vh-140px)] lg:sticky top-24">
+          <div className="flex-1 overflow-y-auto no-scrollbar">
+            <div className="pb-6 mb-2 flex items-center gap-3 px-2">
+              <div className="bg-white p-0.5 rounded-xl shadow-sm border border-emerald-900/10 dark:border-gray-800">
+                <img src="/logo.jpeg" alt="ALOEFLORA Logo" className="h-8 w-auto object-contain rounded-lg" />
+              </div>
+              <h3 className="text-lg font-bold text-white tracking-tight">ALOEFLORA</h3>
             </div>
+
+            <div className="space-y-6">
+              {/* OVERVIEW */}
+              <div>
+                <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 px-2">Overview</div>
+                <button
+                  onClick={() => setActiveModule("executive")}
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-semibold transition ${
+                    activeModule === "executive"
+                      ? "bg-emerald-600 text-white shadow-lg shadow-emerald-900/20"
+                      : "hover:bg-slate-800 hover:text-white"
+                  }`}
+                >
+                  <BarChart3 className="w-4 h-4" /> Dashboard
+                </button>
+              </div>
+
+              {/* MANAGEMENT */}
+              <div>
+                <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 px-2">Management</div>
+                {[
+                  { id: "inventory", label: "Inventory", icon: ShoppingBag },
+                  { id: "users", label: "User Management", icon: Users },
+                  { id: "support", label: "Support Tickets", icon: MessageSquare },
+                  { id: "cms", label: "CMS Web Editor", icon: PenTool },
+                  { id: "events", label: "Events & Registrations", icon: Calendar },
+                  { id: "media", label: "Media Library", icon: Database },
+                ].map(item => (
+                  <button
+                    key={item.id}
+                    onClick={() => setActiveModule(item.id)}
+                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-semibold transition mb-1 ${
+                      activeModule === item.id
+                        ? "bg-emerald-600 text-white shadow-lg shadow-emerald-900/20"
+                        : "hover:bg-slate-800 hover:text-white"
+                    }`}
+                  >
+                    <item.icon className="w-4 h-4" /> {item.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* ANALYTICS & SALES */}
+              <div>
+                <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 px-2">Analytics & Sales</div>
+                {[
+                  { id: "reports", label: "Advanced Reports", icon: FileText },
+                  { id: "financial", label: "P&L Reports", icon: TrendingUp },
+                  { id: "marketing", label: "Marketing", icon: Percent },
+                ].map(item => (
+                  <button
+                    key={item.id}
+                    onClick={() => setActiveModule(item.id)}
+                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-semibold transition mb-1 ${
+                      activeModule === item.id
+                        ? "bg-emerald-600 text-white shadow-lg shadow-emerald-900/20"
+                        : "hover:bg-slate-800 hover:text-white"
+                    }`}
+                  >
+                    <item.icon className="w-4 h-4" /> {item.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* SETTINGS */}
+              <div>
+                <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 px-2">Settings</div>
+                <button
+                  onClick={() => setActiveModule("settings")}
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-semibold transition mb-1 ${
+                    activeModule === "settings" || activeModule === "profile"
+                      ? "bg-emerald-600 text-white shadow-lg shadow-emerald-900/20"
+                      : "hover:bg-slate-800 hover:text-white"
+                  }`}
+                >
+                  <User className="w-4 h-4" /> Admin Profile
+                </button>
+                <button
+                  onClick={() => setActiveModule("seo")}
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-semibold transition mb-1 ${
+                    activeModule === "seo"
+                      ? "bg-emerald-600 text-white shadow-lg shadow-emerald-900/20"
+                      : "hover:bg-slate-800 hover:text-white"
+                  }`}
+                >
+                  <Settings className="w-4 h-4" /> Store SEO Settings
+                </button>
+                <button
+                  onClick={handleAdminSignOut}
+                  className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-semibold text-red-400 hover:bg-red-900/20 transition"
+                >
+                  <LogOut className="w-4 h-4" /> Log Out
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Audit Log Flag badge widget inside Sidebar */}
+          <div className="mt-6 pt-4 border-t border-slate-800 shrink-0">
+            {anomalies.length > 0 ? (
+              <div className="bg-amber-900/30 border border-amber-500/30 rounded-xl p-3 flex items-start gap-3">
+                <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+                <div className="text-[10px] leading-tight text-amber-200">
+                  <span className="font-bold text-amber-400">Audit Alert:</span> {anomalies.length} potential triggers detected. Check financials.
+                </div>
+              </div>
+            ) : (
+               <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-3 flex items-center gap-3 text-emerald-400 text-[10px]">
+                  <CheckCircle className="w-4 h-4" /> Systems Nominal
+               </div>
+            )}
+          </div>
+        </div>
+
+        {/* RIGHT WORKSPACE CONTEXT: Dynamic tab panels */}
+        <div className="flex-1 w-full max-w-full lg:max-w-[calc(100%-17.5rem)] bg-white dark:bg-gray-900 shadow-sm border border-gray-100 dark:border-gray-800 rounded-3xl p-6 md:p-8">
+          
+          {/* TAB 1: EXECUTIVE DASHBOARD MODULE */}
+          {activeModule === "executive" && (
+            <div className="space-y-6 animate-in fade-in duration-150">
+              {/* Header Greeting & Admin Profile Card */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-gradient-to-r from-emerald-900/5 via-emerald-800/5 to-transparent p-5 rounded-2xl border border-emerald-900/10 dark:border-emerald-800/20">
+                <div className="flex items-center gap-4">
+                  <button 
+                    onClick={() => setActiveModule("settings")}
+                    title="Click to edit Admin Profile Settings"
+                    className="relative group cursor-pointer shrink-0"
+                  >
+                    <div className="w-12 h-12 rounded-full bg-emerald-800 text-white font-extrabold text-lg flex items-center justify-center overflow-hidden border-2 border-emerald-600 shadow-sm group-hover:scale-105 group-hover:ring-4 group-hover:ring-emerald-500/30 transition-all">
+                      {adminAvatarUrl ? (
+                        <img src={adminAvatarUrl} alt={adminName} className="w-full h-full object-cover" />
+                      ) : (
+                        (adminName || "Admin").charAt(0).toUpperCase()
+                      )}
+                    </div>
+                    <div className="absolute -bottom-1 -right-1 bg-white dark:bg-gray-900 p-1 rounded-full border border-gray-200 dark:border-gray-700 shadow-xs text-emerald-700 dark:text-emerald-400 group-hover:bg-emerald-600 group-hover:text-white transition-colors">
+                      <Settings className="w-3 h-3" />
+                    </div>
+                  </button>
+                  <div>
+                    <h3 className="text-xl sm:text-2xl font-extrabold text-gray-950 dark:text-white flex items-center gap-2">
+                      Welcome back, {(adminName || "Admin").split(' ')[0]}! 🛡️
+                    </h3>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      Aggregating real-time Lipa Na M-Pesa merchant metrics from Nairobi CBD depot.
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setActiveModule("settings")}
+                  className="bg-white dark:bg-gray-800 hover:bg-emerald-50 dark:hover:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-200/80 dark:border-emerald-800 px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 shadow-xs shrink-0 self-start sm:self-auto cursor-pointer"
+                >
+                  <Settings className="w-4 h-4 text-emerald-600 dark:text-emerald-400" /> Admin Profile Settings
+                </button>
+              </div>
 
             {/* KPI Summary Rows */}
             <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
@@ -1280,8 +1451,14 @@ export default function AdminConsole({
         {/* TAB 2.5: ADVANCED REPORTS MODULE */}
         {activeModule === "reports" && (
           <AdvancedReports 
-            orders={orders} 
-            products={products} 
+            orders={orders || []} 
+            products={products || []} 
+            supportTickets={tickets || []}
+            campaigns={campaigns || []}
+            promos={promos || []}
+            userProfiles={users || []}
+            eventRegistrations={eventRegistrations || []}
+            anomalies={anomalies || []}
             generateReportsPDF={generateReportsPDF} 
             generateReportsCSV={generateReportsCSV} 
           />
@@ -2041,32 +2218,52 @@ export default function AdminConsole({
         )}
 
         {/* TAB 12: SETTINGS & PROFILE */}
-        {activeModule === "settings" && (
+        {(activeModule === "settings" || activeModule === "profile") && (
           <div className="space-y-6 animate-in fade-in duration-150 text-left max-w-2xl mx-auto">
             <div>
-              <h3 className="text-lg font-bold text-gray-950">System Settings & Profile</h3>
-              <p className="text-xs text-gray-500 mt-0.5">Manage administrative credentials and system configuration.</p>
+              <h3 className="text-lg font-bold text-gray-950 dark:text-white">Admin Profile & System Settings</h3>
+              <p className="text-xs text-gray-500 mt-0.5">Manage administrative credentials, profile avatar, and system configuration.</p>
             </div>
             
-            <form onSubmit={saveAdminProfile} className="bg-zinc-50/50 p-6 border rounded-2xl space-y-4">
-              <div className="space-y-1">
-                <label className="text-[10px] uppercase font-bold text-gray-500">Admin Name</label>
-                <input type="text" value={adminName} onChange={e => setAdminName(e.target.value)} required className="w-full p-3 bg-white border border-gray-200 rounded-xl focus:outline-none focus:border-emerald-600 text-xs" />
+            <form onSubmit={saveAdminProfile} className="bg-zinc-50/50 dark:bg-gray-800/50 p-6 border border-gray-200 dark:border-gray-700 rounded-2xl space-y-5">
+              <div className="space-y-1.5 flex flex-col items-center sm:items-start pb-4 border-b border-gray-200 dark:border-gray-700">
+                <label className="text-[10px] uppercase font-bold text-gray-500">Admin Profile Avatar</label>
+                <div className="w-full max-w-xs">
+                  <MediaUploader
+                    urls={adminAvatarUrl ? [adminAvatarUrl] : []}
+                    onChange={(urls) => setAdminAvatarUrl(urls[0] || '')}
+                    multiple={false}
+                    bucket="avatars"
+                    label="Upload Admin Avatar"
+                  />
+                </div>
               </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-[10px] uppercase font-bold text-gray-500">Admin Name</label>
+                  <input type="text" value={adminName} onChange={e => setAdminName(e.target.value)} required className="w-full p-3 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:border-emerald-600 text-xs dark:text-white transition" />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] uppercase font-bold text-gray-500">Admin Email</label>
+                  <input type="email" value={adminEmail} onChange={e => setAdminEmail(e.target.value)} required className="w-full p-3 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:border-emerald-600 text-xs dark:text-white transition" />
+                </div>
+              </div>
+
               <div className="space-y-1">
-                <label className="text-[10px] uppercase font-bold text-gray-500">Admin Email</label>
-                <input type="email" value={adminEmail} onChange={e => setAdminEmail(e.target.value)} required className="w-full p-3 bg-white border border-gray-200 rounded-xl focus:outline-none focus:border-emerald-600 text-xs" />
+                <label className="text-[10px] uppercase font-bold text-gray-500">Phone Number (Admin Contact)</label>
+                <input type="tel" value={adminPhone} onChange={e => setAdminPhone(e.target.value)} placeholder="+254 7XX XXX XXX" className="w-full p-3 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:border-emerald-600 text-xs dark:text-white transition" />
               </div>
               
-              <button type="submit" className="w-full bg-emerald-800 text-white font-bold py-3 rounded-xl hover:bg-emerald-700 transition cursor-pointer text-xs shadow-md mt-4">
-                Save Profile Configuration
+              <button type="submit" className="w-full bg-emerald-800 hover:bg-emerald-700 text-white font-bold py-3 rounded-xl transition cursor-pointer text-xs shadow-md mt-4">
+                Save Admin Profile Configuration
               </button>
             </form>
 
-            <div className="bg-red-50 p-6 border border-red-100 rounded-2xl text-center space-y-3">
-              <h4 className="font-bold text-red-900">End Session</h4>
-              <p className="text-xs text-red-700 max-w-sm mx-auto">Terminate your current secure administrative session. You will be required to re-authenticate to access the ERP.</p>
-              <button onClick={() => window.location.href = '/'} className="w-full bg-red-600 text-white font-bold py-3 rounded-xl hover:bg-red-700 transition flex items-center justify-center gap-2 cursor-pointer text-xs shadow-md mx-auto max-w-sm mt-2">
+            <div className="bg-red-50 dark:bg-red-950/30 p-6 border border-red-100 dark:border-red-900/40 rounded-2xl text-center space-y-3">
+              <h4 className="font-bold text-red-900 dark:text-red-300">End Session</h4>
+              <p className="text-xs text-red-700 dark:text-red-400 max-w-sm mx-auto">Terminate your current secure administrative session. You will be required to re-authenticate to access the ERP.</p>
+              <button onClick={handleAdminSignOut} className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 rounded-xl transition flex items-center justify-center gap-2 cursor-pointer text-xs shadow-md mx-auto max-w-sm mt-2">
                 <LogOut className="w-4 h-4" /> Secure Sign Out
               </button>
             </div>
@@ -2074,5 +2271,6 @@ export default function AdminConsole({
         )}
       </div>
     </div>
-  );
+  </div>
+);
 }

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { 
   ShoppingBag, 
@@ -43,6 +43,117 @@ import { useAuth } from "../contexts/AuthContext";
 import { useShop } from "../contexts/ShopContext";
 import { toast } from "react-hot-toast";
 
+const BANNER_HERO_FLATER_IMAGES = [
+  "/banner hero images flater/Hero Banner 1..jpeg",
+  "/banner hero images flater/Hero Banner 2..jpeg",
+  "/banner hero images flater/Hero Banner 3..jpeg"
+];
+
+const HERO_SLIDES_CONFIG = [
+  {
+    imageUrl: "/banner hero images flater/Hero Banner 1..jpeg",
+    badge: "Premium Natural Products Made in Kenya",
+    badgeIcon: "sparkles",
+    titleLine1: "Naturally Better",
+    titleLine2: "Living Starts Here",
+    categoryFilter: "all",
+    subtitle: (
+      <>
+        Discover high-quality, affordable products crafted with care for your home and everyday wellness. From <strong className="text-gray-950 dark:text-white font-black">Home Care</strong>, <strong className="text-gray-950 dark:text-white font-black">Body Care</strong>, and <strong className="text-gray-950 dark:text-white font-black">Skin Care</strong> to <strong className="text-gray-950 dark:text-white font-black">Premium Coffee Products</strong>, AloeFlora brings you trusted natural solutions designed to enrich your lifestyle.
+      </>
+    ),
+    badgeTag: "BEST SELLER",
+    featuredKeyword: "hair",
+    fallbackProduct: {
+      id: "p3",
+      name: "Hair Gel",
+      rating: 5,
+      reviewsCount: 125,
+      description: "Perfect hair gel for your hair with natural aloe vera extracts for medium to firm hold.",
+      price: 500,
+      imageUrl: "/banner hero images flater/Hero Banner 1..jpeg",
+      category: "hair"
+    },
+    features: [
+      { title: "100% Natural", sub: "Pure & Safe", icon: "shield" },
+      { title: "Made in Kenya", sub: "Locally Crafted", icon: "globe" },
+      { title: "Affordable", sub: "Premium Quality", icon: "tag" },
+      { title: "Fast Delivery", sub: "Across Kenya", icon: "truck" },
+    ],
+    bgPosition: "bg-center md:bg-[center_right]",
+    lightGradient: "linear-gradient(90deg, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0.80) 40%, rgba(255, 255, 255, 0.25) 70%, transparent 100%)",
+    darkGradient: "linear-gradient(90deg, rgba(15, 23, 42, 0.95) 0%, rgba(15, 23, 42, 0.80) 40%, rgba(15, 23, 42, 0.25) 70%, transparent 100%)"
+  },
+  {
+    imageUrl: "/banner hero images flater/Hero Banner 2..jpeg",
+    badge: "100% Organic & Botanical Skin Care",
+    badgeIcon: "sparkles",
+    titleLine1: "Nourish Your Body",
+    titleLine2: "With Botanical Care",
+    categoryFilter: "body",
+    subtitle: (
+      <>
+        Experience deep hydration and skin radiance with our hand-crafted <strong className="text-gray-950 dark:text-white font-black">Body Butters</strong>, <strong className="text-gray-950 dark:text-white font-black">Shower Gels</strong>, and <strong className="text-gray-950 dark:text-white font-black">Organic Face Serums</strong>. Formulated with fresh aloe vera and natural essential oils for soft, glowing skin.
+      </>
+    ),
+    badgeTag: "ORGANIC CHOICE",
+    featuredKeyword: "shower",
+    fallbackProduct: {
+      id: "p2",
+      name: "Aloeflora Shower Gel",
+      rating: 4.9,
+      reviewsCount: 184,
+      description: "Moisturizing shower gel infused with organic aloe extracts for deep skin nourishment.",
+      price: 750,
+      imageUrl: "/main hero/shower_gel_1l.png",
+      category: "body"
+    },
+    features: [
+      { title: "100% Organic", sub: "Raw Botanicals", icon: "shield" },
+      { title: "Deep Hydration", sub: "24hr Moisture", icon: "sparkles" },
+      { title: "Dermatologist Tested", sub: "Safe & Gentle", icon: "tag" },
+      { title: "Made in Kenya", sub: "Locally Sourced", icon: "globe" },
+    ],
+    bgPosition: "bg-center md:bg-[center_right]",
+    lightGradient: "linear-gradient(90deg, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0.80) 40%, rgba(255, 255, 255, 0.25) 70%, transparent 100%)",
+    darkGradient: "linear-gradient(90deg, rgba(15, 23, 42, 0.95) 0%, rgba(15, 23, 42, 0.80) 40%, rgba(15, 23, 42, 0.25) 70%, transparent 100%)"
+  },
+  {
+    imageUrl: "/banner hero images flater/Hero Banner 3..jpeg",
+    badge: "Eco-Friendly & Safe Home Care",
+    badgeIcon: "shield",
+    titleLine1: "Sparkling Clean Home",
+    titleLine2: "Safe For Your Family",
+    categoryFilter: "home",
+    subtitle: (
+      <>
+        Keep your living spaces pristine and hygienic with our high-efficacy <strong className="text-gray-950 dark:text-white font-black">Toilet Cleaner</strong>, <strong className="text-gray-950 dark:text-white font-black">Bleach for White Surfaces</strong>, and <strong className="text-gray-950 dark:text-white font-black">Antiseptic Handwash</strong>. Tough on stains, gentle on your home.
+      </>
+    ),
+    badgeTag: "TOP HYGIENE PICK",
+    featuredKeyword: "toilet",
+    fallbackProduct: {
+      id: "p1",
+      name: "Aloeflora Toilet Cleaner",
+      rating: 5.0,
+      reviewsCount: 210,
+      description: "Powerful power-pack toilet cleaner formulated to remove tough stains and sanitize completely.",
+      price: 450,
+      imageUrl: "/main hero/tumeric_soap.jpg",
+      category: "home"
+    },
+    features: [
+      { title: "Kills 99.9% Germs", sub: "Maximum Hygiene", icon: "shield" },
+      { title: "Non-Toxic", sub: "Safe For Family", icon: "sparkles" },
+      { title: "High Efficacy", sub: "Stain Removal", icon: "tag" },
+      { title: "Express Delivery", sub: "Across Kenya", icon: "truck" },
+    ],
+    bgPosition: "bg-center md:bg-[center_right]",
+    lightGradient: "linear-gradient(90deg, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0.80) 40%, rgba(255, 255, 255, 0.25) 70%, transparent 100%)",
+    darkGradient: "linear-gradient(90deg, rgba(15, 23, 42, 0.95) 0%, rgba(15, 23, 42, 0.80) 40%, rgba(15, 23, 42, 0.25) 70%, transparent 100%)"
+  }
+];
+
 const CUSTOMER_RATING_ACCENTS = ["Amazing!", "Loved it.", "Smells great.", "Good texture.", "Highly recommended!", "Will buy again."];
 
 interface CustomerStoreProps {
@@ -64,7 +175,7 @@ export default function CustomerStore({
   onUpdateProductStock,
   promos
 }: CustomerStoreProps) {
-  const { cart, wishlist, searchQuery, setSearchQuery, setIsCartOpen, addToCart, toggleWishlist, clearCart } = useShop();
+  const { cart, wishlist, searchQuery, setSearchQuery, isCartOpen, isWishlistOpen, setIsCartOpen, addToCart, toggleWishlist, clearCart } = useShop();
 
   // Storefront navigation
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
@@ -111,6 +222,58 @@ export default function CustomerStore({
     .slice(0, 25);
   const [heroIndex, setHeroIndex] = useState<number>(0);
   const heroRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Hero Banner Slider (banner hero images flater / Supabase CMS Posts)
+  const publishedCmsHeroPosts = useMemo(() => {
+    return cmsPosts.filter((p) => p.type === "hero" && p.status === "published");
+  }, [cmsPosts]);
+
+  const activeHeroSlides = useMemo(() => {
+    if (publishedCmsHeroPosts.length === 0) {
+      return HERO_SLIDES_CONFIG;
+    }
+
+    return publishedCmsHeroPosts.flatMap((post, postIdx) => {
+      const urls = post.imageUrl ? post.imageUrl.split(',').map(u => u.trim()).filter(Boolean) : [];
+      const fallbackSlide = HERO_SLIDES_CONFIG[postIdx % HERO_SLIDES_CONFIG.length];
+      const bgImages = urls.length > 0 ? urls : [fallbackSlide.imageUrl];
+
+      const words = (post.title || fallbackSlide.titleLine1 + ' ' + fallbackSlide.titleLine2).trim().split(' ');
+      const half = Math.ceil(words.length / 2);
+      const titleLine1 = words.slice(0, half).join(' ');
+      const titleLine2 = words.slice(half).join(' ');
+
+      return bgImages.map((imgUrl, imgIdx) => ({
+        imageUrl: imgUrl,
+        badge: post.title ? `Featured: ${post.title}` : fallbackSlide.badge,
+        badgeIcon: fallbackSlide.badgeIcon,
+        titleLine1: titleLine1 || fallbackSlide.titleLine1,
+        titleLine2: titleLine2 || fallbackSlide.titleLine2,
+        categoryFilter: fallbackSlide.categoryFilter,
+        subtitle: post.content || fallbackSlide.subtitle,
+        badgeTag: fallbackSlide.badgeTag,
+        featuredKeyword: fallbackSlide.featuredKeyword,
+        fallbackProduct: HERO_SLIDES_CONFIG[(postIdx + imgIdx) % HERO_SLIDES_CONFIG.length].fallbackProduct,
+        features: HERO_SLIDES_CONFIG[(postIdx + imgIdx) % HERO_SLIDES_CONFIG.length].features,
+        bgPosition: fallbackSlide.bgPosition
+      }));
+    });
+  }, [publishedCmsHeroPosts]);
+
+  const [heroBannerIndex, setHeroBannerIndex] = useState<number>(0);
+  const [isHeroHovered, setIsHeroHovered] = useState<boolean>(false);
+  const heroBannerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Preload hero banner background images to ensure smooth, zero-latency transitions
+  useEffect(() => {
+    activeHeroSlides.forEach((slide) => {
+      if (slide.imageUrl) {
+        const img = new Image();
+        img.src = encodeURI(slide.imageUrl);
+      }
+    });
+  }, [activeHeroSlides]);
+
   const [eventsData, setEventsData] = useState<any[]>([]);
 
   useEffect(() => {
@@ -212,6 +375,32 @@ export default function CustomerStore({
       };
     }
   }, [heroSlides.length]);
+
+  // Auto-rotate hero background banner (banner hero images flater / Supabase CMS) every 6 seconds unless hovered
+  useEffect(() => {
+    if (isHeroHovered) return;
+    heroBannerRef.current = setInterval(() => {
+      setHeroBannerIndex((prev) => (prev + 1) % activeHeroSlides.length);
+    }, 6000);
+    return () => {
+      if (heroBannerRef.current) clearInterval(heroBannerRef.current);
+    };
+  }, [isHeroHovered, activeHeroSlides.length]);
+
+  const handlePrevBanner = () => {
+    if (heroBannerRef.current) clearInterval(heroBannerRef.current);
+    setHeroBannerIndex((prev) => (prev - 1 + activeHeroSlides.length) % activeHeroSlides.length);
+  };
+
+  const handleNextBanner = () => {
+    if (heroBannerRef.current) clearInterval(heroBannerRef.current);
+    setHeroBannerIndex((prev) => (prev + 1) % activeHeroSlides.length);
+  };
+
+  const handleSelectBanner = (idx: number) => {
+    if (heroBannerRef.current) clearInterval(heroBannerRef.current);
+    setHeroBannerIndex(idx);
+  };
 
   // Compute Cart Financial aggregates
   const subtotal = cart.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
@@ -577,174 +766,239 @@ export default function CustomerStore({
   return (
     <div id="customer-storefront-wrapper" className="space-y-10">
       
-      {/* 1. HERO MAIN AREA: PROTOTYPE 1 - Lifestyle + Featured Product */}
-      <section id="hero-slider-section" className="relative w-full overflow-hidden rounded-3xl md:rounded-[2.5rem] shadow-2xl mb-12 bg-white dark:bg-gray-950 border border-gray-100 dark:border-gray-800">
+      {/* 1. HERO MAIN AREA: Dynamic Hero Slider adopting prototype design per background image */}
+      <section 
+        id="hero-slider-section" 
+        onMouseEnter={() => setIsHeroHovered(true)}
+        onMouseLeave={() => setIsHeroHovered(false)}
+        className="relative w-full overflow-hidden rounded-3xl md:rounded-[2.5rem] shadow-2xl mb-12 bg-white border border-gray-200/80 group"
+      >
         
-        {/* Rich Lifestyle Background Photograph showcasing Homecare, Coffee, Bodycare, Skincare & Botanicals */}
-        <div className="absolute inset-0 bg-cover bg-center bg-no-repeat transition-all duration-700 opacity-90" style={{ backgroundImage: `url('/hero_lifestyle.png')` }}>
-          {/* Subtle light/dark gradient overlays to ensure max readability */}
-          <div className="absolute inset-0 bg-gradient-to-r from-white/95 via-white/85 to-white/40 dark:from-gray-950/95 dark:via-gray-950/85 dark:to-gray-950/40"></div>
-          <div className="absolute inset-0 bg-gradient-to-t from-white/60 via-transparent to-transparent dark:from-gray-950/80"></div>
+        {/* Layer 1: Background Image Slider (100% Full Original Brightness & Vivid Colors) */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
+          {activeHeroSlides.map((slide, idx) => {
+            const isActive = idx === heroBannerIndex;
+            return (
+              <div 
+                key={`${slide.imageUrl}-${idx}`}
+                className={`absolute inset-0 bg-cover ${slide.bgPosition || 'bg-center md:bg-[center_right]'} bg-no-repeat transition-all duration-1000 ease-in-out will-change-transform ${
+                  isActive 
+                    ? "opacity-100 scale-100 z-0" 
+                    : "opacity-0 scale-105 pointer-events-none"
+                }`}
+                style={{ 
+                  backgroundImage: `url("${encodeURI(slide.imageUrl)}")`,
+                  transitionProperty: 'opacity, transform',
+                  transitionDuration: isActive ? '800ms, 6000ms' : '800ms, 800ms'
+                }}
+              />
+            );
+          })}
+
+          {/* Layer 2: Subtle White Left-to-Right Gradient ONLY Behind Text */}
+          <div 
+            className="absolute inset-0 pointer-events-none hidden md:block" 
+            style={{
+              background: `linear-gradient(90deg, rgba(255, 255, 255, 0.98) 0%, rgba(255, 255, 255, 0.92) 32%, rgba(255, 255, 255, 0.65) 55%, rgba(255, 255, 255, 0.15) 75%, transparent 100%)`
+            }}
+          />
+          <div 
+            className="absolute inset-0 pointer-events-none md:hidden" 
+            style={{
+              background: `linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(255, 255, 255, 0.90) 55%, rgba(255, 255, 255, 0.35) 80%, transparent 100%)`
+            }}
+          />
+
+          {/* Layer 3: Soft Ambient Light Bloom */}
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(52,140,33,0.06),transparent_50%)] pointer-events-none" />
         </div>
 
-        <div className="relative max-w-7xl mx-auto px-6 py-10 md:py-16 lg:py-20 w-full grid grid-cols-1 lg:grid-cols-12 gap-10 items-center">
+        {/* Previous / Next Arrow Controls */}
+        <button
+          onClick={handlePrevBanner}
+          className="absolute left-3 md:left-5 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white text-gray-900 dark:bg-gray-900/90 dark:hover:bg-gray-900 dark:text-white backdrop-blur-md p-3 rounded-full border border-gray-200 dark:border-gray-700 shadow-xl transition-all opacity-85 hover:opacity-100 z-30 cursor-pointer hover:scale-110 active:scale-95"
+          title="Previous Banner"
+          aria-label="Previous Banner Slide"
+        >
+          <ChevronLeft className="w-5 h-5" />
+        </button>
+
+        <button
+          onClick={handleNextBanner}
+          className="absolute right-3 md:right-5 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white text-gray-900 dark:bg-gray-900/90 dark:hover:bg-gray-900 dark:text-white backdrop-blur-md p-3 rounded-full border border-gray-200 dark:border-gray-700 shadow-xl transition-all opacity-85 hover:opacity-100 z-30 cursor-pointer hover:scale-110 active:scale-95"
+          title="Next Banner"
+          aria-label="Next Banner Slide"
+        >
+          <ChevronRight className="w-5 h-5" />
+        </button>
+
+        {/* Slide Content Container */}
+        {(() => {
+          const currentSlide = activeHeroSlides[heroBannerIndex] || activeHeroSlides[0];
           
-          {/* LEFT COLUMN: Brand Messages & Actions */}
-          <div className="lg:col-span-7 space-y-6 text-left">
-            
-            {/* Top Badge */}
-            <div className="inline-flex items-center gap-2 bg-white/90 dark:bg-gray-900/90 backdrop-blur-md border border-[#50A63C]/40 px-4 py-2 rounded-full shadow-sm">
-              <Sparkles className="w-4 h-4 text-[#50A63C]" />
-              <span className="text-xs font-extrabold text-[#2B4E22] dark:text-emerald-300">
-                Premium Natural Products Made in Kenya
-              </span>
-            </div>
-            
-            {/* Main Headline */}
-            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black text-[#2B4E22] dark:text-white tracking-tight leading-[1.12]">
-              Naturally Better <br/>
-              <span className="text-[#50A63C]">Living Starts Here</span>
-            </h1>
-            
-            {/* Subtitle */}
-            <p className="text-sm sm:text-base text-gray-700 dark:text-gray-200 max-w-xl leading-relaxed font-medium">
-              Discover high-quality, affordable products crafted with care for your home and everyday wellness. From <strong className="text-[#2B4E22] dark:text-emerald-300 font-bold">Home Care</strong>, <strong className="text-[#2B4E22] dark:text-emerald-300 font-bold">Body Care</strong>, and <strong className="text-[#2B4E22] dark:text-emerald-300 font-bold">Skin Care</strong> to <strong className="text-[#2B4E22] dark:text-emerald-300 font-bold">Premium Coffee Products</strong>, AloeFlora brings you trusted natural solutions designed to enrich your lifestyle.
-            </p>
+          // Match real catalog product or fallback
+          const matchedProduct = products.find(p => 
+            p.name.toLowerCase().includes(currentSlide.featuredKeyword) ||
+            p.category.toLowerCase().includes(currentSlide.featuredKeyword)
+          ) || currentSlide.fallbackProduct;
 
-            {/* Dual Action Buttons */}
-            <div className="flex flex-wrap gap-4 pt-2">
-              <a href="#store-catalog" className="inline-flex items-center gap-2 bg-[#50A63C] hover:bg-[#3f8b2e] text-white font-extrabold px-8 py-3.5 rounded-full transition-all duration-200 shadow-lg hover:shadow-xl text-sm border-b-4 border-[#2B4E22] cursor-pointer">
-                <span>Shop Now</span>
-                <ArrowRight className="w-4 h-4" />
-              </a>
-              <a href="#organic-formulations" className="inline-flex items-center gap-2 bg-white/95 dark:bg-gray-900/95 hover:bg-gray-50 border-2 border-gray-200 dark:border-gray-700 text-[#2B4E22] dark:text-white font-extrabold px-7 py-3.5 rounded-full transition-all duration-200 text-sm shadow-sm cursor-pointer">
-                <span>Explore Collections</span>
-              </a>
-            </div>
+          const cardImg = (matchedProduct as any).mediaUrls && (matchedProduct as any).mediaUrls.length > 0
+            ? (matchedProduct as any).mediaUrls[0]
+            : ((matchedProduct as any).imageUrl?.split(',')[0] || currentSlide.fallbackProduct.imageUrl);
 
-            {/* 4 Bottom Feature Highlights */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-6 border-t border-gray-200/80 dark:border-gray-800/80">
-              <div className="flex items-center gap-2.5">
-                <div className="p-2 bg-[#50A63C]/10 rounded-xl text-[#50A63C] shrink-0">
-                  <ShieldCheck className="w-5 h-5" />
+          return (
+            <div 
+              key={heroBannerIndex} 
+              className="relative max-w-7xl mx-auto px-6 py-10 md:py-16 lg:py-20 w-full grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10 items-center z-10 transition-opacity duration-500"
+            >
+              
+              {/* LEFT COLUMN: Brand Messages & Prototype Actions */}
+              <div className="lg:col-span-7 space-y-6 text-left z-10">
+                
+                {/* Top Badge */}
+                <div className="inline-flex items-center gap-2 bg-white/95 backdrop-blur-md border border-emerald-200 px-4 py-1.5 rounded-full shadow-xs">
+                  {currentSlide.badgeIcon === "shield" ? (
+                    <ShieldCheck className="w-4 h-4 text-[#348C21]" />
+                  ) : (
+                    <Sparkles className="w-4 h-4 text-[#348C21]" />
+                  )}
+                  <span className="text-xs font-black text-[#152E15] tracking-wide">
+                    {currentSlide.badge}
+                  </span>
                 </div>
-                <div>
-                  <div className="text-xs font-black text-gray-900 dark:text-white">100% Natural</div>
-                  <div className="text-[10px] text-gray-500 font-medium">Pure & Safe</div>
+                
+                {/* Main Headline */}
+                <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black text-[#152E15] tracking-tight leading-[1.12]">
+                  {currentSlide.titleLine1} <br/>
+                  <span className="text-[#348C21]">{currentSlide.titleLine2}</span>
+                </h1>
+                
+                {/* Subtitle Paragraph */}
+                <p className="text-sm sm:text-base text-gray-700 max-w-xl leading-relaxed font-semibold">
+                  {currentSlide.subtitle}
+                </p>
+
+                {/* Dual Action Buttons */}
+                <div className="flex flex-wrap gap-4 pt-2">
+                  <button 
+                    onClick={() => {
+                      if (currentSlide.categoryFilter) setSelectedCategory(currentSlide.categoryFilter);
+                      const el = document.getElementById("organic-formulations");
+                      if (el) el.scrollIntoView({ behavior: "smooth" });
+                    }}
+                    className="inline-flex items-center gap-2.5 bg-[#348C21] hover:bg-[#2b751c] text-white font-extrabold px-8 py-3.5 rounded-full transition-all duration-200 shadow-lg hover:shadow-emerald-600/35 text-sm cursor-pointer border-b-2 border-[#225c15] active:translate-y-0.5"
+                  >
+                    <span>Shop Now</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </button>
+                  <button 
+                    onClick={() => {
+                      setSelectedCategory("all");
+                      const el = document.getElementById("organic-formulations");
+                      if (el) el.scrollIntoView({ behavior: "smooth" });
+                    }}
+                    className="inline-flex items-center gap-2 bg-white hover:bg-gray-50 text-gray-900 font-extrabold px-7 py-3.5 rounded-full transition-all duration-200 text-sm shadow-sm hover:shadow-md cursor-pointer border border-gray-200/80"
+                  >
+                    <span>Explore Collections</span>
+                  </button>
                 </div>
+
+                {/* 4 Bottom Feature Highlights (Dynamic Per Slide) */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-6 border-t border-gray-200/80">
+                  {currentSlide.features.map((feat, fIdx) => (
+                    <div key={fIdx} className="flex items-center gap-2.5 bg-white/90 backdrop-blur-md p-2.5 rounded-2xl border border-gray-100 shadow-2xs transition-all">
+                      <div className="p-2 bg-emerald-50 rounded-xl text-[#348C21] shrink-0">
+                        {feat.icon === "shield" && <ShieldCheck className="w-4 h-4" />}
+                        {feat.icon === "globe" && <Globe className="w-4 h-4" />}
+                        {feat.icon === "tag" && <Tag className="w-4 h-4" />}
+                        {feat.icon === "truck" && <Truck className="w-4 h-4" />}
+                        {feat.icon === "sparkles" && <Sparkles className="w-4 h-4" />}
+                      </div>
+                      <div>
+                        <div className="text-xs font-black text-gray-900">{feat.title}</div>
+                        <div className="text-[10px] text-gray-500 font-medium">{feat.sub}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
               </div>
 
-              <div className="flex items-center gap-2.5">
-                <div className="p-2 bg-[#2B4E22]/10 rounded-xl text-[#2B4E22] dark:text-emerald-400 shrink-0">
-                  <Globe className="w-5 h-5" />
-                </div>
-                <div>
-                  <div className="text-xs font-black text-gray-900 dark:text-white">Made in Kenya</div>
-                  <div className="text-[10px] text-gray-500 font-medium">Locally Crafted</div>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2.5">
-                <div className="p-2 bg-[#50A63C]/10 rounded-xl text-[#50A63C] shrink-0">
-                  <Tag className="w-5 h-5" />
-                </div>
-                <div>
-                  <div className="text-xs font-black text-gray-900 dark:text-white">Affordable</div>
-                  <div className="text-[10px] text-gray-500 font-medium">Premium Quality</div>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2.5">
-                <div className="p-2 bg-[#2B4E22]/10 rounded-xl text-[#2B4E22] dark:text-emerald-400 shrink-0">
-                  <Truck className="w-5 h-5" />
-                </div>
-                <div>
-                  <div className="text-xs font-black text-gray-900 dark:text-white">Fast Delivery</div>
-                  <div className="text-[10px] text-gray-500 font-medium">Across Kenya</div>
-                </div>
-              </div>
-            </div>
-
-          </div>
-
-          {/* RIGHT COLUMN: Floating Featured Product Card Overlay */}
-          <div className="lg:col-span-5 flex justify-center items-center">
-            {products.length > 0 ? (
-              <div className="relative w-full max-w-sm bg-white/95 dark:bg-gray-900/95 backdrop-blur-md border border-gray-100 dark:border-gray-800 rounded-3xl p-6 shadow-2xl transition duration-500 hover:shadow-emerald-500/10 text-left">
-                {/* BEST SELLER Badge */}
-                <div className="absolute top-4 right-4 bg-[#2B4E22] text-white text-[10px] uppercase font-black px-3 py-1 rounded-full tracking-wider shadow-sm z-10">
-                  BEST SELLER
-                </div>
-
-                {/* Featured Product Image */}
-                <div className="w-full h-56 rounded-2xl bg-gray-50 dark:bg-gray-800 overflow-hidden mb-4 flex items-center justify-center p-3 border border-gray-100 dark:border-gray-800 relative group">
-                  <img 
-                    src={(products[heroIndex % products.length]?.mediaUrls && products[heroIndex % products.length]?.mediaUrls!.length > 0)
-                      ? products[heroIndex % products.length].mediaUrls![0] 
-                      : (products[heroIndex % products.length]?.imageUrl?.split(',')[0] || "https://images.unsplash.com/photo-1596547609652-9cf5d8d76921")} 
-                    alt={products[heroIndex % products.length]?.name} 
-                    className="w-full h-full object-contain group-hover:scale-105 transition duration-300"
-                  />
-                </div>
-
-                {/* Product Title & Reviews */}
-                <div className="space-y-2">
-                  <h3 className="font-extrabold text-lg text-gray-900 dark:text-white leading-snug line-clamp-1">
-                    {products[heroIndex % products.length]?.name}
-                  </h3>
-                  
-                  <div className="flex items-center gap-2">
-                    <Stars rating={products[heroIndex % products.length]?.rating || 5} />
-                    <span className="text-xs font-bold text-gray-500">
-                      ({products[heroIndex % products.length]?.reviewsCount || 125} Reviews)
-                    </span>
+              {/* RIGHT COLUMN: Floating Featured Product Card Overlay (Prototype Design) */}
+              <div className="lg:col-span-5 flex justify-center items-center z-10 transition-all duration-500">
+                <div className="relative w-full max-w-sm bg-white border border-gray-100 rounded-3xl p-6 shadow-2xl transition-all duration-500 hover:shadow-emerald-500/20 text-left">
+                  {/* Badge Tag */}
+                  <div className="absolute top-4 right-4 bg-[#1C3B19] text-white text-[10px] uppercase font-black px-3.5 py-1 rounded-full tracking-wider shadow-sm z-10">
+                    {currentSlide.badgeTag}
                   </div>
 
-                  <p className="text-xs text-gray-600 dark:text-gray-400 line-clamp-2 leading-relaxed">
-                    {products[heroIndex % products.length]?.description}
-                  </p>
+                  {/* Featured Product Image */}
+                  <div className="w-full h-56 rounded-2xl bg-gray-50 overflow-hidden mb-4 flex items-center justify-center p-3 border border-gray-100 relative group">
+                    <img 
+                      src={cardImg} 
+                      alt={matchedProduct.name} 
+                      className="w-full h-full object-contain group-hover:scale-105 transition duration-300"
+                    />
+                  </div>
 
-                  <div className="pt-3 flex items-center justify-between">
-                    <div className="text-xl font-black text-[#2B4E22] dark:text-emerald-400">
-                      KES {products[heroIndex % products.length]?.price}
+                  {/* Product Title & Reviews */}
+                  <div className="space-y-2">
+                    <h3 className="font-black text-lg text-gray-900 leading-snug line-clamp-1">
+                      {matchedProduct.name}
+                    </h3>
+                    
+                    <div className="flex items-center gap-2">
+                      <Stars rating={(matchedProduct as any).rating || 5} />
+                      <span className="text-xs font-bold text-gray-500">
+                        ({(matchedProduct as any).reviewsCount || 125} Reviews)
+                      </span>
                     </div>
 
-                    <button 
-                      onClick={() => {
-                        const targetProd = products[heroIndex % products.length];
-                        addToCart(targetProd, 1, targetProd?.variants?.[0]);
-                        toast.success(`${targetProd?.name} added to cart!`);
-                      }}
-                      className="bg-[#50A63C] hover:bg-[#3f8b2e] text-white font-extrabold px-5 py-2.5 rounded-full text-xs transition flex items-center gap-1.5 shadow-md border-b-2 border-[#2B4E22] cursor-pointer"
-                    >
-                      <span>Buy Now</span>
-                      <ArrowRight className="w-3.5 h-3.5" />
-                    </button>
+                    <p className="text-xs text-gray-600 line-clamp-2 leading-relaxed font-medium">
+                      {matchedProduct.description}
+                    </p>
+
+                    <div className="pt-3 flex items-center justify-between">
+                      <div className="text-xl font-black text-gray-900">
+                        KES {matchedProduct.price}
+                      </div>
+
+                      <button 
+                        onClick={() => {
+                          const fullProd = products.find(p => p.id === matchedProduct.id) || matchedProduct;
+                          addToCart(fullProd as Product, 1, (fullProd as Product)?.variants?.[0]);
+                          toast.success(`${fullProd.name} added to cart!`);
+                        }}
+                        className="bg-[#348C21] hover:bg-[#2b751c] text-white font-extrabold px-5 py-2.5 rounded-full text-xs transition flex items-center gap-1.5 shadow-md cursor-pointer active:scale-95"
+                      >
+                        <span>Buy Now</span>
+                        <ArrowRight className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
-            ) : null}
-          </div>
 
-        </div>
+            </div>
+          );
+        })()}
 
         {/* Carousel Indicators (Dots at bottom center) */}
-        {products.length > 1 && (
-          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2 z-20">
-            {products.slice(0, 5).map((_, idx) => (
-              <button
-                key={idx}
-                onClick={() => setHeroIndex(idx)}
-                className={`transition-all duration-300 rounded-full cursor-pointer ${
-                  heroIndex % products.length === idx 
-                    ? "w-8 h-2.5 bg-[#50A63C]" 
-                    : "w-2.5 h-2.5 bg-gray-400/50 hover:bg-[#50A63C]/50"
-                }`}
-                title={`Featured Product ${idx + 1}`}
-              />
-            ))}
-          </div>
-        )}
+        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2 z-20">
+          {activeHeroSlides.map((_, idx) => (
+            <button
+              key={idx}
+              onClick={() => handleSelectBanner(idx)}
+              className={`transition-all duration-300 rounded-full cursor-pointer ${
+                heroBannerIndex === idx 
+                  ? "w-9 h-3 bg-[#348C21] shadow-md" 
+                  : "w-3 h-3 bg-gray-400/50 hover:bg-gray-600"
+              }`}
+              title={`Hero Banner Slide ${idx + 1}`}
+              aria-label={`Go to slide ${idx + 1}`}
+            />
+          ))}
+        </div>
 
       </section>
 
@@ -1000,21 +1254,21 @@ export default function CustomerStore({
 
 
       {/* 3. INFORMATION EVENTS / PROMOTIONS NEWSLETTER SECTION */}
-      <section id="events-marketing-section" className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-        
-        {/* Local Events list */}
-        <div className="lg:col-span-8 bg-zinc-50 dark:bg-gray-800/10 border border-zinc-100 dark:border-gray-800 rounded-3xl p-6 text-left">
-          <div className="flex items-center justify-between pb-4 border-b border-gray-100 dark:border-gray-800 mb-6">
-            <div>
-              <span className="text-[10px] text-emerald-800 dark:text-emerald-400 uppercase font-bold tracking-widest">EVENTS & WELLNESS PROMOTION</span>
-              <h3 className="text-lg font-bold text-gray-900 dark:text-white mt-1">Kenyan Organic Expos & Farm Walks</h3>
-            </div>
-            <Calendar className="w-5 h-5 text-emerald-800" />
-          </div>
+      {(() => {
+        const promotionalEvents = cmsPosts.filter(p => p.type === 'promotion' && p.status === 'published');
+        if (promotionalEvents.length === 0) return null;
 
-          {(() => {
-            const promotionalEvents = cmsPosts.filter(p => p.type === 'promotion');
-            return (
+        return (
+          <section id="events-marketing-section" className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+            <div className="lg:col-span-8 bg-zinc-50 dark:bg-gray-800/10 border border-zinc-100 dark:border-gray-800 rounded-3xl p-6 text-left">
+              <div className="flex items-center justify-between pb-4 border-b border-gray-100 dark:border-gray-800 mb-6">
+                <div>
+                  <span className="text-[10px] text-emerald-800 dark:text-emerald-400 uppercase font-bold tracking-widest">EVENTS & WELLNESS PROMOTION</span>
+                  <h3 className="text-lg font-bold text-gray-900 dark:text-white mt-1">Kenyan Organic Expos & Farm Walks</h3>
+                </div>
+                <Calendar className="w-5 h-5 text-emerald-800" />
+              </div>
+
               <div className={promotionalEvents.length === 1 ? "grid grid-cols-1 gap-6" : "grid grid-cols-1 md:grid-cols-2 gap-6"}>
                 {promotionalEvents.map((evt) => (
                   <div key={evt.id} className={`bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-2xl overflow-hidden shadow-sm flex ${promotionalEvents.length === 1 ? 'flex-col md:flex-row' : 'flex-col'} justify-between`}>
@@ -1077,13 +1331,10 @@ export default function CustomerStore({
                   </div>
                 ))}
               </div>
-            );
-          })()}
-        </div>
-
-        {/* SCIENTIFIC BLOGS MOVED TO SEPARATE PAGE */}
-
-      </section>
+            </div>
+          </section>
+        );
+      })()}
 
       {/* 4. PRODUCT COMPARISON MODAL SLIDE-UP */}
       {isCompareOpen && (
@@ -1316,28 +1567,33 @@ export default function CustomerStore({
 
 
       {/* 11. DOCK FLOATING WIDGETS: Chat & Cart */}
-      <div className="fixed bottom-24 md:bottom-6 right-6 z-[60] flex flex-col gap-4">
-        {/* Floating Cart Button */}
-        {cart.length > 0 && (
-          <button 
-            onClick={() => setIsCartOpen(true)}
-            className="bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800 text-emerald-800 dark:text-lime-400 rounded-full p-4 shadow-2xl hover:scale-105 active:scale-95 transition cursor-pointer relative border border-gray-200 dark:border-gray-800 flex items-center justify-center"
-          >
-            <ShoppingCart className="w-6 h-6" />
-            <span className="absolute -top-2 -right-2 min-w-[24px] h-6 px-1 bg-red-500 text-white rounded-full flex items-center justify-center text-[10px] font-bold border-2 border-white dark:border-gray-900">
-              {cart.reduce((sum, item) => sum + item.quantity, 0)}
-            </span>
-          </button>
-        )}
+      {!isCartOpen && !isWishlistOpen && (
+        <div className="fixed bottom-[calc(4.5rem+env(safe-area-inset-bottom,0px))] md:bottom-6 right-4 sm:right-6 z-40 flex flex-col gap-3 transition-all duration-300">
+          {/* Floating Cart Button */}
+          {cart.length > 0 && !openAiAssistant && (
+            <button 
+              onClick={() => setIsCartOpen(true)}
+              className="bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800 text-emerald-800 dark:text-lime-400 rounded-full p-3.5 sm:p-4 shadow-xl hover:scale-105 active:scale-95 transition cursor-pointer relative border border-gray-200/80 dark:border-gray-800 flex items-center justify-center group"
+              title="View Shopping Cart"
+            >
+              <ShoppingCart className="w-5 h-5 sm:w-6 sm:h-6" />
+              <span className="absolute -top-1.5 -right-1.5 min-w-[22px] h-[22px] px-1 bg-red-500 text-white rounded-full flex items-center justify-center text-[10px] font-bold border-2 border-white dark:border-gray-900 shadow-sm">
+                {cart.reduce((sum, item) => sum + item.quantity, 0)}
+              </span>
+            </button>
+          )}
 
-        {/* Floating Chat Button */}
-        <button 
-          onClick={() => setOpenAiAssistant((prev) => !prev)}
-          className="bg-emerald-800 hover:bg-emerald-700 text-white rounded-full p-4 shadow-2xl hover:scale-105 active:scale-95 transition cursor-pointer relative border border-emerald-800 flex items-center justify-center"
-        >
-          <MessageSquare className="w-6 h-6" />
-          <span className="absolute top-0 right-0 w-3 h-3 bg-lime-400 rounded-full border-2 border-emerald-950"></span>
-        </button>
+          {/* Floating Chat Button */}
+          {!openAiAssistant && (
+            <button 
+              onClick={() => setOpenAiAssistant(true)}
+              className="bg-emerald-800 hover:bg-emerald-700 text-white rounded-full p-3.5 sm:p-4 shadow-xl hover:scale-105 active:scale-95 transition cursor-pointer relative border border-emerald-700/80 flex items-center justify-center group"
+              title="Ask Aloeflora AI Assistant"
+            >
+              <MessageSquare className="w-5 h-5 sm:w-6 sm:h-6" />
+              <span className="absolute top-0 right-0 w-3 h-3 bg-lime-400 rounded-full border-2 border-emerald-950"></span>
+            </button>
+          )}
 
         {openAiAssistant && (
           <div id="ai-specialist-terminal" className="fixed md:absolute bottom-0 md:bottom-[calc(100%+1rem)] right-0 left-0 md:left-auto bg-white dark:bg-gray-900 w-full md:w-96 rounded-t-3xl md:rounded-3xl shadow-2xl border border-gray-100 dark:border-gray-800 overflow-hidden text-left flex flex-col h-[85vh] md:h-[450px] z-[60] md:z-auto animate-in fade-in slide-in-from-bottom duration-200">
@@ -1406,7 +1662,8 @@ export default function CustomerStore({
           </div>
         )}
       </div>
-    </div>
+    )}
+  </div>
   );
 }
 

@@ -40,7 +40,7 @@ export default function CustomerAuth({ initialMode = 'login' }: CustomerAuthProp
         if (error) throw error;
         
         // Always go to customer dashboard
-        navigate('/customer/dashboard', { replace: true });
+        navigate('/dashboard', { replace: true });
         
       } else if (mode === 'register') {
         const { data, error } = await supabase.auth.signUp({
@@ -54,20 +54,20 @@ export default function CustomerAuth({ initialMode = 'login' }: CustomerAuthProp
               hair_type: hairType,
               skin_type: skinType,
             },
-            emailRedirectTo: `${window.location.origin}/customer/dashboard`,
+            emailRedirectTo: `${window.location.origin}/dashboard`,
           }
         });
         if (error) throw error;
         
         if (data.session) {
-           navigate('/customer/dashboard', { replace: true });
+           navigate('/dashboard', { replace: true });
         } else {
            setSuccessMsg('Account created! Please check your email for the confirmation link to log in.');
            setMode('login');
         }
       } else if (mode === 'forgot-password') {
         const { error } = await supabase.auth.resetPasswordForEmail(email, {
-          redirectTo: `${window.location.origin}/customer/dashboard`,
+          redirectTo: `${window.location.origin}/dashboard`,
         });
         if (error) throw error;
         setSuccessMsg('Password reset instructions have been sent to your email.');
@@ -193,9 +193,14 @@ export default function CustomerAuth({ initialMode = 'login' }: CustomerAuthProp
                   onChange={(e) => setAuthConsent(e.target.checked)}
                 />
               <span className="text-gray-600 dark:text-gray-400">
-                I explicitly agree to the ALOEFLORA PRODUCTS 
-                <span className="font-bold text-emerald-800 dark:text-emerald-400"> Privacy Policy</span> and 
-                <span className="font-bold text-emerald-800 dark:text-emerald-400"> Terms of Service</span>.
+                I explicitly agree to the ALOEFLORA PRODUCTS{" "}
+                <Link to="/policies/privacy" target="_blank" className="font-bold text-emerald-800 dark:text-emerald-400 hover:underline">
+                  Privacy Policy
+                </Link>{" "}
+                and{" "}
+                <Link to="/policies/terms" target="_blank" className="font-bold text-emerald-800 dark:text-emerald-400 hover:underline">
+                  Terms of Service
+                </Link>.
               </span>
             </label>
             </>

@@ -3,6 +3,8 @@ import { useNavigate, Link } from "react-router-dom";
 import { ArrowLeft, RefreshCw, X, ShieldCheck } from "lucide-react";
 import { CartItem, Order, Promo } from "../types";
 import { supabase } from "../lib/supabase";
+import { useAuth } from "../contexts/AuthContext";
+import { useShop } from "../contexts/ShopContext";
 import { toast } from "react-hot-toast";
 
 interface CheckoutPageProps {
@@ -12,8 +14,11 @@ interface CheckoutPageProps {
 
 export default function CheckoutPage({ onAddOrder, promos }: CheckoutPageProps) {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const shop = useShop();
   
   const [cart, setCart] = useState<CartItem[]>(() => {
+    if (shop?.cart && shop.cart.length > 0) return shop.cart;
     const saved = localStorage.getItem("aloeflora_cart");
     return saved ? JSON.parse(saved) : [];
   });
@@ -36,10 +41,20 @@ export default function CheckoutPage({ onAddOrder, promos }: CheckoutPageProps) 
   const [generatedOrderId, setGeneratedOrderId] = useState<string>("");
   const [activePromo, setActivePromo] = useState<Promo | null>(null);
 
+  // Auto-fill customer profile details for logged in users
+  useEffect(() => {
+    if (user) {
+      if (user.user_metadata?.full_name) setCheckoutName(user.user_metadata.full_name);
+      if (user.user_metadata?.phone) setCheckoutPhone(user.user_metadata.phone);
+      if (user.email) setCheckoutEmail(user.email);
+      if (user.user_metadata?.address) setCheckoutEstate(user.user_metadata.address);
+    }
+  }, [user]);
+
   useEffect(() => {
     if (cart.length === 0) {
       toast.error("Your cart is empty.");
-      navigate("/store");
+      navigate("/dashboard");
     }
   }, [cart, navigate]);
 
@@ -93,8 +108,8 @@ export default function CheckoutPage({ onAddOrder, promos }: CheckoutPageProps) 
         costPrice: item.product.costPrice,
         selectedVariant: item.selectedVariant
       })),
-      subtotal: total, // simplified, assuming delivery is 0 for now
-      deliveryFee: 0,
+      subtotal: subtotal - promoDiscount,
+      deliveryFee: deliveryFee,
       total: total,
       paymentMethod: "mpesa_stk",
       paymentStatus: "paid",
@@ -110,11 +125,40 @@ export default function CheckoutPage({ onAddOrder, promos }: CheckoutPageProps) 
       deliveryNotes: checkoutNotes
     };
 
+    // Save order to Supabase
+    try {
+      await supabase.from('orders').insert({
+        id: newOrder.id,
+        customer_name: newOrder.customerName,
+        phone: newOrder.phone,
+        email: newOrder.email,
+        county: newOrder.county,
+        sub_county: newOrder.subCounty,
+        estate: newOrder.estate,
+        building: newOrder.building,
+        house_number: newOrder.houseNumber,
+        delivery_notes: newOrder.deliveryNotes,
+        items: newOrder.items,
+        subtotal: newOrder.subtotal,
+        delivery_fee: newOrder.deliveryFee,
+        total_amount: newOrder.total,
+        payment_method: newOrder.paymentMethod,
+        status: newOrder.paymentStatus,
+        delivery_status: newOrder.deliveryStatus
+      });
+    } catch (err) {
+      console.error("Supabase order insert error:", err);
+    }
+
     onAddOrder(newOrder);
     
     // Clear cart
-    setCart([]);
-    localStorage.removeItem("aloeflora_cart");
+    if (shop?.clearCart) {
+      shop.clearCart();
+    } else {
+      setCart([]);
+      localStorage.removeItem("aloeflora_cart");
+    }
 
     setTimeout(() => {
       setIsSTKSimulating(false);
@@ -231,7 +275,14 @@ export default function CheckoutPage({ onAddOrder, promos }: CheckoutPageProps) 
               <label className="flex items-start gap-3 cursor-pointer p-4 bg-gray-50 dark:bg-gray-800/30 border border-gray-200 dark:border-gray-700 rounded-xl mb-6">
                 <input type="checkbox" required className="mt-1 w-5 h-5 accent-emerald-600" checked={checkoutConsent} onChange={(e) => setCheckoutConsent(e.target.checked)} />
                 <span className="text-sm text-gray-600 dark:text-gray-400">
-                  I confirm that my billing details are correct, and I explicitly agree to the ALOEFLORA PRODUCTS Privacy Policy and Terms of Service.
+                  I confirm that my billing details are correct, and I explicitly agree to the ALOEFLORA PRODUCTS{" "}
+                  <Link to="/policies/privacy" target="_blank" className="font-semibold text-emerald-700 dark:text-emerald-400 hover:underline">
+                    Privacy Policy
+                  </Link>{" "}
+                  and{" "}
+                  <Link to="/policies/terms" target="_blank" className="font-semibold text-emerald-700 dark:text-emerald-400 hover:underline">
+                    Terms of Service
+                  </Link>.
                 </span>
               </label>
 
