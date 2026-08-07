@@ -1668,7 +1668,7 @@ export default function CustomerStore({
 
       {/* 11. DOCK FLOATING WIDGETS: Chat & Cart */}
       {!isCartOpen && !isWishlistOpen && (
-        <div className="fixed bottom-4 md:bottom-6 right-4 sm:right-6 z-40 flex flex-col gap-3 transition-all duration-300">
+        <div className="fixed bottom-[calc(4.5rem+env(safe-area-inset-bottom,0px))] md:bottom-6 right-4 sm:right-6 z-40 flex flex-col gap-3 transition-all duration-300">
           {/* Floating Cart Button */}
           {cart.length > 0 && !isAiAssistantOpen && (
             <button 
@@ -1687,7 +1687,7 @@ export default function CustomerStore({
           {!isAiAssistantOpen && (
             <button 
               onClick={() => setIsAiAssistantOpen(true)}
-              className="bg-emerald-800 hover:bg-emerald-700 text-white rounded-full p-3.5 sm:p-4 shadow-xl hover:scale-105 active:scale-95 transition cursor-pointer relative border border-emerald-700/80 flex items-center justify-center group"
+              className="bg-emerald-800 hover:bg-emerald-700 text-white rounded-full p-3.5 sm:p-4 shadow-xl hover:scale-105 active:scale-95 transition cursor-pointer relative border border-emerald-700/80 flex items-center justify-center group shadow-emerald-900/30"
               title="Ask Aloeflora AI Assistant"
             >
               <MessageSquare className="w-5 h-5 sm:w-6 sm:h-6" />
@@ -1702,13 +1702,13 @@ export default function CustomerStore({
         <>
           {/* Mobile Backdrop */}
           <div 
-            className="md:hidden fixed inset-0 bg-black/60 backdrop-blur-xs z-[90] transition-opacity"
+            className="md:hidden fixed inset-0 bg-black/70 backdrop-blur-xs z-[9990] transition-opacity"
             onClick={() => setIsAiAssistantOpen(false)}
           />
 
           <div 
             id="ai-specialist-terminal" 
-            className="fixed bottom-0 md:bottom-6 right-0 md:right-6 left-0 md:left-auto bg-white dark:bg-gray-900 w-full md:w-96 rounded-t-3xl md:rounded-3xl shadow-2xl border border-gray-200 dark:border-gray-800 overflow-hidden text-left flex flex-col h-[85vh] max-h-[600px] md:h-[500px] z-[100] animate-in fade-in slide-in-from-bottom duration-200 overscroll-contain"
+            className="fixed bottom-0 md:bottom-6 right-0 md:right-6 left-0 md:left-auto bg-white dark:bg-gray-900 w-full md:w-96 rounded-t-3xl md:rounded-3xl shadow-2xl border border-gray-200 dark:border-gray-800 overflow-hidden text-left flex flex-col h-[82vh] max-h-[620px] md:h-[500px] z-[9999] animate-in fade-in slide-in-from-bottom duration-200 overscroll-contain"
           >
             {/* Header branding */}
             <div className="bg-emerald-950 text-white p-4 flex items-center justify-between shrink-0">
@@ -1737,9 +1737,9 @@ export default function CustomerStore({
                   className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}
                 >
                   <div 
-                    className={`max-w-[85%] text-xs p-3 rounded-2xl leading-relaxed ${
+                    className={`max-w-[85%] text-xs p-3.5 rounded-2xl leading-relaxed ${
                       message.role === "user" 
-                        ? "bg-emerald-800 text-white rounded-tr-none shadow-xs" 
+                        ? "bg-emerald-800 text-white rounded-tr-none shadow-xs font-medium" 
                         : "bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 rounded-tl-none border border-gray-100 dark:border-gray-700 shadow-xs"
                     }`}
                   >
@@ -1757,7 +1757,7 @@ export default function CustomerStore({
             </div>
 
             {/* Form Input fields (Clears bottom bar and safe area) */}
-            <form onSubmit={handleAiConsultation} className="p-3 sm:p-3.5 border-t border-gray-100 dark:border-gray-800 flex gap-2 bg-white dark:bg-gray-900 shrink-0 pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))]">
+            <form onSubmit={handleAiConsultation} className="p-3.5 sm:p-4 border-t border-gray-100 dark:border-gray-800 flex gap-2 bg-white dark:bg-gray-900 shrink-0 pb-[calc(1.25rem+env(safe-area-inset-bottom,0px))] shadow-inner z-[10000]">
               <input 
                 type="text"
                 value={customerQuery}
