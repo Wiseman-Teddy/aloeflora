@@ -257,4 +257,8 @@ BEGIN
     BEGIN
         ALTER TABLE profiles ADD COLUMN loyalty_points INTEGER DEFAULT 0;
     EXCEPTION WHEN duplicate_column THEN END;
+
+    BEGIN
+        ALTER TABLE products ADD COLUMN unit_size VARCHAR(100);
+    EXCEPTION WHEN duplicate_column THEN END;
 END $$;

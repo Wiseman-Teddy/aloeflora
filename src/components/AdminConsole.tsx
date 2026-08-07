@@ -408,10 +408,20 @@ export default function AdminConsole({
 
       let error;
       if (isUpdating) {
-        const { error: updErr } = await supabase.from("products").update(dbRow).eq('id', targetId);
+        let { error: updErr } = await supabase.from("products").update(dbRow).eq('id', targetId);
+        if (updErr && updErr.message?.toLowerCase().includes("unit_size")) {
+          delete (dbRow as any).unit_size;
+          const { error: retryErr } = await supabase.from("products").update(dbRow).eq('id', targetId);
+          updErr = retryErr;
+        }
         error = updErr;
       } else {
-        const { error: insErr } = await supabase.from("products").insert(dbRow);
+        let { error: insErr } = await supabase.from("products").insert(dbRow);
+        if (insErr && insErr.message?.toLowerCase().includes("unit_size")) {
+          delete (dbRow as any).unit_size;
+          const { error: retryErr } = await supabase.from("products").insert(dbRow);
+          insErr = retryErr;
+        }
         error = insErr;
       }
       
