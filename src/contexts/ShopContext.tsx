@@ -10,9 +10,11 @@ interface ShopContextType {
   searchQuery: string;
   isCartOpen: boolean;
   isWishlistOpen: boolean;
+  isAiAssistantOpen: boolean;
   setSearchQuery: (q: string) => void;
   setIsCartOpen: (v: boolean) => void;
   setIsWishlistOpen: (v: boolean) => void;
+  setIsAiAssistantOpen: (v: boolean) => void;
   addToCart: (product: Product, quantity: number, variant?: string | ProductVariant, variantObj?: ProductVariant) => void;
   removeFromCart: (productId: string, variant?: string) => void;
   updateCartItemQuantity: (productId: string, variant: string | undefined, quantity: number) => void;
@@ -38,6 +40,7 @@ export function ShopProvider({ children }: { children: React.ReactNode }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isWishlistOpen, setIsWishlistOpen] = useState(false);
+  const [isAiAssistantOpen, setIsAiAssistantOpen] = useState(false);
   
   const [isProfileLoaded, setIsProfileLoaded] = useState(false);
 
@@ -125,8 +128,8 @@ export function ShopProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <ShopContext.Provider value={{
-      cart, wishlist, searchQuery, isCartOpen, isWishlistOpen,
-      setSearchQuery, setIsCartOpen, setIsWishlistOpen,
+      cart, wishlist, searchQuery, isCartOpen, isWishlistOpen, isAiAssistantOpen,
+      setSearchQuery, setIsCartOpen, setIsWishlistOpen, setIsAiAssistantOpen,
       addToCart, removeFromCart, updateCartItemQuantity, toggleWishlist, clearCart
     }}>
       {children}

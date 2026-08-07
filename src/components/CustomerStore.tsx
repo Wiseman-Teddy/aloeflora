@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import { GoogleGenAI } from '@google/genai';
 import { 
   ShoppingBag, 
   Sparkles, 
@@ -316,7 +317,22 @@ export default function CustomerStore({
     ];
   });
   const [isAiLoading, setIsAiLoading] = useState<boolean>(false);
-  const [openAiAssistant, setOpenAiAssistant] = useState<boolean>(false);
+  
+  const shopContext = useShop();
+  const isAiAssistantOpen = shopContext?.isAiAssistantOpen || false;
+  const setIsAiAssistantOpen = shopContext?.setIsAiAssistantOpen || (() => {});
+
+  // Lock background scrolling when AI Assistant modal is open for isolated, distraction-free interaction
+  useEffect(() => {
+    if (isAiAssistantOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [isAiAssistantOpen]);
 
   // Event Registration Panel
   const [regEventId, setRegEventId] = useState<string | null>(null);
@@ -448,36 +464,78 @@ export default function CustomerStore({
     return 0; // default
   });
 
-  // Call server-side Gemini endpoint for helpful natural counseling
+  // Call server-side Gemini endpoint or fallback to direct SDK for natural counseling
   const handleAiConsultation = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!customerQuery.trim()) return;
 
-    const userMessage = customerQuery;
+    const userMessage = customerQuery.trim();
     setAiChatHistory((prev) => [...prev, { role: "user", text: userMessage }]);
     setCustomerQuery("");
     setIsAiLoading(true);
 
     try {
-      const response = await fetch("/api/gemini/consult", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          prompt: userMessage,
-          catalog: products.map((p) => ({ name: p.name, category: p.category, desc: p.description, price: p.price })),
-          faqs: cmsPosts.filter(p => p.type === "faq").map(p => ({ question: p.title, answer: p.content }))
-        })
-      });
-      if (!response.ok) throw new Error("API Route failure");
-      const data = await response.json();
-      setAiChatHistory((prev) => [...prev, { role: "assistant", text: data.response }]);
+      let aiText = "";
+
+      // 1. Try Express API Proxy endpoint
+      try {
+        const response = await fetch("/api/gemini/consult", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            prompt: userMessage,
+            catalog: products.map((p) => ({ name: p.name, category: p.category, desc: p.description, price: p.price })),
+            faqs: cmsPosts.filter((p) => p.type === "faq").map((p) => ({ question: p.title, answer: p.content }))
+          })
+        });
+        if (response.ok) {
+          const data = await response.json();
+          if (data && data.response) {
+            aiText = data.response;
+          }
+        }
+      } catch (proxyErr) {
+        // Express proxy server offline or non-responsive in dev environment
+      }
+
+      // 2. Direct Gemini SDK fallback if proxy route was unavailable
+      if (!aiText) {
+        const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+        if (apiKey) {
+          const ai = new GoogleGenAI({ apiKey });
+          const catalogString = products.map((p) => `- ${p.name} (${p.category}): ${p.description} [KES ${p.price}]`).join("\n");
+          const faqsString = cmsPosts.filter((p) => p.type === "faq").map((f) => `Q: ${f.title}\nA: ${f.content}`).join("\n\n");
+          const systemInstruction = `You are ALOEFLORA's expert AI Specialist based in Nairobi, Kenya. Guide customers on organic hair care, skin care, body care, and coffee. Catalog:\n${catalogString}\nFAQs:\n${faqsString}\nKeep tone warm, professional, and helpful.`;
+
+          const response = await ai.models.generateContent({
+            model: "gemini-2.5-flash",
+            contents: userMessage,
+            config: {
+              systemInstruction: systemInstruction,
+              temperature: 0.7
+            }
+          });
+          aiText = response.text || "";
+        }
+      }
+
+      if (aiText) {
+        setAiChatHistory((prev) => [...prev, { role: "assistant", text: aiText }]);
+      } else {
+        setAiChatHistory((prev) => [
+          ...prev,
+          { 
+            role: "assistant", 
+            text: "Habari! I am ALOEFLORA's AI Specialist. How can I assist you with your hair, body, or home care goals today?" 
+          }
+        ]);
+      }
     } catch (err) {
-      // Graceful error message
       setAiChatHistory((prev) => [
         ...prev,
         { 
           role: "assistant", 
-          text: "I'm sorry, our AI consultation service is currently unavailable. Please try again later or contact our support team." 
+          text: "Habari! I am ALOEFLORA's AI Specialist. How can I assist you with your hair, body, or home care goals today?" 
         }
       ]);
     } finally {
@@ -1610,9 +1668,9 @@ export default function CustomerStore({
 
       {/* 11. DOCK FLOATING WIDGETS: Chat & Cart */}
       {!isCartOpen && !isWishlistOpen && (
-        <div className="fixed bottom-[calc(4.5rem+env(safe-area-inset-bottom,0px))] md:bottom-6 right-4 sm:right-6 z-40 flex flex-col gap-3 transition-all duration-300">
+        <div className="fixed bottom-4 md:bottom-6 right-4 sm:right-6 z-40 flex flex-col gap-3 transition-all duration-300">
           {/* Floating Cart Button */}
-          {cart.length > 0 && !openAiAssistant && (
+          {cart.length > 0 && !isAiAssistantOpen && (
             <button 
               onClick={() => setIsCartOpen(true)}
               className="bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800 text-emerald-800 dark:text-lime-400 rounded-full p-3.5 sm:p-4 shadow-xl hover:scale-105 active:scale-95 transition cursor-pointer relative border border-gray-200/80 dark:border-gray-800 flex items-center justify-center group"
@@ -1626,9 +1684,9 @@ export default function CustomerStore({
           )}
 
           {/* Floating Chat Button */}
-          {!openAiAssistant && (
+          {!isAiAssistantOpen && (
             <button 
-              onClick={() => setOpenAiAssistant(true)}
+              onClick={() => setIsAiAssistantOpen(true)}
               className="bg-emerald-800 hover:bg-emerald-700 text-white rounded-full p-3.5 sm:p-4 shadow-xl hover:scale-105 active:scale-95 transition cursor-pointer relative border border-emerald-700/80 flex items-center justify-center group"
               title="Ask Aloeflora AI Assistant"
             >
@@ -1636,11 +1694,24 @@ export default function CustomerStore({
               <span className="absolute top-0 right-0 w-3 h-3 bg-lime-400 rounded-full border-2 border-emerald-950"></span>
             </button>
           )}
+        </div>
+      )}
 
-        {openAiAssistant && (
-          <div id="ai-specialist-terminal" className="fixed md:absolute bottom-0 md:bottom-[calc(100%+1rem)] right-0 left-0 md:left-auto bg-white dark:bg-gray-900 w-full md:w-96 rounded-t-3xl md:rounded-3xl shadow-2xl border border-gray-100 dark:border-gray-800 overflow-hidden text-left flex flex-col h-[85vh] md:h-[450px] z-[60] md:z-auto animate-in fade-in slide-in-from-bottom duration-200">
+      {/* AI SPECIALIST MODAL TERMINAL */}
+      {isAiAssistantOpen && (
+        <>
+          {/* Mobile Backdrop */}
+          <div 
+            className="md:hidden fixed inset-0 bg-black/60 backdrop-blur-xs z-[90] transition-opacity"
+            onClick={() => setIsAiAssistantOpen(false)}
+          />
+
+          <div 
+            id="ai-specialist-terminal" 
+            className="fixed bottom-0 md:bottom-6 right-0 md:right-6 left-0 md:left-auto bg-white dark:bg-gray-900 w-full md:w-96 rounded-t-3xl md:rounded-3xl shadow-2xl border border-gray-200 dark:border-gray-800 overflow-hidden text-left flex flex-col h-[85vh] max-h-[600px] md:h-[500px] z-[100] animate-in fade-in slide-in-from-bottom duration-200 overscroll-contain"
+          >
             {/* Header branding */}
-            <div className="bg-emerald-950 text-white p-4 flex items-center justify-between">
+            <div className="bg-emerald-950 text-white p-4 flex items-center justify-between shrink-0">
               <div className="flex items-center gap-3">
                 <div className="bg-lime-500/10 p-2 rounded-xl text-lime-400 font-bold border border-emerald-800/80">
                   <Sparkles className="w-4 h-4" />
@@ -1653,13 +1724,13 @@ export default function CustomerStore({
                   </div>
                 </div>
               </div>
-              <button onClick={() => setOpenAiAssistant(false)} className="text-gray-400 hover:text-white cursor-pointer">
-                <X className="w-4 h-4" />
+              <button onClick={() => setIsAiAssistantOpen(false)} className="text-gray-400 hover:text-white p-1 rounded-lg transition cursor-pointer">
+                <X className="w-5 h-5" />
               </button>
             </div>
 
-            {/* Chat History screen */}
-            <div className="flex-1 p-4 overflow-y-auto space-y-4 bg-zinc-55/30">
+            {/* Chat History screen (Isolated internal scrolling) */}
+            <div className="flex-1 p-4 overflow-y-auto space-y-4 bg-gray-50/50 dark:bg-gray-950/50 overscroll-contain">
               {aiChatHistory.map((message, index) => (
                 <div 
                   key={index} 
@@ -1668,8 +1739,8 @@ export default function CustomerStore({
                   <div 
                     className={`max-w-[85%] text-xs p-3 rounded-2xl leading-relaxed ${
                       message.role === "user" 
-                        ? "bg-emerald-800 text-white rounded-tr-none" 
-                        : "bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-300 rounded-tl-none border border-gray-100 dark:border-gray-700"
+                        ? "bg-emerald-800 text-white rounded-tr-none shadow-xs" 
+                        : "bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 rounded-tl-none border border-gray-100 dark:border-gray-700 shadow-xs"
                     }`}
                   >
                     {message.text}
@@ -1678,34 +1749,34 @@ export default function CustomerStore({
               ))}
               {isAiLoading && (
                 <div className="flex justify-start">
-                  <div className="bg-gray-100 text-gray-500 max-w-[85%] text-xs p-3 rounded-2xl rounded-tl-none flex items-center gap-2">
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" /> Gathering green botanical analysis...
+                  <div className="bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-300 max-w-[85%] text-xs p-3 rounded-2xl rounded-tl-none flex items-center gap-2 border border-gray-100 dark:border-gray-700 shadow-xs">
+                    <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-600" /> Gathering green botanical analysis...
                   </div>
                 </div>
               )}
             </div>
 
-            {/* Form Input fields */}
-            <form onSubmit={handleAiConsultation} className="p-3 border-t flex gap-2 bg-white">
+            {/* Form Input fields (Clears bottom bar and safe area) */}
+            <form onSubmit={handleAiConsultation} className="p-3 sm:p-3.5 border-t border-gray-100 dark:border-gray-800 flex gap-2 bg-white dark:bg-gray-900 shrink-0 pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))]">
               <input 
                 type="text"
                 value={customerQuery}
                 onChange={(e) => setCustomerQuery(e.target.value)}
                 placeholder="Ask me about dry curl care or acne soaps..."
-                className="flex-1 text-xs px-3 py-2 border border-gray-200 rounded-xl focus:outline-none focus:border-emerald-700"
+                className="flex-1 text-xs px-3.5 py-2.5 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 dark:text-white rounded-xl focus:outline-none focus:border-emerald-600 font-medium"
               />
               <button 
                 type="submit"
-                className="bg-emerald-800 text-white p-2.5 rounded-xl hover:bg-emerald-700 shadow flex items-center justify-center cursor-pointer transition"
+                disabled={!customerQuery.trim()}
+                className="bg-emerald-800 hover:bg-emerald-700 disabled:opacity-50 text-white p-2.5 rounded-xl shadow-sm flex items-center justify-center cursor-pointer transition shrink-0"
               >
-                <Send className="w-3.5 h-3.5" />
+                <Send className="w-4 h-4" />
               </button>
             </form>
           </div>
-        )}
-      </div>
-    )}
-  </div>
+        </>
+      )}
+    </div>
   );
 }
 

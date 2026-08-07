@@ -646,14 +646,14 @@ export default function App() {
 // DYNAMIC MOBILE BOTTOM NAVIGATION BAR COMPONENT
 function MobileBottomNav() {
   const { user, role } = useAuth();
-  const { cart, isCartOpen, isWishlistOpen, setIsCartOpen } = useShop();
+  const { cart, isCartOpen, isWishlistOpen, isAiAssistantOpen, setIsCartOpen } = useShop();
   const location = useLocation();
 
   const isDashboardMode = !!user || location.pathname.includes('/dashboard') || location.pathname.includes('/admin');
   const isCheckoutOrAuthPage = ['/checkout', '/login', '/register', '/forgot-password', '/admin'].some(p => location.pathname.startsWith(p));
 
-  // Hide mobile bottom nav on dashboard, checkout, auth pages, or when cart/wishlist drawers are open
-  if (isDashboardMode || isCheckoutOrAuthPage || isCartOpen || isWishlistOpen) {
+  // Hide mobile bottom nav on dashboard, checkout, auth pages, or when cart/wishlist/AI assistant drawers are open
+  if (isDashboardMode || isCheckoutOrAuthPage || isCartOpen || isWishlistOpen || isAiAssistantOpen) {
     return null;
   }
 
