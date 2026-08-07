@@ -574,11 +574,11 @@ export default function GlobalNavbar({ darkMode, setDarkMode, products = [] }: G
               )}
             </button>
 
-            {/* Dark Mode Toggle */}
+            {/* Dark Mode Toggle (Desktop only; mobile uses the mobile navigation menu drawer toggle) */}
             <button
               onClick={() => setDarkMode(!darkMode)}
               title={darkMode ? "Light Mode" : "Dark Mode"}
-              className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-900 text-gray-700 dark:text-gray-300 transition cursor-pointer"
+              className="hidden md:flex p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-900 text-gray-700 dark:text-gray-300 transition cursor-pointer"
             >
               {darkMode ? <Sun className="w-5 h-5 text-emerald-400" /> : <Moon className="w-5 h-5 text-gray-700" />}
             </button>

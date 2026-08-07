@@ -388,7 +388,7 @@ export default function App() {
   };
 
   return (
-    <div className={`min-h-screen transition duration-300 font-sans ${
+    <div className={`min-h-screen w-full max-w-full overflow-x-hidden transition duration-300 font-sans ${
       darkMode ? "bg-gray-950 text-white" : "bg-neutral-50/50 text-gray-900"
     }`}>
       <SEO 

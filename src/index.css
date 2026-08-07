@@ -92,8 +92,10 @@
 
 /* Custom background animations and overrides */
 @layer base {
-  html {
+  html, body {
     scroll-behavior: smooth;
+    overflow-x: hidden;
+    max-width: 100vw;
   }
 }
 
