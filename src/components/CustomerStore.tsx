@@ -899,7 +899,7 @@ export default function CustomerStore({
                     }}
                     className="inline-flex items-center gap-2 bg-white hover:bg-gray-50 text-gray-900 font-extrabold px-7 py-3.5 rounded-full transition-all duration-200 text-sm shadow-sm hover:shadow-md cursor-pointer border border-gray-200/80"
                   >
-                    <span>Explore Collections</span>
+                    <span>Explore Our Products</span>
                   </button>
                 </div>
 
