@@ -163,10 +163,10 @@ export default function GlobalNavbar({ darkMode, setDarkMode, products = [] }: G
             />
             <div className="truncate">
               <p className="font-bold text-[11px] leading-tight text-white truncate">
-                Shop on the Aloeflora App
+                Shop on the Aloeflora website
               </p>
               <p className="text-[9.5px] text-emerald-300/80 truncate">
-                Free on Web & Play Store
+                Free on web
               </p>
             </div>
           </div>
