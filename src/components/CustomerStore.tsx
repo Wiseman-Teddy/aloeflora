@@ -44,14 +44,14 @@ import { useShop } from "../contexts/ShopContext";
 import { toast } from "react-hot-toast";
 
 const BANNER_HERO_FLATER_IMAGES = [
-  "/banner hero images flater/Hero Banner 1..jpeg",
-  "/banner hero images flater/Hero Banner 2..jpeg",
-  "/banner hero images flater/Hero Banner 3..jpeg"
+  "/banner hero images flater/hero_banner_1.png",
+  "/banner hero images flater/hero_banner_2.png",
+  "/banner hero images flater/hero_banner_3.png"
 ];
 
 const HERO_SLIDES_CONFIG = [
   {
-    imageUrl: "/banner hero images flater/Hero Banner 1..jpeg",
+    imageUrl: "/banner hero images flater/hero_banner_1.png",
     badge: "Premium Natural Products Made in Kenya",
     badgeIcon: "sparkles",
     titleLine1: "Naturally Better",
@@ -71,7 +71,7 @@ const HERO_SLIDES_CONFIG = [
       reviewsCount: 125,
       description: "Perfect hair gel for your hair with natural aloe vera extracts for medium to firm hold.",
       price: 500,
-      imageUrl: "/banner hero images flater/Hero Banner 1..jpeg",
+      imageUrl: "/banner hero images flater/hero_banner_1.png",
       category: "hair"
     },
     features: [
@@ -85,7 +85,7 @@ const HERO_SLIDES_CONFIG = [
     darkGradient: "linear-gradient(90deg, rgba(15, 23, 42, 0.95) 0%, rgba(15, 23, 42, 0.80) 40%, rgba(15, 23, 42, 0.25) 70%, transparent 100%)"
   },
   {
-    imageUrl: "/banner hero images flater/Hero Banner 2..jpeg",
+    imageUrl: "/banner hero images flater/hero_banner_2.png",
     badge: "100% Organic & Botanical Skin Care",
     badgeIcon: "sparkles",
     titleLine1: "Nourish Your Body",
@@ -119,7 +119,7 @@ const HERO_SLIDES_CONFIG = [
     darkGradient: "linear-gradient(90deg, rgba(15, 23, 42, 0.95) 0%, rgba(15, 23, 42, 0.80) 40%, rgba(15, 23, 42, 0.25) 70%, transparent 100%)"
   },
   {
-    imageUrl: "/banner hero images flater/Hero Banner 3..jpeg",
+    imageUrl: "/banner hero images flater/hero_banner_3.png",
     badge: "Eco-Friendly & Safe Home Care",
     badgeIcon: "shield",
     titleLine1: "Sparkling Clean Home",
@@ -178,7 +178,10 @@ export default function CustomerStore({
   const { cart, wishlist, searchQuery, setSearchQuery, isCartOpen, isWishlistOpen, setIsCartOpen, addToCart, toggleWishlist, clearCart } = useShop();
 
   // Storefront navigation
-  const [selectedCategory, setSelectedCategory] = useState<string>("all");
+  const [selectedCategory, setSelectedCategory] = useState<string>(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get("category") || "all";
+  });
   const [sortBy, setSortBy] = useState<string>("default");
   
   // Auth & Guest Registration
@@ -190,6 +193,14 @@ export default function CustomerStore({
   const [isProfileLoaded, setIsProfileLoaded] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const location = useLocation();
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const catParam = params.get("category");
+    if (catParam) {
+      setSelectedCategory(catParam);
+    }
+  }, [location.search]);
 
   useEffect(() => {
     if (location.hash) {
@@ -229,34 +240,22 @@ export default function CustomerStore({
   }, [cmsPosts]);
 
   const activeHeroSlides = useMemo(() => {
-    if (publishedCmsHeroPosts.length === 0) {
-      return HERO_SLIDES_CONFIG;
-    }
-
-    return publishedCmsHeroPosts.flatMap((post, postIdx) => {
-      const urls = post.imageUrl ? post.imageUrl.split(',').map(u => u.trim()).filter(Boolean) : [];
-      const fallbackSlide = HERO_SLIDES_CONFIG[postIdx % HERO_SLIDES_CONFIG.length];
-      const bgImages = urls.length > 0 ? urls : [fallbackSlide.imageUrl];
-
-      const words = (post.title || fallbackSlide.titleLine1 + ' ' + fallbackSlide.titleLine2).trim().split(' ');
+    return HERO_SLIDES_CONFIG.map((slide, idx) => {
+      const cmsPost = publishedCmsHeroPosts[idx];
+      if (!cmsPost) return slide;
+      
+      const words = (cmsPost.title || slide.titleLine1 + ' ' + slide.titleLine2).trim().split(' ');
       const half = Math.ceil(words.length / 2);
       const titleLine1 = words.slice(0, half).join(' ');
       const titleLine2 = words.slice(half).join(' ');
 
-      return bgImages.map((imgUrl, imgIdx) => ({
-        imageUrl: imgUrl,
-        badge: post.title ? `Featured: ${post.title}` : fallbackSlide.badge,
-        badgeIcon: fallbackSlide.badgeIcon,
-        titleLine1: titleLine1 || fallbackSlide.titleLine1,
-        titleLine2: titleLine2 || fallbackSlide.titleLine2,
-        categoryFilter: fallbackSlide.categoryFilter,
-        subtitle: post.content || fallbackSlide.subtitle,
-        badgeTag: fallbackSlide.badgeTag,
-        featuredKeyword: fallbackSlide.featuredKeyword,
-        fallbackProduct: HERO_SLIDES_CONFIG[(postIdx + imgIdx) % HERO_SLIDES_CONFIG.length].fallbackProduct,
-        features: HERO_SLIDES_CONFIG[(postIdx + imgIdx) % HERO_SLIDES_CONFIG.length].features,
-        bgPosition: fallbackSlide.bgPosition
-      }));
+      return {
+        ...slide,
+        badge: cmsPost.title ? `Featured: ${cmsPost.title}` : slide.badge,
+        titleLine1: titleLine1 || slide.titleLine1,
+        titleLine2: titleLine2 || slide.titleLine2,
+        subtitle: cmsPost.content || slide.subtitle,
+      };
     });
   }, [publishedCmsHeroPosts]);
 

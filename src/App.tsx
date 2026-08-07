@@ -391,7 +391,7 @@ export default function App() {
       <CookieBanner />
       
       <ShopProvider>
-        {!isDashboardMode && <GlobalNavbar darkMode={darkMode} setDarkMode={setDarkMode} />}
+        {!isDashboardMode && <GlobalNavbar darkMode={darkMode} setDarkMode={setDarkMode} products={products} />}
         <CartSidebar promos={promos} />
         <WishlistSidebar products={products} />
       
