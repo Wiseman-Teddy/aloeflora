@@ -16,6 +16,7 @@ export interface Product {
   costPrice: number;
   category: "hair" | "body" | "home" | "coffee";
   subCategory: string;
+  unitSize?: string;
   imageUrl: string;
   stock: number;
   safetyStock: number;

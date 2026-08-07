@@ -1176,10 +1176,19 @@ export default function CustomerStore({
                         {p.description}
                       </p>
 
-                      {/* Package Size Variant Badges */}
+                      {/* Package Size Variant Badges or Standalone Unit Size */}
                       {(() => {
                         const normVars = normalizeVariants(p);
-                        if (normVars.length <= 1 && normVars[0]?.name === "Standard") return null;
+                        if (normVars.length <= 1 && normVars[0]?.name === "Standard") {
+                          if (!p.unitSize) return null;
+                          return (
+                            <div className="mt-2">
+                              <span className="text-[9.5px] font-extrabold text-[#348C21] dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200/60 dark:border-emerald-800/40 px-2 py-0.5 rounded-md">
+                                Size: {p.unitSize}
+                              </span>
+                            </div>
+                          );
+                        }
                         return (
                           <div className="flex flex-wrap gap-1 mt-2.5">
                             {normVars.slice(0, 3).map((v) => (

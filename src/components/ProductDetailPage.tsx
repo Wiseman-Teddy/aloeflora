@@ -107,7 +107,14 @@ export default function ProductDetailPage({ products }: ProductDetailPageProps) 
         {/* Product Info */}
         <div className="space-y-6">
           <div className="space-y-2">
-            <span className="text-xs font-bold text-[#348C21] dark:text-emerald-400 uppercase tracking-widest">{product.subCategory || product.category}</span>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold text-[#348C21] dark:text-emerald-400 uppercase tracking-widest">{product.subCategory || product.category}</span>
+              {product.unitSize && (
+                <span className="bg-emerald-100 dark:bg-emerald-950/80 text-[#348C21] dark:text-emerald-300 text-[10px] font-black px-2.5 py-0.5 rounded-md border border-emerald-300/50">
+                  {product.unitSize}
+                </span>
+              )}
+            </div>
             <h1 className="text-3xl font-bold text-gray-900 dark:text-white leading-tight">{product.name}</h1>
             <div className="flex items-center gap-2">
               <div className="flex text-amber-400"><Stars rating={product.rating} /></div>

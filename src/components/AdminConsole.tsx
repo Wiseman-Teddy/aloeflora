@@ -23,7 +23,8 @@ import { User, LogOut,
   Loader2,
   Lock,
   MessageSquare,
-  Database
+  Database,
+  Upload
 } from "lucide-react";
 import { Product, ProductVariant, Order, SupportTicket, MarketingCampaign, CMSPost, AuditAnomaly, StoreSettings, SystemMetrics, UserProfile, Promo } from "../types";
 import { supabase } from "../lib/supabase";
@@ -129,6 +130,7 @@ export default function AdminConsole({
   const [prodCostPrice, setProdCostPrice] = useState<number>(200);
   const [prodCategory, setProdCategory] = useState<"hair" | "body" | "home" | "coffee">("hair");
   const [prodSubCategory, setProdSubCategory] = useState<string>("Shampoos");
+  const [prodUnitSize, setProdUnitSize] = useState<string>("");
   const [prodImageUrl, setProdImageUrl] = useState<string>("");
   const [prodStock, setProdStock] = useState<number>(50);
   const [prodSafetyStock, setProdSafetyStock] = useState<number>(10);
@@ -138,6 +140,7 @@ export default function AdminConsole({
     { id: "v1", name: "400ml", price: 450, costPrice: 280, stock: 45, sku: "AF-400ML", imageUrl: "" },
     { id: "v2", name: "1 Litre", price: 1000, costPrice: 650, stock: 20, sku: "AF-1L", imageUrl: "" }
   ]);
+  const [uploadingVariantIdx, setUploadingVariantIdx] = useState<number | null>(null);
   const [prodFeatures, setProdFeatures] = useState<string>("");
   const [prodSpecs, setProdSpecs] = useState<string>("");
   const [prodMediaUrls, setProdMediaUrls] = useState<string[]>([]);
@@ -301,6 +304,29 @@ export default function AdminConsole({
   const grossProfit = totalPaidRevenue - totalCogs;
   const netProfit = grossProfit - operatingExpenses;
 
+  const handleVariantFileUpload = async (vIdx: number, file: File) => {
+    if (!file) return;
+    setUploadingVariantIdx(vIdx);
+    const toastId = toast.loading(`Uploading variant image (${file.name})...`);
+    try {
+      const publicUrl = await uploadToSupabase(file, 'images', 'variant');
+      if (publicUrl) {
+        setProdVariantsList(prev => {
+          const updated = [...prev];
+          updated[vIdx].imageUrl = publicUrl;
+          return updated;
+        });
+        toast.success("Variant image uploaded successfully!", { id: toastId });
+      } else {
+        toast.error("Failed to upload image. Please try again.", { id: toastId });
+      }
+    } catch (err: any) {
+      toast.error("Upload error: " + err.message, { id: toastId });
+    } finally {
+      setUploadingVariantIdx(null);
+    }
+  };
+
   const resetProductForm = () => {
     setEditingProductId(null);
     setProdName("");
@@ -309,6 +335,7 @@ export default function AdminConsole({
     setProdCostPrice(200);
     setProdCategory("hair");
     setProdSubCategory("Shampoos");
+    setProdUnitSize("");
     setProdImageUrl("");
     setProdStock(50);
     setProdSafetyStock(10);
@@ -357,6 +384,7 @@ export default function AdminConsole({
       costPrice: primaryCost,
       category: prodCategory,
       subCategory: prodSubCategory,
+      unitSize: prodUnitSize.trim() || undefined,
       imageUrl: prodImageUrl || uploadedMediaUrls[0] || "",
       stock: totalVariantStock,
       safetyStock: prodSafetyStock,
@@ -373,7 +401,7 @@ export default function AdminConsole({
     try {
       const dbRow = {
         id: newProduct.id, name: newProduct.name, description: newProduct.description, price: newProduct.price, cost_price: newProduct.costPrice,
-        category: newProduct.category, sub_category: newProduct.subCategory, image_url: newProduct.imageUrl, stock: newProduct.stock,
+        category: newProduct.category, sub_category: newProduct.subCategory, unit_size: newProduct.unitSize, image_url: newProduct.imageUrl, stock: newProduct.stock,
         safety_stock: newProduct.safetyStock, reorder_level: newProduct.reorderLevel, rating: newProduct.rating, reviews_count: newProduct.reviewsCount,
         variants: newProduct.variants, features: newProduct.features, media_urls: newProduct.mediaUrls, specifications: newProduct.specifications
       };
@@ -414,6 +442,7 @@ export default function AdminConsole({
     setProdCostPrice(p.costPrice || 200);
     setProdCategory(p.category as any);
     setProdSubCategory(p.subCategory);
+    setProdUnitSize(p.unitSize || "");
     setProdImageUrl(p.imageUrl);
     setProdStock(p.stock);
     setProdSafetyStock(p.safetyStock);
@@ -1331,13 +1360,13 @@ export default function AdminConsole({
                   </div>
                 </div>
 
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                   <div className="space-y-1">
                     <label className="font-bold">Cost Price (KES)</label>
                     <input type="number" value={prodCostPrice} onChange={(e) => setProdCostPrice(Number(e.target.value))} className="w-full p-2 border bg-white rounded-lg focus:outline-none" required />
                   </div>
                   <div className="space-y-1">
-                    <label className="font-bold">Selling/Retail Price (KES)</label>
+                    <label className="font-bold">Selling Price (KES)</label>
                     <input type="number" value={prodPrice} onChange={(e) => setProdPrice(Number(e.target.value))} className="w-full p-2 border bg-white rounded-lg focus:outline-none" required />
                   </div>
                   <div className="space-y-1">
@@ -1355,7 +1384,23 @@ export default function AdminConsole({
                   </div>
                 </div>
 
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  {/* Standalone Product Net Volume/Weight Size Field */}
+                  <div className="space-y-1 bg-emerald-50/70 p-2 rounded-xl border border-emerald-200/80">
+                    <label className="font-extrabold text-emerald-950 text-xs flex items-center justify-between">
+                      <span>📏 Standalone Size</span>
+                      <span className="text-[9px] text-emerald-800 font-bold">(ml, L, g)</span>
+                    </label>
+                    <input 
+                      type="text" 
+                      value={prodUnitSize} 
+                      onChange={(e) => setProdUnitSize(e.target.value)} 
+                      placeholder="e.g. 400ml, 1L, 500g" 
+                      className="w-full p-1.5 border bg-white rounded-lg focus:outline-none font-bold text-xs" 
+                    />
+                    <p className="text-[9px] text-gray-500 leading-tight">For products without variants</p>
+                  </div>
+
                   <div className="space-y-1">
                     <label className="font-bold">Initial Stock qty</label>
                     <input type="number" value={prodStock} onChange={(e) => setProdStock(Number(e.target.value))} className="w-full p-2 border bg-white rounded-lg focus:outline-none" required />
@@ -1472,20 +1517,49 @@ export default function AdminConsole({
                             />
                           </div>
 
-                          {/* Variant Image URL */}
+                          {/* Variant Image URL + Direct File Upload Button */}
                           <div className="sm:col-span-3 space-y-1">
-                            <label className="text-[10px] font-black text-gray-600 uppercase">Variant Image URL</label>
-                            <input
-                              type="text"
-                              value={variant.imageUrl || ""}
-                              onChange={(e) => {
-                                const updated = [...prodVariantsList];
-                                updated[vIdx].imageUrl = e.target.value;
-                                setProdVariantsList(updated);
-                              }}
-                              placeholder="Image URL"
-                              className="w-full p-1.5 border bg-white rounded text-[11px]"
-                            />
+                            <label className="text-[10px] font-black text-gray-600 uppercase flex items-center justify-between">
+                              <span>Variant Image</span>
+                              {variant.imageUrl && <span className="text-[#348C21] text-[9px] font-extrabold">✓ Attached</span>}
+                            </label>
+                            <div className="flex gap-1">
+                              <input
+                                type="text"
+                                value={variant.imageUrl || ""}
+                                onChange={(e) => {
+                                  const updated = [...prodVariantsList];
+                                  updated[vIdx].imageUrl = e.target.value;
+                                  setProdVariantsList(updated);
+                                }}
+                                placeholder="URL or upload file"
+                                className="w-full p-1.5 border bg-white rounded text-[11px]"
+                              />
+                              <label 
+                                className={`px-2 py-1.5 text-xs font-bold rounded cursor-pointer shrink-0 transition flex items-center justify-center gap-1 ${
+                                  uploadingVariantIdx === vIdx
+                                    ? "bg-amber-100 text-amber-900 border border-amber-300"
+                                    : "bg-[#348C21] hover:bg-[#2b751c] text-white shadow-2xs"
+                                }`}
+                                title="Upload image file from computer"
+                              >
+                                {uploadingVariantIdx === vIdx ? (
+                                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                ) : (
+                                  <Upload className="w-3.5 h-3.5" />
+                                )}
+                                <input
+                                  type="file"
+                                  accept="image/*"
+                                  className="hidden"
+                                  disabled={uploadingVariantIdx === vIdx}
+                                  onChange={(e) => {
+                                    const file = e.target.files?.[0];
+                                    if (file) handleVariantFileUpload(vIdx, file);
+                                  }}
+                                />
+                              </label>
+                            </div>
                           </div>
 
                           {/* Delete */}
