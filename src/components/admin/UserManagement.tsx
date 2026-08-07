@@ -86,10 +86,31 @@ export default function UserManagement({ users, onUpdateUsers }: UserManagementP
         onUpdateUsers(updatedUsers);
         toast.success("User updated successfully.");
       } else {
-        toast.error("In production, new users must sign up via the customer portal, or you must use the Supabase Admin API to invite them.");
-        setIsModalOpen(false);
-        setIsSaving(false);
-        return;
+        const newId = typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `usr_${Date.now()}`;
+        const newProfile: UserProfile = {
+          id: newId,
+          fullName: formFullName,
+          email: formEmail,
+          phone: formPhone,
+          role: formRole,
+          accountStatus: formStatus,
+          createdAt: new Date().toISOString(),
+          totalSpending: 0,
+          orderCount: 0
+        };
+
+        const { error } = await supabase.from('profiles').insert({
+          id: newProfile.id,
+          full_name: newProfile.fullName,
+          email: newProfile.email,
+          phone: newProfile.phone,
+          role: newProfile.role,
+          account_status: newProfile.accountStatus
+        });
+
+        if (error) throw error;
+        onUpdateUsers([newProfile, ...users]);
+        toast.success("User profile created successfully.");
       }
       setIsModalOpen(false);
     } catch (err: any) {

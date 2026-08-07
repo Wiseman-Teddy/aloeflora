@@ -132,12 +132,22 @@ export default function App() {
 
   // One-time production rollout cache wipe to resolve any stale image references
   useEffect(() => {
-    if (!localStorage.getItem("aloeflora_prod_v1")) {
+    if (typeof window !== "undefined" && window.location && !localStorage.getItem("aloeflora_prod_v1")) {
       const isDarkMode = localStorage.getItem("aloeflora_dark_mode");
       localStorage.clear();
       if (isDarkMode) localStorage.setItem("aloeflora_dark_mode", isDarkMode);
       localStorage.setItem("aloeflora_prod_v1", "true");
-      window.location.reload();
+      if (typeof process !== "undefined" && process.env && process.env.NODE_ENV === "test") {
+        // Skip reload in test environment
+      } else {
+        try {
+          if (typeof window.location.reload === 'function') {
+            window.location.reload();
+          }
+        } catch (e) {
+          // Ignored in test environment
+        }
+      }
     }
   }, []);
 
@@ -558,7 +568,7 @@ export default function App() {
                 <ul className="space-y-2.5 text-xs text-emerald-100/80 font-medium">
                   <li><Link to="/store#organic-formulations" className="hover:text-[#348C21] dark:hover:text-emerald-400 transition-colors">Shop Products</Link></li>
                   <li><Link to="/store#events-marketing-section" className="hover:text-[#348C21] dark:hover:text-emerald-400 transition-colors">Events & Workshops</Link></li>
-                  <li><button onClick={() => toast.success('Track Order portal coming soon!')} className="hover:text-[#348C21] dark:hover:text-emerald-400 transition-colors cursor-pointer">Track Order</button></li>
+                  <li><Link to="/dashboard" className="hover:text-[#348C21] dark:hover:text-emerald-400 transition-colors">Track Order</Link></li>
                   <li><Link to="/policies/returns" className="hover:text-[#348C21] dark:hover:text-emerald-400 transition-colors cursor-pointer">Return Policy</Link></li>
                 </ul>
               </div>
