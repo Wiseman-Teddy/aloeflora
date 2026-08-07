@@ -25,13 +25,14 @@ import { User, LogOut,
   MessageSquare,
   Database
 } from "lucide-react";
-import { Product, Order, SupportTicket, MarketingCampaign, CMSPost, AuditAnomaly, StoreSettings, SystemMetrics, UserProfile, Promo } from "../types";
+import { Product, ProductVariant, Order, SupportTicket, MarketingCampaign, CMSPost, AuditAnomaly, StoreSettings, SystemMetrics, UserProfile, Promo } from "../types";
 import { supabase } from "../lib/supabase";
 import { sanitizeInput } from "../utils/sanitize";
 import { uploadToSupabase } from "../utils/supabaseStorage";
 import MediaUploader from "./MediaUploader";
 import { useAuth } from "../contexts/AuthContext";
 import { exportToCSV, exportToPDF } from "../utils/exportUtils";
+import { normalizeVariants } from "../utils/variantUtils";
 import AdvancedReports from "./admin/AdvancedReports";
 import UserManagement from "./admin/UserManagement";
 import { toast } from "react-hot-toast";
@@ -133,6 +134,10 @@ export default function AdminConsole({
   const [prodSafetyStock, setProdSafetyStock] = useState<number>(10);
   const [prodReorderLevel, setProdReorderLevel] = useState<number>(15);
   const [prodVariants, setProdVariants] = useState<string>("");
+  const [prodVariantsList, setProdVariantsList] = useState<ProductVariant[]>([
+    { id: "v1", name: "400ml", price: 450, costPrice: 280, stock: 45, sku: "AF-400ML", imageUrl: "" },
+    { id: "v2", name: "1 Litre", price: 1000, costPrice: 650, stock: 20, sku: "AF-1L", imageUrl: "" }
+  ]);
   const [prodFeatures, setProdFeatures] = useState<string>("");
   const [prodSpecs, setProdSpecs] = useState<string>("");
   const [prodMediaUrls, setProdMediaUrls] = useState<string[]>([]);
@@ -284,7 +289,10 @@ export default function AdminConsole({
     .reduce((totalCost, order) => {
       const orderCosts = order.items.reduce((acc, item) => {
         const product = products.find(p => p.id === item.productId);
-        const itemCost = product ? product.costPrice : (item.price * 0.45); // fallback
+        const variantObj = product && product.variants 
+          ? normalizeVariants(product).find(v => v.name === item.selectedVariant)
+          : null;
+        const itemCost = item.costPrice ?? (variantObj?.costPrice ?? (product ? product.costPrice : (item.price * 0.45)));
         return acc + (itemCost * item.quantity);
       }, 0);
       return totalCost + orderCosts;
@@ -293,7 +301,29 @@ export default function AdminConsole({
   const grossProfit = totalPaidRevenue - totalCogs;
   const netProfit = grossProfit - operatingExpenses;
 
-  // Handles Product Add
+  const resetProductForm = () => {
+    setEditingProductId(null);
+    setProdName("");
+    setProdDesc("");
+    setProdPrice(500);
+    setProdCostPrice(200);
+    setProdCategory("hair");
+    setProdSubCategory("Shampoos");
+    setProdImageUrl("");
+    setProdStock(50);
+    setProdSafetyStock(10);
+    setProdReorderLevel(15);
+    setProdVariants("");
+    setProdVariantsList([
+      { id: "v1", name: "400ml", price: 450, costPrice: 280, stock: 45, sku: "AF-400ML", imageUrl: "" },
+      { id: "v2", name: "1 Litre", price: 1000, costPrice: 650, stock: 20, sku: "AF-1L", imageUrl: "" }
+    ]);
+    setProdFeatures("");
+    setProdSpecs("");
+    setProdMediaUrls([]);
+  };
+
+  // Handles Product Add / Update
   const handleAddProductSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!prodName || !prodDesc || (!prodImageUrl && prodMediaUrls.length === 0)) {
@@ -302,29 +332,39 @@ export default function AdminConsole({
     }
 
     setIsUploadingProduct(true);
-    // MediaUploader handles the file upload to Supabase directly
     const uploadedMediaUrls: string[] = prodMediaUrls;
     setIsUploadingProduct(false);
 
     const isUpdating = editingProductId !== null;
-    const targetId = isUpdating ? editingProductId : ("p" + Date.now()); // robust ID generation
+    const targetId = isUpdating ? editingProductId : ("p" + Date.now());
+
+    // Use structured variants matrix if provided, otherwise fallback
+    const finalVariants = prodVariantsList.length > 0 
+      ? prodVariantsList 
+      : (prodVariants ? prodVariants.split(",").map(v => v.trim()) : ["Standard"]);
+
+    const primaryPrice = prodVariantsList.length > 0 ? prodVariantsList[0].price : prodPrice;
+    const primaryCost = prodVariantsList.length > 0 ? (prodVariantsList[0].costPrice || prodCostPrice) : prodCostPrice;
+    const totalVariantStock = prodVariantsList.length > 0 
+      ? prodVariantsList.reduce((sum, v) => sum + (v.stock || 0), 0)
+      : prodStock;
 
     const newProduct: Product = {
       id: targetId,
       name: prodName,
       description: prodDesc,
-      price: prodPrice,
-      costPrice: prodCostPrice,
+      price: primaryPrice,
+      costPrice: primaryCost,
       category: prodCategory,
       subCategory: prodSubCategory,
       imageUrl: prodImageUrl || uploadedMediaUrls[0] || "",
-      stock: prodStock,
+      stock: totalVariantStock,
       safetyStock: prodSafetyStock,
       reorderLevel: prodReorderLevel,
       rating: 5.0,
       reviewsCount: 0,
       reviews: [],
-      variants: prodVariants ? prodVariants.split(",").map(v => v.trim()) : ["Standard"],
+      variants: finalVariants,
       features: prodFeatures ? prodFeatures.split(",").map(f => f.trim()) : ["Natural Ingredient"],
       mediaUrls: uploadedMediaUrls.length > 0 ? uploadedMediaUrls : (prodImageUrl ? [prodImageUrl] : []),
       specifications: prodSpecs ? prodSpecs.split(",").map(s => s.trim()) : []
@@ -351,10 +391,10 @@ export default function AdminConsole({
       
       if (isUpdating) {
         onUpdateInventory(products.map(p => p.id === targetId ? newProduct : p));
-        toast.success("Product updated successfully!");
+        toast.success("Product updated successfully with size variants!");
       } else {
         onUpdateInventory([...products, newProduct]);
-        toast.success("Product added successfully!");
+        toast.success("Product added successfully with size variants!");
       }
     } catch(err: any) { 
       console.error("Supabase operation error", err);
@@ -363,7 +403,6 @@ export default function AdminConsole({
     }
 
     setIsAddingProduct(false);
-    setEditingProductId(null);
     resetProductForm();
   };
 
@@ -379,7 +418,10 @@ export default function AdminConsole({
     setProdStock(p.stock);
     setProdSafetyStock(p.safetyStock);
     setProdReorderLevel(p.reorderLevel);
-    setProdVariants(p.variants ? p.variants.join(", ") : "");
+
+    const normalizedVars = normalizeVariants(p);
+    setProdVariantsList(normalizedVars);
+    setProdVariants(p.variants ? p.variants.map(v => typeof v === 'string' ? v : v.name).join(", ") : "");
     setProdFeatures(p.features ? p.features.join(", ") : "");
     setProdSpecs(p.specifications ? p.specifications.join(", ") : "");
     setProdMediaUrls(p.mediaUrls || []);
@@ -396,23 +438,6 @@ export default function AdminConsole({
     } catch (err: any) {
       toast.error("Error deleting product: " + err.message);
     }
-  };
-
-  const resetProductForm = () => {
-    setProdName("");
-    setProdDesc("");
-    setProdPrice(500);
-    setProdCostPrice(200);
-    setProdCategory("hair");
-    setProdSubCategory("Shampoos");
-    setProdImageUrl("");
-    setProdStock(50);
-    setProdSafetyStock(10);
-    setProdReorderLevel(15);
-    setProdVariants("");
-    setProdFeatures("");
-    setProdSpecs("");
-    setProdMediaUrls([]);
   };
 
   // Handles Inline Quantity Replenishment
@@ -1345,11 +1370,144 @@ export default function AdminConsole({
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  <div className="space-y-1">
-                    <label className="font-bold">Variants (split by comma)</label>
-                    <input type="text" value={prodVariants} onChange={(e) => setProdVariants(e.target.value)} placeholder="e.g. 250ml, 500ml" className="w-full p-2 border bg-white rounded-lg focus:outline-none" />
+                {/* Multi-Size Variant & Pricing Matrix Manager */}
+                <div className="p-4 bg-white border border-emerald-200 rounded-xl space-y-3 shadow-2xs">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div>
+                      <h4 className="font-black text-xs text-emerald-950 flex items-center gap-1.5 uppercase tracking-wide">
+                        <span>📦 Package Sizes & Pricing Matrix</span>
+                      </h4>
+                      <p className="text-[10px] text-gray-500">Configure size packages (e.g. 400ml @ KES 450, 1 Litre @ KES 1,000) with size-specific pricing, cost, stock, and images.</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setProdVariantsList(prev => [
+                          ...prev,
+                          {
+                            id: `v-${Date.now()}-${prev.length}`,
+                            name: prev.length === 0 ? "400ml" : prev.length === 1 ? "1 Litre" : `${prev.length + 1}L`,
+                            price: 500,
+                            costPrice: 250,
+                            stock: 30,
+                            sku: `AF-VAR-${prev.length + 1}`,
+                            imageUrl: ""
+                          }
+                        ]);
+                      }}
+                      className="bg-[#348C21] hover:bg-[#2b751c] text-white font-black text-[11px] px-3 py-1.5 rounded-lg flex items-center gap-1 cursor-pointer transition shadow-xs"
+                    >
+                      <Plus className="w-3.5 h-3.5" /> Add Size Variant
+                    </button>
                   </div>
+
+                  {prodVariantsList.length === 0 ? (
+                    <div className="text-center py-4 text-gray-400 text-xs italic bg-gray-50 rounded-lg border border-dashed border-gray-200">
+                      No multi-size variants configured. Click "Add Size Variant" above to add sizes (e.g. 400ml, 1 Litre).
+                    </div>
+                  ) : (
+                    <div className="space-y-2.5 max-h-64 overflow-y-auto pr-1">
+                      {prodVariantsList.map((variant, vIdx) => (
+                        <div key={variant.id || vIdx} className="p-3 bg-emerald-50/40 border border-emerald-100 rounded-xl grid grid-cols-1 sm:grid-cols-12 gap-2.5 items-center">
+                          {/* Size Name */}
+                          <div className="sm:col-span-2 space-y-1">
+                            <label className="text-[10px] font-black text-gray-600 uppercase">Size Name</label>
+                            <input
+                              type="text"
+                              value={variant.name}
+                              onChange={(e) => {
+                                const updated = [...prodVariantsList];
+                                updated[vIdx].name = e.target.value;
+                                setProdVariantsList(updated);
+                              }}
+                              placeholder="e.g. 400ml"
+                              className="w-full p-1.5 border bg-white rounded text-xs font-bold"
+                              required
+                            />
+                          </div>
+
+                          {/* Price */}
+                          <div className="sm:col-span-2 space-y-1">
+                            <label className="text-[10px] font-black text-gray-600 uppercase">Sale Price (KES)</label>
+                            <input
+                              type="number"
+                              value={variant.price}
+                              onChange={(e) => {
+                                const updated = [...prodVariantsList];
+                                updated[vIdx].price = Number(e.target.value);
+                                setProdVariantsList(updated);
+                              }}
+                              className="w-full p-1.5 border bg-white rounded text-xs font-black text-emerald-800"
+                              required
+                            />
+                          </div>
+
+                          {/* Cost Price */}
+                          <div className="sm:col-span-2 space-y-1">
+                            <label className="text-[10px] font-black text-gray-600 uppercase">Cost Price (KES)</label>
+                            <input
+                              type="number"
+                              value={variant.costPrice || 0}
+                              onChange={(e) => {
+                                const updated = [...prodVariantsList];
+                                updated[vIdx].costPrice = Number(e.target.value);
+                                setProdVariantsList(updated);
+                              }}
+                              className="w-full p-1.5 border bg-white rounded text-xs font-bold text-red-600"
+                            />
+                          </div>
+
+                          {/* Stock */}
+                          <div className="sm:col-span-2 space-y-1">
+                            <label className="text-[10px] font-black text-gray-600 uppercase">Stock Qty</label>
+                            <input
+                              type="number"
+                              value={variant.stock || 0}
+                              onChange={(e) => {
+                                const updated = [...prodVariantsList];
+                                updated[vIdx].stock = Number(e.target.value);
+                                setProdVariantsList(updated);
+                              }}
+                              className="w-full p-1.5 border bg-white rounded text-xs font-bold"
+                            />
+                          </div>
+
+                          {/* Variant Image URL */}
+                          <div className="sm:col-span-3 space-y-1">
+                            <label className="text-[10px] font-black text-gray-600 uppercase">Variant Image URL</label>
+                            <input
+                              type="text"
+                              value={variant.imageUrl || ""}
+                              onChange={(e) => {
+                                const updated = [...prodVariantsList];
+                                updated[vIdx].imageUrl = e.target.value;
+                                setProdVariantsList(updated);
+                              }}
+                              placeholder="Image URL"
+                              className="w-full p-1.5 border bg-white rounded text-[11px]"
+                            />
+                          </div>
+
+                          {/* Delete */}
+                          <div className="sm:col-span-1 flex justify-end pt-3 sm:pt-0">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setProdVariantsList(prev => prev.filter((_, idx) => idx !== vIdx));
+                              }}
+                              className="text-red-500 hover:text-red-700 p-1.5 bg-red-50 hover:bg-red-100 rounded-md transition cursor-pointer"
+                              title="Remove size variant"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <div className="space-y-1">
                     <label className="font-bold">Features (split by comma)</label>
                     <input type="text" value={prodFeatures} onChange={(e) => setProdFeatures(e.target.value)} placeholder="e.g. Sulfate Free, Raw Aloe" className="w-full p-2 border bg-white rounded-lg focus:outline-none" />

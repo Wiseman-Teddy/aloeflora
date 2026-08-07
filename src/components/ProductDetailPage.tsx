@@ -1,8 +1,9 @@
 import React, { useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { ArrowLeft, ShoppingCart, Info, Star, MessageSquare } from "lucide-react";
-import { Product } from "../types";
+import { Product, ProductVariant } from "../types";
 import { useShop } from "../contexts/ShopContext";
+import { normalizeVariants } from "../utils/variantUtils";
 import toast from "react-hot-toast";
 
 const CUSTOMER_RATING_ACCENTS = ["Amazing!", "Loved it.", "Smells great.", "Good texture.", "Highly recommended!", "Will buy again."];
@@ -32,12 +33,15 @@ export default function ProductDetailPage({ products }: ProductDetailPageProps) 
 
   const product = products.find(p => p.id === id);
 
+  const normalizedVars = product ? normalizeVariants(product) : [];
+  const [selectedVariant, setSelectedVariant] = useState<ProductVariant>(() => normalizedVars[0] || { id: "default", name: "Standard", price: product?.price || 0 });
+
   if (!product) {
     return (
       <div className="min-h-[60vh] flex flex-col items-center justify-center p-6 text-center">
         <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Product Not Found</h2>
         <p className="text-gray-500 mb-6">The product you are looking for does not exist or has been removed.</p>
-        <Link to="/store" className="bg-emerald-800 text-white px-6 py-2 rounded-xl font-bold">Back to Store</Link>
+        <Link to="/store" className="bg-[#348C21] text-white px-6 py-2 rounded-xl font-bold">Back to Store</Link>
       </div>
     );
   }
@@ -49,6 +53,8 @@ export default function ProductDetailPage({ products }: ProductDetailPageProps) 
   const relatedProducts = products
     .filter(p => p.category === product.category && p.id !== product.id)
     .slice(0, 4);
+
+  const currentDisplayImage = selectedVariant.imageUrl || mediaUrls[selectedImageIdx] || product.imageUrl?.split(',')[0];
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
@@ -64,11 +70,16 @@ export default function ProductDetailPage({ products }: ProductDetailPageProps) 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-start bg-white dark:bg-gray-900 p-6 md:p-10 rounded-3xl border border-gray-100 dark:border-gray-800 shadow-sm">
         {/* Image Gallery */}
         <div className="space-y-4">
-          <div className="aspect-[4/5] rounded-3xl overflow-hidden bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-800">
-            {mediaUrls.length > 0 ? (
-              <img src={mediaUrls[selectedImageIdx]} alt={product.name} className="w-full h-full object-cover transition duration-300" />
+          <div className="aspect-[4/5] rounded-3xl overflow-hidden bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-800 relative group">
+            {currentDisplayImage ? (
+              <img src={currentDisplayImage} alt={product.name} className="w-full h-full object-cover transition duration-300 group-hover:scale-105" />
             ) : (
               <div className="w-full h-full flex items-center justify-center text-gray-400">No Image</div>
+            )}
+            {selectedVariant.name && selectedVariant.name !== "Standard" && (
+              <div className="absolute top-4 left-4 bg-[#152E15]/90 text-white text-[10px] uppercase font-black px-3 py-1 rounded-full backdrop-blur-xs">
+                Size: {selectedVariant.name}
+              </div>
             )}
           </div>
           {mediaUrls.length > 1 && (
@@ -77,7 +88,7 @@ export default function ProductDetailPage({ products }: ProductDetailPageProps) 
                 <button 
                   key={idx} 
                   onClick={() => setSelectedImageIdx(idx)}
-                  className={`w-20 h-20 rounded-xl overflow-hidden flex-shrink-0 border-2 transition ${selectedImageIdx === idx ? 'border-emerald-600' : 'border-transparent hover:border-emerald-300'}`}
+                  className={`w-20 h-20 rounded-xl overflow-hidden flex-shrink-0 border-2 transition ${selectedImageIdx === idx ? 'border-[#348C21]' : 'border-transparent hover:border-emerald-300'}`}
                 >
                   <img src={url} alt={`${product.name} thumbnail ${idx}`} className="w-full h-full object-cover" />
                 </button>
@@ -96,7 +107,7 @@ export default function ProductDetailPage({ products }: ProductDetailPageProps) 
         {/* Product Info */}
         <div className="space-y-6">
           <div className="space-y-2">
-            <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-widest">{product.subCategory || product.category}</span>
+            <span className="text-xs font-bold text-[#348C21] dark:text-emerald-400 uppercase tracking-widest">{product.subCategory || product.category}</span>
             <h1 className="text-3xl font-bold text-gray-900 dark:text-white leading-tight">{product.name}</h1>
             <div className="flex items-center gap-2">
               <div className="flex text-amber-400"><Stars rating={product.rating} /></div>
@@ -104,22 +115,52 @@ export default function ProductDetailPage({ products }: ProductDetailPageProps) 
             </div>
           </div>
 
-          <div className="text-3xl font-extrabold text-gray-900 dark:text-white flex items-center gap-3">
-            KES {product.price}
-            {product.stock < 5 && product.stock > 0 && <span className="text-xs font-bold bg-amber-100 text-amber-800 px-2 py-1 rounded-full">Only {product.stock} left</span>}
+          <div className="text-3xl font-black text-gray-900 dark:text-white flex items-center gap-3">
+            KES {selectedVariant.price}
+            {((selectedVariant.stock ?? product.stock) < 5) && ((selectedVariant.stock ?? product.stock) > 0) && (
+              <span className="text-xs font-bold bg-amber-100 text-amber-800 px-2.5 py-1 rounded-full">
+                Only {selectedVariant.stock ?? product.stock} left in stock
+              </span>
+            )}
           </div>
           
           <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed">{product.description}</p>
           
-          {product.variants && product.variants.length > 0 && (
+          {normalizedVars.length > 0 && (
             <div className="space-y-3 pt-4 border-t border-gray-100 dark:border-gray-800">
-              <span className="text-xs uppercase font-bold text-gray-500">Available Sizes / Configurations</span>
-              <div className="flex flex-wrap gap-2">
-                {product.variants.map((v) => (
-                  <span key={v} className="border border-gray-200 dark:border-gray-700 text-sm px-4 py-2 rounded-xl text-gray-700 dark:text-gray-300 font-medium bg-gray-50 dark:bg-gray-800">
-                    {v}
-                  </span>
-                ))}
+              <div className="flex items-center justify-between">
+                <span className="text-xs uppercase font-extrabold text-gray-500 tracking-wider">Select Package Size / Option</span>
+                <span className="text-xs font-bold text-[#348C21] dark:text-emerald-400">Selected: {selectedVariant.name}</span>
+              </div>
+              <div className="flex flex-wrap gap-2.5">
+                {normalizedVars.map((v) => {
+                  const isSelected = selectedVariant.id === v.id || selectedVariant.name === v.name;
+                  return (
+                    <button
+                      key={v.id || v.name}
+                      type="button"
+                      onClick={() => {
+                        setSelectedVariant(v);
+                        if (v.imageUrl) {
+                          const matchingIdx = mediaUrls.findIndex(u => u === v.imageUrl);
+                          if (matchingIdx >= 0) setSelectedImageIdx(matchingIdx);
+                        }
+                      }}
+                      className={`px-4 py-2.5 rounded-xl border text-xs font-extrabold transition-all flex items-center gap-2 cursor-pointer ${
+                        isSelected
+                          ? "bg-[#348C21] text-white border-[#348C21] shadow-md scale-[1.02]"
+                          : "bg-gray-50 dark:bg-gray-800 text-gray-800 dark:text-gray-200 border-gray-200 dark:border-gray-700 hover:border-[#348C21] hover:text-[#348C21]"
+                      }`}
+                    >
+                      <span>{v.name}</span>
+                      <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${
+                        isSelected ? "bg-white/20 text-white" : "bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300"
+                      }`}>
+                        KES {v.price}
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
             </div>
           )}
@@ -138,13 +179,13 @@ export default function ProductDetailPage({ products }: ProductDetailPageProps) 
           <div className="pt-6 mt-6 border-t border-gray-100 dark:border-gray-800">
             <button
               onClick={() => {
-                addToCart(product, 1, product.variants?.[0]);
-                toast.success(`${product.name} added to cart`);
+                addToCart(product, 1, selectedVariant.name, selectedVariant);
               }}
-              disabled={product.stock === 0}
-              className="w-full bg-emerald-800 text-white font-bold py-4 rounded-2xl hover:bg-emerald-700 shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-2 cursor-pointer disabled:bg-gray-300 disabled:cursor-not-allowed"
+              disabled={(selectedVariant.stock ?? product.stock) === 0}
+              className="w-full bg-[#348C21] text-white font-extrabold py-4 rounded-2xl hover:bg-[#2b751c] shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-2 cursor-pointer disabled:bg-gray-300 disabled:cursor-not-allowed"
             >
-              <ShoppingCart className="w-5 h-5" /> {product.stock === 0 ? "Out of Stock" : "Add To Shopping Basket"}
+              <ShoppingCart className="w-5 h-5" /> 
+              {(selectedVariant.stock ?? product.stock) === 0 ? "Out of Stock" : `Add ${selectedVariant.name} (KES ${selectedVariant.price}) To Basket`}
             </button>
           </div>
         </div>

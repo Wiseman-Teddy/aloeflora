@@ -37,6 +37,7 @@ import {
   Truck
 } from "lucide-react";
 import { Product, CartItem, Order, BookingEvent, CMSPost, Promo } from "../types";
+import { normalizeVariants, getProductPriceRange } from "../utils/variantUtils";
 
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
@@ -1166,7 +1167,7 @@ export default function CustomerStore({
 
                       <h3 
                         onClick={() => navigate(`/product/${p.id}`)}
-                        className="text-sm font-semibold text-gray-900 dark:text-white mt-1 hover:text-emerald-800 cursor-pointer line-clamp-2"
+                        className="text-sm font-bold text-gray-900 dark:text-white mt-1 hover:text-[#348C21] cursor-pointer line-clamp-2"
                       >
                         {p.name}
                       </h3>
@@ -1174,13 +1175,43 @@ export default function CustomerStore({
                       <p className="text-xs text-gray-500 mt-1 line-clamp-2 leading-relaxed">
                         {p.description}
                       </p>
+
+                      {/* Package Size Variant Badges */}
+                      {(() => {
+                        const normVars = normalizeVariants(p);
+                        if (normVars.length <= 1 && normVars[0]?.name === "Standard") return null;
+                        return (
+                          <div className="flex flex-wrap gap-1 mt-2.5">
+                            {normVars.slice(0, 3).map((v) => (
+                              <span key={v.id || v.name} className="text-[9.5px] font-extrabold text-[#348C21] dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200/60 dark:border-emerald-800/40 px-2 py-0.5 rounded-md">
+                                {v.name} @ KES {v.price}
+                              </span>
+                            ))}
+                            {normVars.length > 3 && (
+                              <span className="text-[9.5px] font-bold text-gray-400">+{normVars.length - 3} more</span>
+                            )}
+                          </div>
+                        );
+                      })()}
                     </div>
 
                     <div className="pt-4 border-t border-gray-100 dark:border-gray-800 mt-4">
                       <div className="flex items-end justify-between">
                         <div>
                           <div className="text-[10px] text-gray-400 leading-none">Kenyan Price</div>
-                          <div className="text-sm font-extrabold text-gray-900 dark:text-white mt-1">KES {p.price}</div>
+                          {(() => {
+                            const priceInfo = getProductPriceRange(p);
+                            if (priceInfo.hasMultiplePrices) {
+                              return (
+                                <div className="text-xs font-black text-[#152E15] dark:text-white mt-1">
+                                  KES {priceInfo.minPrice} - {priceInfo.maxPrice}
+                                </div>
+                              );
+                            }
+                            return (
+                              <div className="text-sm font-extrabold text-gray-900 dark:text-white mt-1">KES {p.price}</div>
+                            );
+                          })()}
                         </div>
                         <div className="flex items-center gap-1.5">
                           <button
@@ -1195,9 +1226,12 @@ export default function CustomerStore({
                             <Layers className="w-4 h-4" />
                           </button>
                           <button
-                            onClick={() => addToCart(p, 1)}
+                            onClick={() => {
+                              const normVars = normalizeVariants(p);
+                              addToCart(p, 1, normVars[0]?.name, normVars[0]);
+                            }}
                             disabled={p.stock === 0}
-                            className="bg-emerald-800 hover:bg-emerald-700 disabled:bg-gray-200 disabled:text-gray-400 text-white p-2 md:p-3 rounded-xl text-xs font-bold shadow transition cursor-pointer flex items-center justify-center min-h-[44px] min-w-[44px]"
+                            className="bg-[#348C21] hover:bg-[#2b751c] disabled:bg-gray-200 disabled:text-gray-400 text-white p-2 md:p-3 rounded-xl text-xs font-bold shadow transition cursor-pointer flex items-center justify-center min-h-[44px] min-w-[44px]"
                           >
                             <ShoppingCart className="w-5 h-5 md:w-4 md:h-4" />
                           </button>

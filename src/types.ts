@@ -1,3 +1,13 @@
+export interface ProductVariant {
+  id: string;
+  name: string;
+  price: number;
+  costPrice?: number;
+  stock?: number;
+  sku?: string;
+  imageUrl?: string;
+}
+
 export interface Product {
   id: string;
   name: string;
@@ -13,7 +23,7 @@ export interface Product {
   rating: number;
   reviewsCount: number;
   reviews: ProductReview[];
-  variants?: string[];
+  variants?: (string | ProductVariant)[];
   features?: string[];
   mediaUrls?: string[];
   specifications?: string[];
@@ -31,6 +41,7 @@ export interface CartItem {
   product: Product;
   quantity: number;
   selectedVariant?: string;
+  selectedVariantObj?: ProductVariant;
 }
 
 export interface Order {

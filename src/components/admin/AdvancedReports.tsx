@@ -6,6 +6,7 @@ import {
 } from "lucide-react";
 import { Order, Product, SupportTicket, MarketingCampaign, Promo, UserProfile, EventRegistration, AuditAnomaly } from "../../types";
 import { exportToPDF, exportToCSV } from "../../utils/exportUtils";
+import { normalizeVariants } from "../../utils/variantUtils";
 
 interface AdvancedReportsProps {
   orders?: Order[];
@@ -170,8 +171,24 @@ export default function AdvancedReports({
   }, [safeProducts, filteredOrders]);
 
   const inventoryValuation = useMemo(() => {
-    const totalCostValuation = safeProducts.reduce((sum, p) => sum + (p.stock || 0) * (p.costPrice || (p.price || 0) * 0.5), 0);
-    const totalRetailValuation = safeProducts.reduce((sum, p) => sum + (p.stock || 0) * (p.price || 0), 0);
+    const totalCostValuation = safeProducts.reduce((sum, p) => {
+      const vars = normalizeVariants(p);
+      if (vars && vars.length > 0 && vars[0]?.name !== "Standard") {
+        const vCost = vars.reduce((vSum, v) => vSum + (v.stock || 0) * (v.costPrice || p.costPrice || (p.price || 0) * 0.5), 0);
+        return sum + (vCost > 0 ? vCost : (p.stock || 0) * (p.costPrice || (p.price || 0) * 0.5));
+      }
+      return sum + (p.stock || 0) * (p.costPrice || (p.price || 0) * 0.5);
+    }, 0);
+
+    const totalRetailValuation = safeProducts.reduce((sum, p) => {
+      const vars = normalizeVariants(p);
+      if (vars && vars.length > 0 && vars[0]?.name !== "Standard") {
+        const vRetail = vars.reduce((vSum, v) => vSum + (v.stock || 0) * (v.price || p.price || 0), 0);
+        return sum + (vRetail > 0 ? vRetail : (p.stock || 0) * (p.price || 0));
+      }
+      return sum + (p.stock || 0) * (p.price || 0);
+    }, 0);
+
     const potentialMargin = totalRetailValuation - totalCostValuation;
     return { totalCostValuation, totalRetailValuation, potentialMargin };
   }, [safeProducts]);

@@ -18,7 +18,10 @@ export default function CartSidebar({ promos }: CartSidebarProps) {
 
   if (!isCartOpen) return null;
 
-  const subtotal = cart.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
+  const subtotal = cart.reduce((sum, item) => {
+    const itemPrice = item.selectedVariantObj?.price || item.product.price;
+    return sum + itemPrice * item.quantity;
+  }, 0);
   const promoDiscount = activePromo ? Math.floor(subtotal * (activePromo.discountPercent / 100)) : 0;
   const deliveryFee = subtotal >= 3000 ? 0 : 250;
 
@@ -62,46 +65,51 @@ export default function CartSidebar({ promos }: CartSidebarProps) {
             </div>
           ) : (
             <div className="space-y-4 mt-6">
-              {cart.map((item) => (
-                <div key={`${item.product.id}-${item.selectedVariant}`} className="flex items-center gap-3 bg-zinc-50/50 dark:bg-gray-800/50 p-3 rounded-xl border border-zinc-100/60 dark:border-gray-800">
-                  <div className="h-12 w-12 bg-white rounded-lg overflow-hidden border dark:border-gray-700">
-                    <img src={item.product.imageUrl} alt={item.product.name} className="w-full h-full object-cover" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <h4 className="font-bold text-xs truncate text-gray-900 dark:text-white">{item.product.name}</h4>
-                    {item.selectedVariant && (
-                      <span className="text-[10px] text-gray-400 bg-emerald-50 dark:bg-emerald-900/30 px-1.5 py-0.5 rounded font-bold">
-                        {item.selectedVariant}
-                      </span>
-                    )}
-                    <div className="text-xs font-semibold text-emerald-800 mt-1">KES {item.product.price * item.quantity}</div>
-                  </div>
-                  <div className="flex flex-col items-end gap-2">
-                    <button 
-                      onClick={() => removeFromCart(item.product.id, item.selectedVariant)}
-                      className="p-1 hover:bg-red-50 dark:hover:bg-red-900/30 text-red-500 rounded cursor-pointer transition"
-                      title="Remove item"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                    <div className="flex items-center gap-2 bg-white dark:bg-gray-800 border dark:border-gray-700 rounded bg-transparent">
+              {cart.map((item) => {
+                const itemPrice = item.selectedVariantObj?.price || item.product.price;
+                const itemImg = item.selectedVariantObj?.imageUrl || item.product.imageUrl?.split(',')[0];
+
+                return (
+                  <div key={`${item.product.id}-${item.selectedVariant}`} className="flex items-center gap-3 bg-zinc-50/50 dark:bg-gray-800/50 p-3 rounded-xl border border-zinc-100/60 dark:border-gray-800">
+                    <div className="h-12 w-12 bg-white rounded-lg overflow-hidden border dark:border-gray-700 shrink-0">
+                      <img src={itemImg} alt={item.product.name} className="w-full h-full object-cover" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h4 className="font-bold text-xs truncate text-gray-900 dark:text-white">{item.product.name}</h4>
+                      {item.selectedVariant && (
+                        <span className="text-[10px] text-gray-400 bg-emerald-50 dark:bg-emerald-900/30 px-1.5 py-0.5 rounded font-bold">
+                          Size: {item.selectedVariant}
+                        </span>
+                      )}
+                      <div className="text-xs font-semibold text-emerald-800 dark:text-emerald-400 mt-1">KES {itemPrice * item.quantity}</div>
+                    </div>
+                    <div className="flex flex-col items-end gap-2">
                       <button 
-                        onClick={() => updateCartItemQuantity(item.product.id, item.selectedVariant, item.quantity - 1)}
-                        className="p-1 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-500 cursor-pointer"
+                        onClick={() => removeFromCart(item.product.id, item.selectedVariant)}
+                        className="p-1 hover:bg-red-50 dark:hover:bg-red-900/30 text-red-500 rounded cursor-pointer transition"
+                        title="Remove item"
                       >
-                        <Minus className="w-3 h-3" />
+                        <Trash2 className="w-4 h-4" />
                       </button>
-                      <span className="text-xs font-bold w-4 text-center dark:text-white">{item.quantity}</span>
-                      <button 
-                        onClick={() => updateCartItemQuantity(item.product.id, item.selectedVariant, item.quantity + 1)}
-                        className="p-1 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-500 cursor-pointer"
-                      >
-                        <Plus className="w-3 h-3" />
-                      </button>
+                      <div className="flex items-center gap-2 bg-white dark:bg-gray-800 border dark:border-gray-700 rounded bg-transparent">
+                        <button 
+                          onClick={() => updateCartItemQuantity(item.product.id, item.selectedVariant, item.quantity - 1)}
+                          className="p-1 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-500 cursor-pointer"
+                        >
+                          <Minus className="w-3 h-3" />
+                        </button>
+                        <span className="text-xs font-bold w-4 text-center dark:text-white">{item.quantity}</span>
+                        <button 
+                          onClick={() => updateCartItemQuantity(item.product.id, item.selectedVariant, item.quantity + 1)}
+                          className="p-1 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-500 cursor-pointer"
+                        >
+                          <Plus className="w-3 h-3" />
+                        </button>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>

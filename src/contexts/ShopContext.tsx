@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { Product, CartItem } from '../types';
+import { Product, CartItem, ProductVariant } from '../types';
 import { supabase } from '../lib/supabase';
 import { useAuth } from './AuthContext';
 import { toast } from 'react-hot-toast';
@@ -13,7 +13,7 @@ interface ShopContextType {
   setSearchQuery: (q: string) => void;
   setIsCartOpen: (v: boolean) => void;
   setIsWishlistOpen: (v: boolean) => void;
-  addToCart: (product: Product, quantity: number, variant?: string) => void;
+  addToCart: (product: Product, quantity: number, variant?: string | ProductVariant, variantObj?: ProductVariant) => void;
   removeFromCart: (productId: string, variant?: string) => void;
   updateCartItemQuantity: (productId: string, variant: string | undefined, quantity: number) => void;
   toggleWishlist: (productId: string) => void;
@@ -76,17 +76,21 @@ export function ShopProvider({ children }: { children: React.ReactNode }) {
   }, [wishlist, user, isProfileLoaded]);
 
   // Actions
-  const addToCart = (product: Product, quantity: number, variant?: string) => {
+  const addToCart = (product: Product, quantity: number, variant?: string | ProductVariant, variantObj?: ProductVariant) => {
+    const variantName = typeof variant === 'object' ? variant.name : (variant || (variantObj ? variantObj.name : undefined));
+    const finalVariantObj = typeof variant === 'object' ? variant : variantObj;
+
     setCart(prev => {
-      const existingIdx = prev.findIndex(item => item.product.id === product.id && item.selectedVariant === variant);
+      const existingIdx = prev.findIndex(item => item.product.id === product.id && item.selectedVariant === variantName);
       if (existingIdx >= 0) {
         const newCart = [...prev];
         newCart[existingIdx].quantity += quantity;
+        if (finalVariantObj) newCart[existingIdx].selectedVariantObj = finalVariantObj;
         return newCart;
       }
-      return [...prev, { product, quantity, selectedVariant: variant }];
+      return [...prev, { product, quantity, selectedVariant: variantName, selectedVariantObj: finalVariantObj }];
     });
-    toast.success(`${quantity}x ${product.name} added to cart`);
+    toast.success(`${quantity}x ${product.name} ${variantName ? `(${variantName})` : ''} added to cart`);
   };
 
   const updateCartItemQuantity = (productId: string, variant: string | undefined, quantity: number) => {
