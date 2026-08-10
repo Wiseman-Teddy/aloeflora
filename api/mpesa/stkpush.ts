@@ -56,7 +56,7 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
 
   try {
     const body = await getRequestBody(req);
-    const { phone, amount } = body;
+    const { phone, amount, transactionType } = body;
 
     if (!phone || !amount) {
       res.statusCode = 400;
@@ -77,12 +77,12 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
       return;
     }
 
-    // Format phone number to 254...
-    let formattedPhone = phone.replace(/\s+/g, '');
+    // Format phone number to 254... (supports 07..., 01..., +254..., 7..., 1...)
+    let formattedPhone = String(phone).replace(/\s+/g, '').replace(/[^0-9]/g, '');
     if (formattedPhone.startsWith('0')) {
       formattedPhone = '254' + formattedPhone.substring(1);
-    } else if (formattedPhone.startsWith('+')) {
-      formattedPhone = formattedPhone.substring(1);
+    } else if (formattedPhone.length === 9 && (formattedPhone.startsWith('7') || formattedPhone.startsWith('1'))) {
+      formattedPhone = '254' + formattedPhone;
     }
 
     const token = await getMpesaToken(consumerKey, consumerSecret);
@@ -92,11 +92,13 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
     const appUrl = process.env.APP_URL || 'https://aloefloraproducts.com';
     const callbackUrl = `${appUrl}/api/mpesa/callback`;
 
+    const txType = transactionType || 'CustomerPayBillOnline';
+
     const payload = {
       BusinessShortCode: businessShortCode,
       Password: password,
       Timestamp: timestamp,
-      TransactionType: 'CustomerPayBillOnline',
+      TransactionType: txType,
       Amount: Math.round(amount),
       PartyA: formattedPhone,
       PartyB: businessShortCode,

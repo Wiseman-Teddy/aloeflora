@@ -41,18 +41,18 @@ async function getMpesaToken() {
 
 // Endpoint to initiate STK Push
 app.post('/api/mpesa/stkpush', async (req, res) => {
-  const { phone, amount } = req.body;
+  const { phone, amount, transactionType } = req.body;
 
   if (!phone || !amount) {
     return res.status(400).json({ error: 'Phone and amount are required' });
   }
 
-  // Format phone number to 254...
-  let formattedPhone = phone.replace(/\s+/g, '');
+  // Format phone number to 254... (supports 07..., 01..., +254..., 7..., 1...)
+  let formattedPhone = String(phone).replace(/\s+/g, '').replace(/[^0-9]/g, '');
   if (formattedPhone.startsWith('0')) {
     formattedPhone = '254' + formattedPhone.substring(1);
-  } else if (formattedPhone.startsWith('+')) {
-    formattedPhone = formattedPhone.substring(1);
+  } else if (formattedPhone.length === 9 && (formattedPhone.startsWith('7') || formattedPhone.startsWith('1'))) {
+    formattedPhone = '254' + formattedPhone;
   }
 
   try {
@@ -60,11 +60,13 @@ app.post('/api/mpesa/stkpush', async (req, res) => {
     const timestamp = new Date().toISOString().replace(/[^0-9]/g, '').slice(0, 14);
     const password = Buffer.from(`${businessShortCode}${passkey}${timestamp}`).toString('base64');
 
+    const txType = transactionType || 'CustomerPayBillOnline';
+
     const payload = {
       BusinessShortCode: businessShortCode,
       Password: password,
       Timestamp: timestamp,
-      TransactionType: 'CustomerPayBillOnline',
+      TransactionType: txType,
       Amount: Math.round(amount),
       PartyA: formattedPhone,
       PartyB: businessShortCode,
