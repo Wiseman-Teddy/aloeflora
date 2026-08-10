@@ -210,8 +210,21 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
           })
           .eq('id', orderToUpdate.id);
       } else {
-        console.warn('Could not find any matching pending orders for fallback phone.');
+        console.warn('Could not find any matching pending orders for fallback phone. Checking event_registrations...');
       }
+
+      // Also check and update pending event_registrations if matched by phone or checkout_request_id
+      const formattedPhone = String(phone).replace('254', '0');
+      await supabase
+        .from('event_registrations')
+        .update({
+          payment_status: 'paid',
+          mpesa_receipt: mpesaReceipt,
+          amount_paid: amount
+        })
+        .or(`phone.eq.${phone},phone.eq.${formattedPhone}`)
+        .eq('payment_status', 'pending');
+
 
       // Calculate and save commission split (70% Business / 30% Platform)
       if (amount && Number(amount) > 0) {

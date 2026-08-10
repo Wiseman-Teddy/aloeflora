@@ -224,6 +224,7 @@ export default function CustomerStore({
   // Product Comparison state
   const [compareProducts, setCompareProducts] = useState<Product[]>([]);
   const [isCompareOpen, setIsCompareOpen] = useState<boolean>(false);
+  const [mpesaPinInput, setMpesaPinInput] = useState<string>("");
 
   // Hero Slider
   const heroSlides = cmsPosts

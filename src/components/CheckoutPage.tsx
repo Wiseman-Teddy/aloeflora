@@ -35,7 +35,7 @@ export default function CheckoutPage({ onAddOrder, promos }: CheckoutPageProps) 
   const [checkoutHouseNum, setCheckoutHouseNum] = useState<string>("");
   const [checkoutNotes, setCheckoutNotes] = useState<string>("");
   
-  const [isSTKSimulating, setIsSTKSimulating] = useState<boolean>(false);
+  const [isSTKPromptOpen, setIsSTKPromptOpen] = useState<boolean>(false);
   const [stkStatus, setStkStatus] = useState<"not_sent" | "waiting_pin" | "verifying" | "success" | "failed">("not_sent");
   const [generatedOrderId, setGeneratedOrderId] = useState<string>("");
   const [activePromo, setActivePromo] = useState<Promo | null>(null);
@@ -86,6 +86,7 @@ export default function CheckoutPage({ onAddOrder, promos }: CheckoutPageProps) 
         if (pollTimer) clearInterval(pollTimer);
         setStkStatus("success");
         toast.success(`Payment Received! M-Pesa Receipt: ${data.mpesa_receipt || 'Confirmed'}`);
+        localStorage.removeItem("aloeflora_active_stk");
         
         // Clear cart
         if (shop?.clearCart) {
@@ -96,10 +97,10 @@ export default function CheckoutPage({ onAddOrder, promos }: CheckoutPageProps) 
         }
 
         setTimeout(() => {
-          setIsSTKSimulating(false);
+          setIsSTKPromptOpen(false);
           setStkStatus("not_sent");
           navigate("/dashboard");
-        }, 2500);
+        }, 2000);
         return true;
       }
     } catch (err) {
@@ -118,7 +119,7 @@ export default function CheckoutPage({ onAddOrder, promos }: CheckoutPageProps) 
     const rawId = Math.floor(100000 + Math.random() * 900000).toString();
     const orderId = "ORD-" + rawId;
     setGeneratedOrderId(rawId);
-    setIsSTKSimulating(true);
+    setIsSTKPromptOpen(true);
     setStkStatus("verifying");
 
     // 1. Create Pending Order in Supabase
@@ -176,6 +177,15 @@ export default function CheckoutPage({ onAddOrder, promos }: CheckoutPageProps) 
     }
 
     onAddOrder(newOrder);
+
+    // Store active pending order in localStorage for Customer Dashboard synchronization
+    localStorage.setItem("aloeflora_active_stk", JSON.stringify({
+      orderId: orderId,
+      phone: checkoutPhone,
+      amount: total,
+      rawId: rawId,
+      createdAt: new Date().toISOString()
+    }));
 
     // 2. Trigger Real STK Push via Backend API
     try {
@@ -383,14 +393,14 @@ export default function CheckoutPage({ onAddOrder, promos }: CheckoutPageProps) 
       </div>
 
       {/* M-Pesa STK Modal */}
-      {isSTKSimulating && (
+      {isSTKPromptOpen && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-[60] p-4">
           <div className="bg-gradient-to-b from-gray-900 to-black text-white rounded-3xl max-w-sm w-full p-6 shadow-2xl relative border border-gray-800 text-center">
             <div className="bg-emerald-600 h-1 absolute top-0 left-0 right-0"></div>
             
             <div className="flex flex-col items-center space-y-4">
               <div className="bg-emerald-600/10 text-emerald-500 font-bold px-3 py-1 rounded-full text-xs uppercase flex items-center gap-1.5 border border-emerald-500/20">
-                <RefreshCw className="w-3.5 h-3.5 animate-spin" /> Safaricom Daraja v2.0
+                <RefreshCw className="w-3.5 h-3.5 animate-spin" /> Safaricom Daraja v2.0 Live
               </div>
 
               {stkStatus === "waiting_pin" && (
@@ -445,8 +455,9 @@ export default function CheckoutPage({ onAddOrder, promos }: CheckoutPageProps) 
                       type="button"
                       onClick={() => {
                         if (pollTimer) clearInterval(pollTimer);
-                        setIsSTKSimulating(false);
+                        setIsSTKPromptOpen(false);
                         setStkStatus("not_sent");
+                        localStorage.removeItem("aloeflora_active_stk");
                       }}
                       className="w-full bg-gray-900 hover:bg-gray-800 text-gray-400 font-semibold py-2 rounded-xl text-xs transition border border-gray-800"
                     >
@@ -478,7 +489,7 @@ export default function CheckoutPage({ onAddOrder, promos }: CheckoutPageProps) 
                     <X className="w-8 h-8 text-white" />
                   </div>
                   <div className="font-bold text-xl text-red-400">Transaction Cancelled or Failed</div>
-                  <button onClick={() => { setIsSTKSimulating(false); setStkStatus("not_sent"); }} className="bg-gray-800 text-white font-bold px-6 py-2 rounded-full text-xs">
+                  <button onClick={() => { setIsSTKPromptOpen(false); setStkStatus("not_sent"); localStorage.removeItem("aloeflora_active_stk"); }} className="bg-gray-800 text-white font-bold px-6 py-2 rounded-full text-xs">
                     Retry Payment
                   </button>
                 </div>
