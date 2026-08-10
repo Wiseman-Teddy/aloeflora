@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { ArrowLeft, RefreshCw, X, ShieldCheck } from "lucide-react";
+import { ArrowLeft, RefreshCw, X, ShieldCheck, Smartphone } from "lucide-react";
 import { CartItem, Order, Promo } from "../types";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
@@ -36,7 +36,6 @@ export default function CheckoutPage({ onAddOrder, promos }: CheckoutPageProps) 
   const [checkoutNotes, setCheckoutNotes] = useState<string>("");
   
   const [isSTKSimulating, setIsSTKSimulating] = useState<boolean>(false);
-  const [mpesaPinInput, setMpesaPinInput] = useState<string>("");
   const [stkStatus, setStkStatus] = useState<"not_sent" | "waiting_pin" | "verifying" | "success" | "failed">("not_sent");
   const [generatedOrderId, setGeneratedOrderId] = useState<string>("");
   const [activePromo, setActivePromo] = useState<Promo | null>(null);
@@ -66,39 +65,65 @@ export default function CheckoutPage({ onAddOrder, promos }: CheckoutPageProps) 
   const deliveryFee = isCbd || isFreeStandard ? 0 : (checkoutCounty === "Nairobi" ? 300 : 500);
   const total = subtotal - promoDiscount + deliveryFee;
 
-  const handleInitiateSTK = (e: React.FormEvent) => {
+  const [checkoutRequestId, setCheckoutRequestId] = useState<string>("");
+  const [pollTimer, setPollTimer] = useState<any>(null);
+
+  useEffect(() => {
+    return () => {
+      if (pollTimer) clearInterval(pollTimer);
+    };
+  }, [pollTimer]);
+
+  const checkOrderPaymentStatus = async (orderId: string) => {
+    try {
+      const { data } = await supabase
+        .from('orders')
+        .select('payment_status, status, mpesa_receipt')
+        .eq('id', orderId)
+        .maybeSingle();
+
+      if (data && (data.payment_status === "paid" || data.status === "paid")) {
+        if (pollTimer) clearInterval(pollTimer);
+        setStkStatus("success");
+        toast.success(`Payment Received! M-Pesa Receipt: ${data.mpesa_receipt || 'Confirmed'}`);
+        
+        // Clear cart
+        if (shop?.clearCart) {
+          shop.clearCart();
+        } else {
+          setCart([]);
+          localStorage.removeItem("aloeflora_cart");
+        }
+
+        setTimeout(() => {
+          setIsSTKSimulating(false);
+          setStkStatus("not_sent");
+          navigate("/dashboard");
+        }, 2500);
+        return true;
+      }
+    } catch (err) {
+      console.error("Error polling order status:", err);
+    }
+    return false;
+  };
+
+  const handleInitiateSTK = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!checkoutName || !checkoutPhone) {
       toast.error("Please fill in contact info!");
       return;
     }
-    const oId = Math.floor(100000 + Math.random() * 900000).toString();
-    setGeneratedOrderId(oId);
-    setIsSTKSimulating(true);
-    setStkStatus("waiting_pin");
-    setMpesaPinInput("");
-  };
 
-  const submitStkPush = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (mpesaPinInput.length !== 4) return;
+    const rawId = Math.floor(100000 + Math.random() * 900000).toString();
+    const orderId = "ORD-" + rawId;
+    setGeneratedOrderId(rawId);
+    setIsSTKSimulating(true);
     setStkStatus("verifying");
 
-    // Simulate API delay
-    await new Promise(r => setTimeout(r, 2000));
-    
-    // 90% success rate
-    if (Math.random() > 0.1) {
-      setStkStatus("success");
-      finalizeOrder();
-    } else {
-      setStkStatus("failed");
-    }
-  };
-
-  const finalizeOrder = async () => {
+    // 1. Create Pending Order in Supabase
     const newOrder: Order = {
-      id: "ORD-" + generatedOrderId,
+      id: orderId,
       createdAt: new Date().toISOString(),
       items: cart.map(item => ({
         productId: item.product.id,
@@ -112,7 +137,7 @@ export default function CheckoutPage({ onAddOrder, promos }: CheckoutPageProps) 
       deliveryFee: deliveryFee,
       total: total,
       paymentMethod: "mpesa_stk",
-      paymentStatus: "paid",
+      paymentStatus: "pending",
       deliveryStatus: "pending",
       county: checkoutCounty,
       subCounty: checkoutSubCounty,
@@ -125,7 +150,6 @@ export default function CheckoutPage({ onAddOrder, promos }: CheckoutPageProps) 
       deliveryNotes: checkoutNotes
     };
 
-    // Save order to Supabase
     try {
       await supabase.from('orders').insert({
         id: newOrder.id,
@@ -143,7 +167,8 @@ export default function CheckoutPage({ onAddOrder, promos }: CheckoutPageProps) 
         delivery_fee: newOrder.deliveryFee,
         total_amount: newOrder.total,
         payment_method: newOrder.paymentMethod,
-        status: newOrder.paymentStatus,
+        status: "pending",
+        payment_status: "pending",
         delivery_status: newOrder.deliveryStatus
       });
     } catch (err) {
@@ -151,21 +176,36 @@ export default function CheckoutPage({ onAddOrder, promos }: CheckoutPageProps) 
     }
 
     onAddOrder(newOrder);
-    
-    // Clear cart
-    if (shop?.clearCart) {
-      shop.clearCart();
-    } else {
-      setCart([]);
-      localStorage.removeItem("aloeflora_cart");
-    }
 
-    setTimeout(() => {
-      setIsSTKSimulating(false);
-      setStkStatus("not_sent");
-      navigate("/dashboard");
-      toast.success("Order Placed Successfully!");
-    }, 2000);
+    // 2. Trigger Real STK Push via Backend API
+    try {
+      const res = await fetch("/api/mpesa/stkpush", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone: checkoutPhone, amount: total })
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        setStkStatus("waiting_pin");
+        if (data.checkoutRequestID) {
+          setCheckoutRequestId(data.checkoutRequestID);
+          await supabase.from('orders').update({ checkout_request_id: data.checkoutRequestID }).eq('id', orderId);
+        }
+        
+        // Start polling Supabase for payment callback
+        if (pollTimer) clearInterval(pollTimer);
+        const timer = setInterval(() => checkOrderPaymentStatus(orderId), 3000);
+        setPollTimer(timer);
+      } else {
+        setStkStatus("failed");
+        toast.error(data.error || "Failed to send STK Push to phone");
+      }
+    } catch (err: any) {
+      console.error("STK Push call error:", err);
+      setStkStatus("failed");
+      toast.error("Failed to connect to M-Pesa gateway.");
+    }
   };
 
   if (cart.length === 0) return null;
@@ -354,39 +394,65 @@ export default function CheckoutPage({ onAddOrder, promos }: CheckoutPageProps) 
               </div>
 
               {stkStatus === "waiting_pin" && (
-                <div className="space-y-4 w-full">
-                  <h4 className="font-bold text-emerald-400">Lipa Na M-Pesa STK Push</h4>
-                  
-                  <div className="bg-gray-950 p-4 rounded-2xl border border-gray-800 text-left space-y-3 font-mono text-xs">
-                    <div className="text-gray-400 border-b border-gray-800 pb-2">STK Push Message Dialog:</div>
-                    <div className="text-emerald-400 font-bold">Short Code: 4160861 (ALOEFLORA PRODUCTS)</div>
-                    <div>Account No: ORD-{generatedOrderId}</div>
-                    <div>Amount: KES {total}</div>
-                    <div className="text-gray-400">Enter Your 4-Digit M-Pesa Secret PIN:</div>
-                    
-                    <div className="flex justify-center gap-3 py-2">
-                      {Array.from({ length: 4 }).map((_, idx) => (
-                        <div key={idx} className={`w-3.5 h-3.5 rounded-full border border-gray-700 ${mpesaPinInput.length > idx ? "bg-emerald-500 shadow-emerald-500/30 shadow" : "bg-gray-900"}`}></div>
-                      ))}
+                <div className="space-y-4 w-full py-2">
+                  <div className="relative w-16 h-16 mx-auto flex items-center justify-center">
+                    <div className="absolute inset-0 bg-emerald-500/20 rounded-full animate-ping"></div>
+                    <div className="w-14 h-14 bg-emerald-600/20 border border-emerald-500/50 rounded-full flex items-center justify-center">
+                      <Smartphone className="w-7 h-7 text-emerald-400 animate-bounce" />
                     </div>
                   </div>
 
-                  <form onSubmit={submitStkPush} className="grid grid-cols-3 gap-2 text-sm font-bold">
-                    {[1, 2, 3, 4, 5, 6, 7, 8, 9, "C", 0, "Submit"].map((btn) => (
-                      <button
-                        key={btn}
-                        type="button"
-                        onClick={() => {
-                          if (btn === "C") setMpesaPinInput("");
-                          else if (btn === "Submit" && mpesaPinInput.length === 4) submitStkPush({ preventDefault: () => {} } as any);
-                          else if (typeof btn === "number" && mpesaPinInput.length < 4) setMpesaPinInput(prev => prev + btn);
-                        }}
-                        className={`p-3 rounded-xl bg-gray-950 hover:bg-gray-800 border border-gray-800 transition ${btn === "Submit" ? "text-emerald-400 col-span-1" : ""}`}
-                      >
-                        {btn}
-                      </button>
-                    ))}
-                  </form>
+                  <div className="space-y-1">
+                    <h4 className="font-bold text-lg text-emerald-400">STK Push Sent to Phone</h4>
+                    <p className="text-xs text-gray-300">
+                      Check mobile handset <span className="text-emerald-400 font-bold">{checkoutPhone}</span>
+                    </p>
+                  </div>
+
+                  <div className="bg-gray-950 p-3.5 rounded-2xl border border-gray-800 text-left space-y-2 font-mono text-xs text-gray-300">
+                    <div className="flex justify-between border-b border-gray-800 pb-1.5 text-gray-400">
+                      <span>Shortcode:</span>
+                      <span className="text-emerald-400 font-bold">4160861</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Order Ref:</span>
+                      <span className="font-bold text-white">ORD-{generatedOrderId}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Amount:</span>
+                      <span className="font-bold text-emerald-400">KES {total}</span>
+                    </div>
+                  </div>
+
+                  <div className="p-3 bg-emerald-950/40 border border-emerald-500/20 rounded-xl text-left space-y-1">
+                    <p className="text-xs font-semibold text-emerald-300">📱 M-Pesa Instructions:</p>
+                    <ol className="text-[11px] text-gray-400 list-disc list-inside space-y-0.5">
+                      <li>Look at your phone screen for the Safaricom M-Pesa popup prompt.</li>
+                      <li>Enter your 4-digit Secret PIN on your phone handset.</li>
+                      <li>Press Send to complete payment.</li>
+                    </ol>
+                  </div>
+
+                  <div className="flex flex-col gap-2 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => checkOrderPaymentStatus("ORD-" + generatedOrderId)}
+                      className="w-full bg-emerald-600 hover:bg-emerald-500 text-black font-bold py-2.5 rounded-xl text-xs transition shadow-lg shadow-emerald-600/20 flex items-center justify-center gap-2"
+                    >
+                      <RefreshCw className="w-3.5 h-3.5" /> Check Payment Status Now
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (pollTimer) clearInterval(pollTimer);
+                        setIsSTKSimulating(false);
+                        setStkStatus("not_sent");
+                      }}
+                      className="w-full bg-gray-900 hover:bg-gray-800 text-gray-400 font-semibold py-2 rounded-xl text-xs transition border border-gray-800"
+                    >
+                      Cancel
+                    </button>
+                  </div>
                 </div>
               )}
 

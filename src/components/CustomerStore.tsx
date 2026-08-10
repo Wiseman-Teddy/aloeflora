@@ -295,7 +295,6 @@ export default function CustomerStore({
   const [checkoutHouseNum, setCheckoutHouseNum] = useState<string>("");
   const [checkoutNotes, setCheckoutNotes] = useState<string>("");
   const [isSTKSimulating, setIsSTKSimulating] = useState<boolean>(false);
-  const [mpesaPinInput, setMpesaPinInput] = useState<string>("");
   const [stkStatus, setStkStatus] = useState<"not_sent" | "waiting_pin" | "verifying" | "success" | "failed">("not_sent");
   const [generatedOrderId, setGeneratedOrderId] = useState<string>("");
 
@@ -769,8 +768,40 @@ export default function CustomerStore({
         setPendingEventRegId(eventId);
         setPendingEventPrice(price);
         setPaymentContext("event");
-        setStkStatus("waiting_pin");
         setIsSTKSimulating(true);
+        setStkStatus("verifying");
+
+        const ticketId = "TKT-" + Math.floor(100000 + Math.random() * 900000);
+        await supabase.from('event_registrations').insert({
+          event_id: eventId,
+          role: regRole,
+          name: regName,
+          email: regEmail,
+          phone: regPhone,
+          payment_status: "pending",
+          ticket_number: ticketId,
+          quantity: regQuantity,
+          total_cost: price
+        });
+
+        try {
+          const res = await fetch("/api/mpesa/stkpush", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ phone: regPhone, amount: price })
+          });
+          const data = await res.json();
+          if (data.success) {
+            setStkStatus("waiting_pin");
+            toast.success("STK push sent to " + regPhone + ". Check your phone!");
+          } else {
+            setStkStatus("failed");
+            toast.error(data.error || "STK Push failed");
+          }
+        } catch (err) {
+          setStkStatus("failed");
+          toast.error("Failed to connect to M-Pesa gateway.");
+        }
       } else {
         const { error: insErr } = await supabase.from('event_registrations').insert({
             event_id: eventId,

@@ -21,6 +21,8 @@ import {
   TrendingUp,
   Download,
   X,
+  Smartphone,
+  RefreshCw,
   Sun,
   Moon,
   Menu,
@@ -209,7 +211,6 @@ export default function UserDashboard({ orders, products, events = [], cmsPosts 
   const [pendingEventRegId, setPendingEventRegId] = useState<string | null>(null);
   const [pendingEventPrice, setPendingEventPrice] = useState<number>(0);
   const [stkStatus, setStkStatus] = useState<"idle" | "verifying" | "waiting_pin" | "success" | "failed">("idle");
-  const [mpesaPinInput, setMpesaPinInput] = useState<string>("");
   const [isSTKSimulating, setIsSTKSimulating] = useState<boolean>(false);
 
   useEffect(() => {
@@ -313,8 +314,77 @@ export default function UserDashboard({ orders, products, events = [], cmsPosts 
         setPendingEventRegId(eventId);
         setPendingEventPrice(price);
         setPaymentContext("event");
-        setStkStatus("waiting_pin");
         setIsSTKSimulating(true);
+        setStkStatus("verifying");
+
+        const ticketNumber = "TKT-" + Math.floor(100000 + Math.random() * 900000);
+        
+        // Insert pending registration
+        const { data: regIns, error: insErr } = await supabase.from('event_registrations').insert({
+          event_id: eventId,
+          role: regRole,
+          name: regName,
+          email: regEmail,
+          phone: regPhone,
+          payment_status: "pending",
+          amount_paid: 0,
+          quantity: regQuantity,
+          total_cost: price,
+          ticket_number: ticketNumber
+        }).select().single();
+
+        if (insErr) {
+          console.error("Registration insert error:", insErr);
+        }
+
+        // Trigger STK Push
+        const res = await fetch("/api/mpesa/stkpush", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ phone: regPhone, amount: price })
+        });
+        const data = await res.json();
+
+        if (data.success) {
+          setStkStatus("waiting_pin");
+          toast.success("STK Push sent to " + regPhone + ". Check your phone!");
+          
+          // Poll for payment status
+          const regRecordId = regIns?.id;
+          const pollTimer = setInterval(async () => {
+            const { data: checkData } = await supabase
+              .from('event_registrations')
+              .select('payment_status, ticket_number, mpesa_receipt')
+              .eq('event_id', eventId)
+              .eq('email', regEmail)
+              .order('created_at', { ascending: false })
+              .limit(1)
+              .maybeSingle();
+
+            if (checkData && checkData.payment_status === "paid") {
+              clearInterval(pollTimer);
+              setStkStatus("success");
+              toast.success(`Payment confirmed! Ticket #${checkData.ticket_number || ticketNumber} created.`);
+              
+              const evTitle = cmsPosts.find(p => p.id === eventId)?.title || 'ALOEFLORA Event';
+              fetch('/api/email/confirm', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: regEmail, name: regName, role: regRole, eventTitle: evTitle, ticketNumber: checkData.ticket_number || ticketNumber, paymentStatus: "Paid", amount: price })
+              }).catch(err => console.error("Email send error", err));
+
+              setTimeout(() => {
+                setIsSTKSimulating(false);
+                setRegEventId(null);
+                setEventsSubTab("my_bookings");
+                fetchDashboardEventsData();
+              }, 2500);
+            }
+          }, 3000);
+        } else {
+          setStkStatus("failed");
+          toast.error(data.error || "Failed to trigger STK push.");
+        }
       } else {
         const ticketNumber = "TKT-" + Math.floor(100000 + Math.random() * 900000);
         const { error: insErr } = await supabase.from('event_registrations').insert({
@@ -353,53 +423,6 @@ export default function UserDashboard({ orders, products, events = [], cmsPosts 
       }
     } catch (err: any) {
       toast.error("Registration failed: " + err.message);
-    }
-  };
-
-  const submitDashboardStkPush = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (mpesaPinInput.length !== 4) return;
-    setStkStatus("verifying");
-
-    try {
-      if (pendingEventRegId) {
-        const ticketId = "TKT-" + Math.floor(100000 + Math.random() * 900000);
-        const mpesaRef = "QFF" + Math.random().toString(36).substring(2, 8).toUpperCase();
-        
-        const { error } = await supabase.from('event_registrations').insert({
-          event_id: pendingEventRegId,
-          role: regRole,
-          name: regName,
-          email: regEmail,
-          phone: regPhone,
-          payment_status: "paid",
-          amount_paid: pendingEventPrice,
-          ticket_number: ticketId,
-          mpesa_receipt: mpesaRef,
-          quantity: regQuantity,
-          total_cost: pendingEventPrice
-        });
-        
-        if (error) throw error;
-        
-        const evTitle = cmsPosts.find(p => p.id === pendingEventRegId)?.title || 'ALOEFLORA Event';
-        fetch('/api/email/confirm', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: regEmail, name: regName, role: regRole, eventTitle: evTitle, ticketNumber: ticketId, paymentStatus: "Paid", amount: pendingEventPrice })
-        }).catch(err => console.error("Email send error", err));
-        
-        setTimeout(() => {
-          setStkStatus("success");
-          toast.success(`Payment confirmed! Ticket #${ticketId} created. Confirmation email sent.`);
-          setIsSTKSimulating(false);
-          setRegEventId(null);
-          setEventsSubTab("my_bookings");
-          fetchDashboardEventsData();
-        }, 2000);
-      }
-    } catch (err: any) {
-      toast.error("Payment failed: " + err.message);
       setStkStatus("failed");
     }
   };
@@ -1983,34 +2006,33 @@ export default function UserDashboard({ orders, products, events = [], cmsPosts 
             </button>
 
             {stkStatus === "waiting_pin" && (
-              <form onSubmit={submitDashboardStkPush} className="space-y-4">
+              <div className="space-y-4 text-center">
                 <div className="w-14 h-14 bg-emerald-100 dark:bg-emerald-900/40 rounded-full flex items-center justify-center mx-auto text-emerald-700 dark:text-lime-400">
-                  <CreditCard className="w-7 h-7" />
+                  <Smartphone className="w-7 h-7 animate-bounce" />
                 </div>
-                <h3 className="font-extrabold text-base text-gray-900 dark:text-white">M-PESA Express Prompt</h3>
+                <h3 className="font-extrabold text-base text-gray-900 dark:text-white">STK Push Sent to Your Phone</h3>
                 <p className="text-xs text-gray-500 leading-relaxed">
-                  Enter your 4-digit M-PESA PIN to complete payment of <strong className="text-emerald-600">KES {pendingEventPrice}</strong> for your ticket.
+                  Please check your mobile phone handset <strong className="text-emerald-600 dark:text-emerald-400">{regPhone}</strong> and enter your 4-digit M-Pesa PIN on your phone handset to complete payment of <strong>KES {pendingEventPrice}</strong>.
                 </p>
-                <div className="space-y-1">
-                  <input 
-                    type="password"
-                    maxLength={4}
-                    autoFocus
-                    required
-                    value={mpesaPinInput}
-                    onChange={(e) => setMpesaPinInput(e.target.value.replace(/\D/g, ''))}
-                    placeholder="••••"
-                    className="w-full text-center tracking-[1em] text-lg font-bold p-3 border border-emerald-200 dark:border-gray-700 dark:bg-gray-800 dark:text-white rounded-xl focus:outline-none focus:border-emerald-600"
-                  />
+                <div className="p-3 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/40 rounded-xl text-left text-xs space-y-1 text-gray-700 dark:text-gray-300">
+                  <p className="font-semibold text-emerald-800 dark:text-emerald-400">📱 M-Pesa Instructions:</p>
+                  <ol className="list-disc list-inside space-y-0.5 text-[11px]">
+                    <li>Look at your phone screen for the Safaricom M-Pesa prompt.</li>
+                    <li>Enter your 4-digit Secret PIN on your phone.</li>
+                    <li>Press Send to complete payment.</li>
+                  </ol>
                 </div>
                 <button 
-                  type="submit" 
-                  disabled={mpesaPinInput.length !== 4}
-                  className="w-full bg-emerald-800 hover:bg-emerald-700 disabled:opacity-50 text-white font-bold p-3 rounded-xl transition cursor-pointer text-xs uppercase tracking-wide shadow-xs"
+                  type="button" 
+                  onClick={() => {
+                    setIsSTKSimulating(false);
+                    setStkStatus("idle");
+                  }}
+                  className="w-full bg-gray-200 dark:bg-gray-800 hover:bg-gray-300 dark:hover:bg-gray-700 text-gray-800 dark:text-gray-200 font-bold p-2.5 rounded-xl transition text-xs"
                 >
-                  Pay KES {pendingEventPrice}
+                  Cancel
                 </button>
-              </form>
+              </div>
             )}
 
             {stkStatus === "verifying" && (
