@@ -19,15 +19,14 @@ app.use(express.json());
 // Daraja API Credentials
 const consumerKey = process.env.MPESA_CONSUMER_KEY;
 const consumerSecret = process.env.MPESA_CONSUMER_SECRET;
-// Optional: If you have a shortcode and passkey for Daraja
-const businessShortCode = process.env.MPESA_SHORTCODE || '174379'; // Test shortcode
+const businessShortCode = process.env.MPESA_SHORTCODE || '4160861';
 const passkey = process.env.MPESA_PASSKEY || 'bfb279f9aa9bdbcf158e97dd71a467cd2e0c893059b10f78e6b72ada1ed2c919';
 
 // Generate M-Pesa Token
 async function getMpesaToken() {
   const auth = Buffer.from(`${consumerKey}:${consumerSecret}`).toString('base64');
   try {
-    const response = await fetch('https://sandbox.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials', {
+    const response = await fetch('https://api.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials', {
       headers: {
         Authorization: `Basic ${auth}`
       }
@@ -75,7 +74,7 @@ app.post('/api/mpesa/stkpush', async (req, res) => {
       TransactionDesc: 'Payment for order'
     };
 
-    const response = await fetch('https://sandbox.safaricom.co.ke/mpesa/stkpush/v1/processrequest', {
+    const response = await fetch('https://api.safaricom.co.ke/mpesa/stkpush/v1/processrequest', {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${token}`,

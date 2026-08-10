@@ -203,20 +203,20 @@ jobs:
   const mpesaApiSpec = `{
   "Safaricom_Daraja_Interface": {
     "stk_push_initiate": {
-      "endpoint": "https://sandbox.safaricom.co.ke/mpesa/stkpush/v1/processrequest",
+      "endpoint": "https://api.safaricom.co.ke/mpesa/stkpush/v1/processrequest",
       "method": "POST",
       "headers": {
         "Authorization": "Bearer OThB...Wjh4S082",
         "Content-Type": "application/json"
       },
       "body_schema": {
-        "BusinessShortCode": "174379",
+        "BusinessShortCode": "4160861",
         "Password": "MTc0Mzc5YmZiM...==",
-        "Timestamp": "20260615143501",
+        "Timestamp": "20260810143501",
         "TransactionType": "CustomerPayBillOnline",
         "Amount": "subtotal + delivery_fee",
-        "PartyA": "254116794448",
-        "PartyB": "174379",
+        "PartyA": "254712345678",
+        "PartyB": "4160861",
         "PhoneNumber": "254116794448",
         "CallBackURL": "https://aloeflora.co.ke/api/payments/mpesa-callback",
         "AccountReference": "ORD-9281",

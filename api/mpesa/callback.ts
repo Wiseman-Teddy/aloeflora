@@ -44,7 +44,7 @@ async function triggerPlatformPayout(amount: number) {
     const consumerSecret = process.env.MPESA_CONSUMER_SECRET;
     const initiatorName = process.env.MPESA_INITIATOR_NAME || 'api_user';
     const securityCredential = process.env.MPESA_SECURITY_CREDENTIAL || 'base64_cert_password';
-    const businessShortCode = '4160861';
+    const businessShortCode = process.env.MPESA_SHORTCODE || '4160861';
     const platformPhone = '254714441312'; // Pochi la Biashara format (0714441312)
     
     if (!consumerKey || !consumerSecret) {

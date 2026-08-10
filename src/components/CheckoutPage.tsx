@@ -359,7 +359,7 @@ export default function CheckoutPage({ onAddOrder, promos }: CheckoutPageProps) 
                   
                   <div className="bg-gray-950 p-4 rounded-2xl border border-gray-800 text-left space-y-3 font-mono text-xs">
                     <div className="text-gray-400 border-b border-gray-800 pb-2">STK Push Message Dialog:</div>
-                    <div className="text-emerald-400 font-bold">Pay Bill: 174379 (ALOEFLORA PRODUCTS)</div>
+                    <div className="text-emerald-400 font-bold">Short Code: 4160861 (ALOEFLORA PRODUCTS)</div>
                     <div>Account No: ORD-{generatedOrderId}</div>
                     <div>Amount: KES {total}</div>
                     <div className="text-gray-400">Enter Your 4-Digit M-Pesa Secret PIN:</div>
