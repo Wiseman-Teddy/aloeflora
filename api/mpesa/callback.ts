@@ -40,8 +40,8 @@ async function triggerPlatformPayout(amount: number) {
   try {
     console.log(`Initiating automatic B2C payout of KES ${amount} to platform...`);
     
-    const consumerKey = process.env.MPESA_CONSUMER_KEY;
-    const consumerSecret = process.env.MPESA_CONSUMER_SECRET;
+    const consumerKey = process.env.MPESA_CONSUMER_KEY || 'LyXnyyQ8Qqs3oNYCGjvreLspgmgTurGZLt7sXcxQHKV30QUZ';
+    const consumerSecret = process.env.MPESA_CONSUMER_SECRET || 'bkREM4ZGm3liOqGrHNN4y9IPbLyXGA78sjdT0mbB8IYHquHgjppkx29GPg51Qb1G';
     const initiatorName = process.env.MPESA_INITIATOR_NAME || 'api_user';
     const securityCredential = process.env.MPESA_SECURITY_CREDENTIAL || 'base64_cert_password';
     const businessShortCode = process.env.MPESA_SHORTCODE || '4160861';

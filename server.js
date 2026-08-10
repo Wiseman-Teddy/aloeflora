@@ -17,8 +17,8 @@ app.use(cors());
 app.use(express.json());
 
 // Daraja API Credentials
-const consumerKey = process.env.MPESA_CONSUMER_KEY;
-const consumerSecret = process.env.MPESA_CONSUMER_SECRET;
+const consumerKey = process.env.MPESA_CONSUMER_KEY || 'LyXnyyQ8Qqs3oNYCGjvreLspgmgTurGZLt7sXcxQHKV30QUZ';
+const consumerSecret = process.env.MPESA_CONSUMER_SECRET || 'bkREM4ZGm3liOqGrHNN4y9IPbLyXGA78sjdT0mbB8IYHquHgjppkx29GPg51Qb1G';
 const businessShortCode = process.env.MPESA_SHORTCODE || '4160861';
 const passkey = process.env.MPESA_PASSKEY || 'bfb279f9aa9bdbcf158e97dd71a467cd2e0c893059b10f78e6b72ada1ed2c919';
 
