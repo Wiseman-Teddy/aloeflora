@@ -74,7 +74,7 @@ export default function CheckoutPage({ onAddOrder, promos }: CheckoutPageProps) 
     };
   }, [pollTimer]);
 
-  const checkOrderPaymentStatus = async (orderId: string) => {
+  const checkOrderPaymentStatus = async (orderId: string, isManualCheck = false) => {
     try {
       const { data } = await supabase
         .from('orders')
@@ -102,6 +102,35 @@ export default function CheckoutPage({ onAddOrder, promos }: CheckoutPageProps) 
           navigate("/dashboard");
         }, 2000);
         return true;
+      }
+
+      // If manual button click and still pending, query Daraja Gateway directly
+      if (isManualCheck && checkoutRequestId) {
+        toast.loading("Querying M-Pesa gateway...", { id: "mpesa-query" });
+        const res = await fetch("/api/mpesa/query", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ checkoutRequestID: checkoutRequestId })
+        });
+        const queryRes = await res.json();
+        toast.dismiss("mpesa-query");
+
+        if (queryRes.success) {
+          setStkStatus("success");
+          toast.success("Payment confirmed from M-Pesa Gateway!");
+          localStorage.removeItem("aloeflora_active_stk");
+          if (shop?.clearCart) shop.clearCart();
+          setTimeout(() => {
+            setIsSTKPromptOpen(false);
+            setStkStatus("not_sent");
+            navigate("/dashboard");
+          }, 2000);
+          return true;
+        } else if (queryRes.details?.ResultDesc) {
+          toast.error(`M-Pesa Status: ${queryRes.details.ResultDesc}`);
+        } else {
+          toast.error("Payment still pending. Please enter your M-Pesa PIN on your phone handset.");
+        }
       }
     } catch (err) {
       console.error("Error polling order status:", err);
@@ -456,7 +485,7 @@ export default function CheckoutPage({ onAddOrder, promos }: CheckoutPageProps) 
                   <div className="flex flex-col gap-2 pt-2">
                     <button
                       type="button"
-                      onClick={() => checkOrderPaymentStatus("ORD-" + generatedOrderId)}
+                      onClick={() => checkOrderPaymentStatus("ORD-" + generatedOrderId, true)}
                       className="w-full bg-emerald-600 hover:bg-emerald-500 text-black font-bold py-2.5 rounded-xl text-xs transition shadow-lg shadow-emerald-600/20 flex items-center justify-center gap-2"
                     >
                       <RefreshCw className="w-3.5 h-3.5" /> Check Payment Status Now
