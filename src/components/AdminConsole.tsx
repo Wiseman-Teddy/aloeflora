@@ -1393,13 +1393,13 @@ export default function AdminConsole({
                   <div className="space-y-1 bg-emerald-50/70 p-2 rounded-xl border border-emerald-200/80">
                     <label className="font-extrabold text-emerald-950 text-xs flex items-center justify-between">
                       <span>📏 Standalone Size</span>
-                      <span className="text-[9px] text-emerald-800 font-bold">(ml, L, g)</span>
+                      <span className="text-[9px] text-emerald-800 font-bold">(kg, g, ml, L)</span>
                     </label>
                     <input 
                       type="text" 
                       value={prodUnitSize} 
                       onChange={(e) => setProdUnitSize(e.target.value)} 
-                      placeholder="e.g. 400ml, 1L, 500g" 
+                      placeholder="e.g. 400ml, 1L, 250g, 1kg" 
                       className="w-full p-1.5 border bg-white rounded-lg focus:outline-none font-bold text-xs" 
                     />
                     <p className="text-[9px] text-gray-500 leading-tight">For products without variants</p>
@@ -1426,7 +1426,7 @@ export default function AdminConsole({
                       <h4 className="font-black text-xs text-emerald-950 flex items-center gap-1.5 uppercase tracking-wide">
                         <span>📦 Package Sizes & Pricing Matrix</span>
                       </h4>
-                      <p className="text-[10px] text-gray-500">Configure size packages (e.g. 400ml @ KES 450, 1 Litre @ KES 1,000) with size-specific pricing, cost, stock, and images.</p>
+                      <p className="text-[10px] text-gray-500">Configure size packages (e.g. 400ml, 1L, 250g, 1kg @ KES prices) with size-specific pricing, cost, stock, and images.</p>
                     </div>
                     <button
                       type="button"
@@ -1435,7 +1435,7 @@ export default function AdminConsole({
                           ...prev,
                           {
                             id: `v-${Date.now()}-${prev.length}`,
-                            name: prev.length === 0 ? "400ml" : prev.length === 1 ? "1 Litre" : `${prev.length + 1}L`,
+                            name: prev.length === 0 ? "500ml" : prev.length === 1 ? "1L" : `${prev.length + 1}L`,
                             price: 500,
                             costPrice: 250,
                             stock: 30,
@@ -1452,15 +1452,15 @@ export default function AdminConsole({
 
                   {prodVariantsList.length === 0 ? (
                     <div className="text-center py-4 text-gray-400 text-xs italic bg-gray-50 rounded-lg border border-dashed border-gray-200">
-                      No multi-size variants configured. Click "Add Size Variant" above to add sizes (e.g. 400ml, 1 Litre).
+                      No multi-size variants configured. Click "Add Size Variant" above to add sizes (e.g. 400ml, 1L, 250g, 1kg).
                     </div>
                   ) : (
                     <div className="space-y-2.5 max-h-64 overflow-y-auto pr-1">
                       {prodVariantsList.map((variant, vIdx) => (
                         <div key={variant.id || vIdx} className="p-3 bg-emerald-50/40 border border-emerald-100 rounded-xl grid grid-cols-1 sm:grid-cols-12 gap-2.5 items-center">
-                          {/* Size Name */}
+                          {/* Size Label */}
                           <div className="sm:col-span-2 space-y-1">
-                            <label className="text-[10px] font-black text-gray-600 uppercase">Size Name</label>
+                            <label className="text-[10px] font-black text-gray-600 uppercase">Size</label>
                             <input
                               type="text"
                               value={variant.name}
@@ -1469,7 +1469,7 @@ export default function AdminConsole({
                                 updated[vIdx].name = e.target.value;
                                 setProdVariantsList(updated);
                               }}
-                              placeholder="e.g. 400ml"
+                              placeholder="e.g. 400ml, 1L, 250g, 1kg"
                               className="w-full p-1.5 border bg-white rounded text-xs font-bold"
                               required
                             />
