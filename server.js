@@ -4,6 +4,7 @@ import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { GoogleGenAI } from '@google/genai';
+import { createClient } from '@supabase/supabase-js';
 
 dotenv.config();
 
@@ -16,22 +17,33 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Daraja API Credentials
+// Initialize Supabase Client for background updates
+const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || 'https://apnmunmhlrpcbmjmywyh.supabase.co';
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFwbm11bm1obHJwY2Jtam15d3loIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MTUyMTk3NiwiZXhwIjoyMDk3MDk3OTc2fQ.eyYFgK3e-p1BuX9J4_Gbhymek4LPKNRUB4Vmm4xYjBM';
+const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+// Daraja API Credentials & Environment Settings
+const mpesaEnv = process.env.MPESA_ENV || 'production';
+const darajaBaseUrl = mpesaEnv === 'sandbox' ? 'https://sandbox.safaricom.co.ke' : 'https://api.safaricom.co.ke';
+
 const consumerKey = process.env.MPESA_CONSUMER_KEY || 'LyXnyyQ8Qqs3oNYCGjvreLspgmgTurGZLt7sXcxQHKV30QUZ';
 const consumerSecret = process.env.MPESA_CONSUMER_SECRET || 'bkREM4ZGm3liOqGrHNN4y9IPbLyXGA78sjdT0mbB8IYHquHgjppkx29GPg51Qb1G';
 const businessShortCode = process.env.MPESA_SHORTCODE || '4160861';
 const passkey = process.env.MPESA_PASSKEY || 'bfb279f9aa9bdbcf158e97dd71a467cd2e0c893059b10f78e6b72ada1ed2c919';
 
-// Generate M-Pesa Token
+// Generate M-Pesa OAuth Access Token
 async function getMpesaToken() {
   const auth = Buffer.from(`${consumerKey}:${consumerSecret}`).toString('base64');
   try {
-    const response = await fetch('https://api.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials', {
+    const response = await fetch(`${darajaBaseUrl}/oauth/v1/generate?grant_type=client_credentials`, {
       headers: {
         Authorization: `Basic ${auth}`
       }
     });
     const data = await response.json();
+    if (!data.access_token) {
+      throw new Error(`Failed to fetch M-Pesa token: ${JSON.stringify(data)}`);
+    }
     return data.access_token;
   } catch (error) {
     console.error('Error generating M-Pesa token:', error);
@@ -41,7 +53,7 @@ async function getMpesaToken() {
 
 // Endpoint to initiate STK Push
 app.post('/api/mpesa/stkpush', async (req, res) => {
-  const { phone, amount, transactionType } = req.body;
+  const { phone, amount, transactionType, orderId, accountRef } = req.body;
 
   if (!phone || !amount) {
     return res.status(400).json({ error: 'Phone and amount are required' });
@@ -61,6 +73,7 @@ app.post('/api/mpesa/stkpush', async (req, res) => {
     const password = Buffer.from(`${businessShortCode}${passkey}${timestamp}`).toString('base64');
 
     const txType = transactionType || 'CustomerPayBillOnline';
+    const ref = accountRef || orderId || 'Aloeflora Order';
 
     const payload = {
       BusinessShortCode: businessShortCode,
@@ -71,12 +84,12 @@ app.post('/api/mpesa/stkpush', async (req, res) => {
       PartyA: formattedPhone,
       PartyB: businessShortCode,
       PhoneNumber: formattedPhone,
-      CallBackURL: `${currentAppUrl}/api/mpesa/callback`, // Needs to be public
-      AccountReference: 'Aloeflora Order',
-      TransactionDesc: 'Payment for order'
+      CallBackURL: `${currentAppUrl}/api/mpesa/callback`,
+      AccountReference: String(ref).slice(0, 12),
+      TransactionDesc: 'Aloeflora Order Payment'
     };
 
-    const response = await fetch('https://api.safaricom.co.ke/mpesa/stkpush/v1/processrequest', {
+    const response = await fetch(`${darajaBaseUrl}/mpesa/stkpush/v1/processrequest`, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${token}`,
@@ -87,24 +100,169 @@ app.post('/api/mpesa/stkpush', async (req, res) => {
 
     const data = await response.json();
     if (data.ResponseCode === '0') {
-      res.json({ success: true, message: 'STK push sent successfully', checkoutRequestID: data.CheckoutRequestID });
+      // Save CheckoutRequestID to Supabase if orderId was passed
+      if (orderId) {
+        await supabase
+          .from('orders')
+          .update({ checkout_request_id: data.CheckoutRequestID })
+          .eq('id', orderId);
+      }
+      res.json({
+        success: true,
+        message: 'STK push sent successfully',
+        checkoutRequestID: data.CheckoutRequestID,
+        merchantRequestID: data.MerchantRequestID
+      });
     } else {
       res.status(400).json({ success: false, error: data.errorMessage || 'Failed to send STK push', details: data });
     }
   } catch (error) {
     console.error('STK Push Error:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: 'Internal server error', details: error.message });
   }
 });
 
-// M-Pesa Callback Endpoint
-app.post('/api/mpesa/callback', (req, res) => {
-  console.log('--- STK Push Callback Received ---');
+// Production M-Pesa Callback Endpoint
+app.post('/api/mpesa/callback', async (req, res) => {
+  console.log('--- M-PESA STK PUSH CALLBACK RECEIVED ---');
   console.log(JSON.stringify(req.body, null, 2));
 
-  // In production, update Supabase order payment status here based on CheckoutRequestID.
+  try {
+    const callbackData = req.body?.Body?.stkCallback;
+    if (!callbackData) {
+      return res.status(400).json({ ResultCode: 1, ResultDesc: 'Invalid payload' });
+    }
 
-  res.status(200).json({ message: 'Success' });
+    const { MerchantRequestID, CheckoutRequestID, ResultCode, ResultDesc, CallbackMetadata } = callbackData;
+
+    if (ResultCode === 0 && CallbackMetadata?.Item) {
+      let mpesaReceipt = '';
+      let amountPaid = 0;
+      let phoneNumber = '';
+      let transactionDate = '';
+
+      for (const item of CallbackMetadata.Item) {
+        if (item.Name === 'MpesaReceiptNumber') mpesaReceipt = String(item.Value);
+        if (item.Name === 'Amount') amountPaid = Number(item.Value);
+        if (item.Name === 'PhoneNumber') phoneNumber = String(item.Value);
+        if (item.Name === 'TransactionDate') transactionDate = String(item.Value);
+      }
+
+      console.log(`✅ Payment Successful for CheckoutRequestID: ${CheckoutRequestID}, Receipt: ${mpesaReceipt}, Amount: ${amountPaid}`);
+
+      // Update order status in Supabase
+      const { data: updatedOrder, error: dbError } = await supabase
+        .from('orders')
+        .update({
+          payment_status: 'paid',
+          status: 'paid',
+          mpesa_receipt: mpesaReceipt,
+          updated_at: new Date().toISOString()
+        })
+        .eq('checkout_request_id', CheckoutRequestID)
+        .select();
+
+      if (dbError) {
+        console.error('Database update failed for paid order:', dbError);
+      } else {
+        console.log('Updated order in Supabase:', updatedOrder);
+      }
+    } else {
+      console.warn(`❌ Payment Failed or Cancelled for CheckoutRequestID: ${CheckoutRequestID}. Reason: ${ResultDesc} (Code: ${ResultCode})`);
+
+      await supabase
+        .from('orders')
+        .update({
+          payment_status: 'failed',
+          updated_at: new Date().toISOString()
+        })
+        .eq('checkout_request_id', CheckoutRequestID);
+    }
+  } catch (error) {
+    console.error('Error processing M-Pesa callback:', error);
+  }
+
+  // Safaricom requires a 200 OK JSON acknowledgment
+  return res.status(200).json({ ResultCode: 0, ResultDesc: 'Callback processed successfully' });
+});
+
+// Endpoint to Query STK Push Payment Status from Daraja
+app.post('/api/mpesa/query', async (req, res) => {
+  const { checkoutRequestID } = req.body;
+  if (!checkoutRequestID) {
+    return res.status(400).json({ error: 'checkoutRequestID is required' });
+  }
+
+  try {
+    const token = await getMpesaToken();
+    const timestamp = new Date().toISOString().replace(/[^0-9]/g, '').slice(0, 14);
+    const password = Buffer.from(`${businessShortCode}${passkey}${timestamp}`).toString('base64');
+
+    const response = await fetch(`${darajaBaseUrl}/mpesa/stkpushquery/v1/query`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        BusinessShortCode: businessShortCode,
+        Password: password,
+        Timestamp: timestamp,
+        CheckoutRequestID: checkoutRequestID
+      })
+    });
+
+    const data = await response.json();
+
+    if (data.ResultCode === '0') {
+      // Order paid successfully
+      await supabase
+        .from('orders')
+        .update({
+          payment_status: 'paid',
+          status: 'paid',
+          updated_at: new Date().toISOString()
+        })
+        .eq('checkout_request_id', checkoutRequestID);
+
+      return res.json({ success: true, status: 'paid', details: data });
+    } else {
+      return res.json({ success: false, status: 'pending_or_failed', details: data });
+    }
+  } catch (error) {
+    console.error('Query STK Status Error:', error);
+    res.status(500).json({ error: 'Failed to query STK status', details: error.message });
+  }
+});
+
+// C2B Direct Paybill Validation & Confirmation Endpoints
+app.post('/api/mpesa/c2b/validation', (req, res) => {
+  console.log('--- C2B Validation Request ---', req.body);
+  // Return Accept Prompt
+  res.json({ ResultCode: 0, ResultDesc: 'Accepted' });
+});
+
+app.post('/api/mpesa/c2b/confirmation', async (req, res) => {
+  console.log('--- C2B Confirmation Request ---', req.body);
+  const { TransID, TransAmount, BillRefNumber, MSISDN } = req.body;
+
+  try {
+    if (BillRefNumber) {
+      await supabase
+        .from('orders')
+        .update({
+          payment_status: 'paid',
+          status: 'paid',
+          mpesa_receipt: TransID,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', BillRefNumber);
+    }
+  } catch (err) {
+    console.error('Error updating order for C2B payment:', err);
+  }
+
+  res.json({ ResultCode: 0, ResultDesc: 'Confirmation received successfully' });
 });
 
 // Gemini AI Assistant Endpoint

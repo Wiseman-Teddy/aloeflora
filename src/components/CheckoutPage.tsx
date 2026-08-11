@@ -188,12 +188,17 @@ export default function CheckoutPage({ onAddOrder, promos }: CheckoutPageProps) 
     }));
 
     // 2. Trigger Real STK Push via Backend API
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 12000);
+
     try {
       const res = await fetch("/api/mpesa/stkpush", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone: checkoutPhone, amount: total })
+        body: JSON.stringify({ phone: checkoutPhone, amount: total, orderId, accountRef: orderId }),
+        signal: controller.signal
       });
+      clearTimeout(timeoutId);
       const data = await res.json();
 
       if (data.success) {
@@ -212,9 +217,14 @@ export default function CheckoutPage({ onAddOrder, promos }: CheckoutPageProps) 
         toast.error(data.error || "Failed to send STK Push to phone");
       }
     } catch (err: any) {
+      clearTimeout(timeoutId);
       console.error("STK Push call error:", err);
       setStkStatus("failed");
-      toast.error("Failed to connect to M-Pesa gateway.");
+      if (err.name === 'AbortError') {
+        toast.error("M-Pesa Gateway timeout. Make sure Express server (node server.js) is running on port 3001.");
+      } else {
+        toast.error("Failed to connect to M-Pesa gateway.");
+      }
     }
   };
 
