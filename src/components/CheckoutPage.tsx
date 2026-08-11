@@ -387,44 +387,68 @@ export default function CheckoutPage({ onAddOrder, promos }: CheckoutPageProps) 
           )}
         </div>
 
-        {/* Right Column: Order Summary */}
+        {/* Right Column: Order Summary with Interactive Steppers */}
         <div className="lg:col-span-4 space-y-6">
-          <div className="bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-800 p-6 rounded-3xl">
-            <h3 className="font-bold text-lg text-gray-900 dark:text-white pb-4 border-b border-gray-200 dark:border-gray-800 mb-4">Order Summary</h3>
+          <div className="bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-800 p-6 rounded-3xl sticky top-24">
+            <div className="flex justify-between items-center pb-4 border-b border-gray-200 dark:border-gray-800 mb-4">
+              <h3 className="font-bold text-lg text-gray-900 dark:text-white">Order Summary</h3>
+              <span className="text-xs font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-950/60 px-2.5 py-0.5 rounded-full">
+                {cart.reduce((sum, item) => sum + item.quantity, 0)} Items
+              </span>
+            </div>
             
-            <div className="space-y-4 max-h-64 overflow-y-auto pr-2 mb-6 scrollbar-hide">
+            <div className="space-y-4 max-h-72 overflow-y-auto pr-2 mb-6 scrollbar-hide">
               {cart.map((item) => (
-                <div key={`${item.product.id}-${item.selectedVariant}`} className="flex gap-4">
-                  <div className="w-16 h-16 bg-white dark:bg-gray-800 rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700 flex-shrink-0">
+                <div key={`${item.product.id}-${item.selectedVariant}`} className="flex gap-3 bg-white dark:bg-gray-800/60 p-2.5 rounded-2xl border border-gray-200/60 dark:border-gray-700/60 items-center">
+                  <div className="w-14 h-14 bg-gray-100 dark:bg-gray-700 rounded-xl overflow-hidden shrink-0 border border-gray-200 dark:border-gray-700">
                     <img src={item.product.imageUrl?.split(',')[0]} alt={item.product.name} className="w-full h-full object-cover" />
                   </div>
-                  <div className="flex-1 text-sm">
-                    <h4 className="font-bold text-gray-900 dark:text-white line-clamp-2">{item.product.name}</h4>
-                    <div className="text-gray-500 text-xs mt-1">Qty: {item.quantity} {item.selectedVariant ? `| ${item.selectedVariant}` : ''}</div>
+                  <div className="flex-1 min-w-0 text-left">
+                    <h4 className="font-bold text-xs text-gray-900 dark:text-white truncate">{item.product.name}</h4>
+                    {item.selectedVariant && (
+                      <span className="text-[10px] text-gray-500 dark:text-gray-400 block">
+                        Size: {item.selectedVariant}
+                      </span>
+                    )}
+                    <div className="font-bold text-emerald-700 dark:text-emerald-400 text-xs mt-0.5">
+                      KES {item.product.price * item.quantity}
+                    </div>
                   </div>
-                  <div className="font-bold text-gray-900 dark:text-white text-sm">KES {item.product.price * item.quantity}</div>
+
+                  {/* Quantity Stepper inside Checkout Sidebar */}
+                  <div className="flex items-center gap-1 bg-gray-100 dark:bg-gray-700 rounded-lg p-0.5 border border-gray-200 dark:border-gray-600">
+                    <button
+                      onClick={() => shop?.updateCartItemQuantity ? shop.updateCartItemQuantity(item.product.id, item.selectedVariant, item.quantity - 1) : null}
+                      className="w-5 h-5 flex items-center justify-center text-gray-600 dark:text-gray-300 hover:bg-white dark:hover:bg-gray-600 rounded text-xs"
+                    >-</button>
+                    <span className="text-xs font-bold w-4 text-center dark:text-white">{item.quantity}</span>
+                    <button
+                      onClick={() => shop?.updateCartItemQuantity ? shop.updateCartItemQuantity(item.product.id, item.selectedVariant, item.quantity + 1) : null}
+                      className="w-5 h-5 flex items-center justify-center text-gray-600 dark:text-gray-300 hover:bg-white dark:hover:bg-gray-600 rounded text-xs"
+                    >+</button>
+                  </div>
                 </div>
               ))}
             </div>
 
             <div className="space-y-3 pt-4 border-t border-gray-200 dark:border-gray-800 text-sm">
-              <div className="flex justify-between text-gray-600 dark:text-gray-400">
+              <div className="flex justify-between text-gray-600 dark:text-gray-400 text-xs">
                 <span>Subtotal</span>
                 <span className="font-semibold text-gray-900 dark:text-white">KES {subtotal}</span>
               </div>
-              <div className="flex justify-between text-gray-600 dark:text-gray-400">
+              <div className="flex justify-between text-gray-600 dark:text-gray-400 text-xs">
                 <span>Delivery Fee</span>
-                <span className="font-semibold text-gray-900 dark:text-white">{deliveryFee === 0 ? 'FREE' : `KES ${deliveryFee}`}</span>
+                <span className="font-semibold text-gray-900 dark:text-white">{deliveryFee === 0 ? <strong className="text-emerald-600">FREE</strong> : `KES ${deliveryFee}`}</span>
               </div>
               {checkoutCounty === "Nairobi" && isCbd && (
-                <div className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-1 rounded text-center">CBD Starehe Free Delivery Applied!</div>
+                <div className="text-[10px] font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-950/60 px-2 py-1 rounded-lg text-center">CBD Starehe Free Delivery Applied!</div>
               )}
               {checkoutCounty === "Nairobi" && !isCbd && subtotal >= 3000 && (
-                <div className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-1 rounded text-center">Subtotal &gt; KES 3,000! Standard Delivery Free!</div>
+                <div className="text-[10px] font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-950/60 px-2 py-1 rounded-lg text-center">Subtotal &gt; KES 3,000! Standard Delivery Free!</div>
               )}
-              <div className="flex justify-between text-xl font-extrabold text-gray-900 dark:text-white pt-4 border-t border-gray-200 dark:border-gray-800">
+              <div className="flex justify-between text-lg font-extrabold text-gray-900 dark:text-white pt-3 border-t border-gray-200 dark:border-gray-800">
                 <span>Total</span>
-                <span className="text-emerald-700 dark:text-emerald-500">KES {total}</span>
+                <span className="text-emerald-700 dark:text-emerald-400">KES {total}</span>
               </div>
             </div>
           </div>

@@ -34,7 +34,7 @@ export default function ProductDetailPage({ products }: ProductDetailPageProps) 
   const product = products.find(p => p.id === id);
 
   const normalizedVars = product ? normalizeVariants(product) : [];
-  const [selectedVariant, setSelectedVariant] = useState<ProductVariant>(() => normalizedVars[0] || { id: "default", name: "Standard", price: product?.price || 0 });
+  const [selectedVariant, setSelectedVariant] = useState<ProductVariant | null>(() => normalizedVars[0] || null);
 
   if (!product) {
     return (
@@ -54,7 +54,9 @@ export default function ProductDetailPage({ products }: ProductDetailPageProps) 
     .filter(p => p.category === product.category && p.id !== product.id)
     .slice(0, 4);
 
-  const currentDisplayImage = selectedVariant.imageUrl || mediaUrls[selectedImageIdx] || product.imageUrl?.split(',')[0];
+  const currentDisplayImage = selectedVariant?.imageUrl || mediaUrls[selectedImageIdx] || product.imageUrl?.split(',')[0];
+  const activePrice = selectedVariant ? selectedVariant.price : product.price;
+  const activeStock = selectedVariant ? (selectedVariant.stock ?? product.stock) : product.stock;
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
@@ -76,7 +78,7 @@ export default function ProductDetailPage({ products }: ProductDetailPageProps) 
             ) : (
               <div className="w-full h-full flex items-center justify-center text-gray-400">No Image</div>
             )}
-            {selectedVariant.name && selectedVariant.name !== "Standard" && (
+            {selectedVariant && selectedVariant.name && (
               <div className="absolute top-4 left-4 bg-[#152E15]/90 text-white text-[10px] uppercase font-black px-3 py-1 rounded-full backdrop-blur-xs">
                 Size: {selectedVariant.name}
               </div>
@@ -123,10 +125,10 @@ export default function ProductDetailPage({ products }: ProductDetailPageProps) 
           </div>
 
           <div className="text-3xl font-black text-gray-900 dark:text-white flex items-center gap-3">
-            KES {selectedVariant.price}
-            {((selectedVariant.stock ?? product.stock) < 5) && ((selectedVariant.stock ?? product.stock) > 0) && (
+            KES {activePrice}
+            {activeStock < 5 && activeStock > 0 && (
               <span className="text-xs font-bold bg-amber-100 text-amber-800 px-2.5 py-1 rounded-full">
-                Only {selectedVariant.stock ?? product.stock} left in stock
+                Only {activeStock} left in stock
               </span>
             )}
           </div>
@@ -137,11 +139,13 @@ export default function ProductDetailPage({ products }: ProductDetailPageProps) 
             <div className="space-y-3 pt-4 border-t border-gray-100 dark:border-gray-800">
               <div className="flex items-center justify-between">
                 <span className="text-xs uppercase font-extrabold text-gray-500 tracking-wider">Select Package Size / Option</span>
-                <span className="text-xs font-bold text-[#348C21] dark:text-emerald-400">Selected: {selectedVariant.name}</span>
+                {selectedVariant && (
+                  <span className="text-xs font-bold text-[#348C21] dark:text-emerald-400">Selected: {selectedVariant.name}</span>
+                )}
               </div>
               <div className="flex flex-wrap gap-2.5">
                 {normalizedVars.map((v) => {
-                  const isSelected = selectedVariant.id === v.id || selectedVariant.name === v.name;
+                  const isSelected = selectedVariant?.id === v.id || selectedVariant?.name === v.name;
                   return (
                     <button
                       key={v.id || v.name}
@@ -186,13 +190,21 @@ export default function ProductDetailPage({ products }: ProductDetailPageProps) 
           <div className="pt-6 mt-6 border-t border-gray-100 dark:border-gray-800">
             <button
               onClick={() => {
-                addToCart(product, 1, selectedVariant.name, selectedVariant);
+                if (selectedVariant) {
+                  addToCart(product, 1, selectedVariant.name, selectedVariant);
+                } else {
+                  addToCart(product, 1);
+                }
               }}
-              disabled={(selectedVariant.stock ?? product.stock) === 0}
+              disabled={activeStock === 0}
               className="w-full bg-[#348C21] text-white font-extrabold py-4 rounded-2xl hover:bg-[#2b751c] shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-2 cursor-pointer disabled:bg-gray-300 disabled:cursor-not-allowed"
             >
               <ShoppingCart className="w-5 h-5" /> 
-              {(selectedVariant.stock ?? product.stock) === 0 ? "Out of Stock" : `Add ${selectedVariant.name} (KES ${selectedVariant.price}) To Basket`}
+              {activeStock === 0 
+                ? "Out of Stock" 
+                : selectedVariant 
+                  ? `Add ${selectedVariant.name} (KES ${selectedVariant.price}) To Basket`
+                  : `Add To Basket (KES ${product.price})`}
             </button>
           </div>
         </div>

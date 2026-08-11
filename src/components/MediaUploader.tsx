@@ -206,23 +206,23 @@ export default function MediaUploader({
                 <div className="text-emerald-600"><ImageIcon className="w-8 h-8" /></div>
               )}
               
-              {/* Hover overlay */}
-              <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+              {/* Overlay */}
+              <div className="absolute inset-0 bg-black/60 opacity-90 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 p-2">
                 <button
                   type="button"
                   onClick={() => window.open(url, '_blank')}
-                  className="bg-white text-gray-900 p-1.5 rounded-full hover:bg-gray-200 shadow-sm transition tooltip"
+                  className="bg-white/90 text-gray-900 p-2 rounded-full hover:bg-white shadow-md transition active:scale-95 cursor-pointer"
                   title="View Larger"
                 >
-                  <Upload className="w-4 h-4 transform rotate-45" />
+                  <Upload className="w-3.5 h-3.5 transform rotate-45" />
                 </button>
                 <button
                   type="button"
                   onClick={() => handleRemoveUrl(url)}
-                  className="bg-red-500 text-white p-1.5 rounded-full hover:bg-red-600 shadow-sm transition tooltip"
+                  className="bg-red-500 text-white p-2 rounded-full hover:bg-red-600 shadow-md transition active:scale-95 cursor-pointer"
                   title="Remove"
                 >
-                  <X className="w-4 h-4" />
+                  <X className="w-3.5 h-3.5" />
                 </button>
               </div>
             </div>

@@ -24,7 +24,11 @@ import { User, LogOut,
   Lock,
   MessageSquare,
   Database,
-  Upload
+  Upload,
+  Eye,
+  Copy,
+  ExternalLink,
+  X
 } from "lucide-react";
 import { Product, ProductVariant, Order, SupportTicket, MarketingCampaign, CMSPost, AuditAnomaly, StoreSettings, SystemMetrics, UserProfile, Promo } from "../types";
 import { supabase } from "../lib/supabase";
@@ -33,7 +37,7 @@ import { uploadToSupabase } from "../utils/supabaseStorage";
 import MediaUploader from "./MediaUploader";
 import { useAuth } from "../contexts/AuthContext";
 import { exportToCSV, exportToPDF } from "../utils/exportUtils";
-import { normalizeVariants } from "../utils/variantUtils";
+import { normalizeVariants, hasVariants } from "../utils/variantUtils";
 import AdvancedReports from "./admin/AdvancedReports";
 import UserManagement from "./admin/UserManagement";
 import { toast } from "react-hot-toast";
@@ -194,6 +198,7 @@ export default function AdminConsole({
   const [isMediaLoading, setIsMediaLoading] = useState(false);
   const [mediaCategoryFilter, setMediaCategoryFilter] = useState<string>("all");
   const [mediaUploadCategory, setMediaUploadCategory] = useState<string>("general");
+  const [mediaPreviewModal, setMediaPreviewModal] = useState<{name: string, url: string} | null>(null);
 
   // Events and Registrations State
   const [eventsData, setEventsData] = useState<any[]>([]);
@@ -359,10 +364,10 @@ export default function AdminConsole({
     const isUpdating = editingProductId !== null;
     const targetId = isUpdating ? editingProductId : ("p" + Date.now());
 
-    // Use structured variants matrix if provided, otherwise fallback
+    // Use structured variants matrix if provided by admin, otherwise empty array [] for standalone products
     const finalVariants = prodVariantsList.length > 0 
       ? prodVariantsList 
-      : (prodVariants ? prodVariants.split(",").map(v => v.trim()) : ["Standard"]);
+      : (prodVariants && prodVariants.trim() !== '' ? prodVariants.split(",").map(v => v.trim()).filter(Boolean) : []);
 
     const primaryPrice = prodVariantsList.length > 0 ? prodVariantsList[0].price : prodPrice;
     const primaryCost = prodVariantsList.length > 0 ? (prodVariantsList[0].costPrice || prodCostPrice) : prodCostPrice;
@@ -423,10 +428,10 @@ export default function AdminConsole({
       
       if (isUpdating) {
         onUpdateInventory(products.map(p => p.id === targetId ? newProduct : p));
-        toast.success("Product updated successfully with size variants!");
+        toast.success("Product updated successfully!");
       } else {
         onUpdateInventory([...products, newProduct]);
-        toast.success("Product added successfully with size variants!");
+        toast.success("Product added successfully!");
       }
     } catch(err: any) { 
       console.error("Supabase operation error", err);
@@ -452,9 +457,10 @@ export default function AdminConsole({
     setProdSafetyStock(p.safetyStock);
     setProdReorderLevel(p.reorderLevel);
 
-    const normalizedVars = normalizeVariants(p);
+    const hasTrueVars = hasVariants(p);
+    const normalizedVars = hasTrueVars ? normalizeVariants(p) : [];
     setProdVariantsList(normalizedVars);
-    setProdVariants(p.variants ? p.variants.map(v => typeof v === 'string' ? v : v.name).join(", ") : "");
+    setProdVariants(hasTrueVars && p.variants ? p.variants.map(v => typeof v === 'string' ? v : v.name).join(", ") : "");
     setProdFeatures(p.features ? p.features.join(", ") : "");
     setProdSpecs(p.specifications ? p.specifications.join(", ") : "");
     setProdMediaUrls(p.mediaUrls || []);
@@ -2421,28 +2427,45 @@ export default function AdminConsole({
                       return fileCategory === mediaCategoryFilter;
                     })
                     .map((file, idx) => (
-                    <div key={idx} className="group relative rounded-xl border overflow-hidden bg-gray-50 aspect-square">
-                      <img src={file.url} alt={file.name} className="w-full h-full object-cover" />
-                      <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2 p-4">
-                        <span className="bg-emerald-600 text-white text-[10px] px-2 py-0.5 rounded-full capitalize absolute top-2 right-2">
+                    <div key={idx} className="group relative rounded-2xl border border-gray-200 dark:border-gray-700 overflow-hidden bg-gray-50 dark:bg-gray-800 aspect-square flex flex-col justify-between shadow-xs transition-all hover:shadow-md">
+                      <div className="relative w-full h-full overflow-hidden">
+                        <img src={file.url} alt={file.name} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
+                        
+                        <span className="bg-emerald-800/90 text-white font-bold text-[9.5px] px-2 py-0.5 rounded-full capitalize absolute top-2 right-2 backdrop-blur-md shadow-xs z-10">
                           {file.name.includes('_') ? file.name.split('_')[0] : 'general'}
                         </span>
-                        <p className="text-[9px] text-white font-mono break-all text-center leading-tight line-clamp-3">{file.name}</p>
-                        <div className="flex gap-2">
-                          <button 
-                            onClick={() => { navigator.clipboard.writeText(file.url); toast.success("URL Copied to clipboard!"); }}
-                            className="bg-white/20 hover:bg-white/40 text-white p-2 rounded-full text-xs transition"
-                            title="Copy URL"
-                          >
-                            <ArrowUpRight className="w-3.5 h-3.5" />
-                          </button>
-                          <button 
-                            onClick={() => handleDeleteMedia(file.name)}
-                            className="bg-red-500/80 hover:bg-red-600 text-white p-2 rounded-full text-xs transition"
-                            title="Delete File"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
+                        
+                        {/* Always visible action overlay bar at bottom of card */}
+                        <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 via-black/60 to-transparent p-2.5 flex flex-col gap-1.5 transition-opacity">
+                          <p className="text-[9px] text-white font-mono break-all leading-tight line-clamp-1 opacity-90">{file.name}</p>
+                          <div className="flex items-center justify-between gap-1 pt-0.5">
+                            <button
+                              type="button"
+                              onClick={() => setMediaPreviewModal({ name: file.name, url: file.url })}
+                              className="flex-1 bg-white/20 hover:bg-white/35 active:scale-95 text-white p-1.5 rounded-lg text-[10px] font-bold transition flex items-center justify-center gap-1 cursor-pointer backdrop-blur-xs"
+                              title="Preview Full Image"
+                            >
+                              <Eye className="w-3.5 h-3.5" />
+                              <span className="hidden sm:inline">View</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => { navigator.clipboard.writeText(file.url); toast.success("URL Copied to clipboard!"); }}
+                              className="flex-1 bg-emerald-600/80 hover:bg-emerald-600 active:scale-95 text-white p-1.5 rounded-lg text-[10px] font-bold transition flex items-center justify-center gap-1 cursor-pointer shadow-xs"
+                              title="Copy CDN Link"
+                            >
+                              <Copy className="w-3.5 h-3.5" />
+                              <span className="hidden sm:inline">Copy</span>
+                            </button>
+                            <button 
+                              type="button"
+                              onClick={() => handleDeleteMedia(file.name)}
+                              className="bg-red-500/80 hover:bg-red-600 active:scale-95 text-white p-1.5 rounded-lg text-[10px] font-bold transition flex items-center justify-center cursor-pointer shadow-xs"
+                              title="Delete File"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -2450,6 +2473,59 @@ export default function AdminConsole({
                 </div>
               )}
             </div>
+
+            {/* Media Lightbox Preview Modal */}
+            {mediaPreviewModal && (
+              <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
+                <div className="bg-white dark:bg-gray-900 rounded-3xl max-w-3xl w-full overflow-hidden shadow-2xl border border-gray-100 dark:border-gray-800 space-y-4 p-6 relative">
+                  <div className="flex items-center justify-between border-b pb-3 border-gray-100 dark:border-gray-800">
+                    <div>
+                      <h4 className="font-bold text-base text-gray-900 dark:text-white break-all">{mediaPreviewModal.name}</h4>
+                      <p className="text-xs text-gray-500 font-mono break-all mt-0.5">{mediaPreviewModal.url}</p>
+                    </div>
+                    <button 
+                      onClick={() => setMediaPreviewModal(null)}
+                      className="p-2 text-gray-400 hover:text-gray-700 dark:hover:text-white rounded-full bg-gray-100 dark:bg-gray-800 transition"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+                  </div>
+
+                  <div className="max-h-[60vh] overflow-hidden rounded-2xl bg-gray-950 flex items-center justify-center p-2">
+                    <img src={mediaPreviewModal.url} alt={mediaPreviewModal.name} className="max-h-[55vh] w-auto object-contain rounded-xl" />
+                  </div>
+
+                  <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
+                    <a
+                      href={mediaPreviewModal.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs font-bold text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5" /> Open Direct URL in New Tab
+                    </a>
+
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => { navigator.clipboard.writeText(mediaPreviewModal.url); toast.success("URL Copied to clipboard!"); }}
+                        className="bg-emerald-700 hover:bg-emerald-800 text-white font-bold px-4 py-2 rounded-xl text-xs flex items-center gap-1.5 shadow-sm transition"
+                      >
+                        <Copy className="w-3.5 h-3.5" /> Copy Image Link
+                      </button>
+                      <button
+                        onClick={async () => {
+                          await handleDeleteMedia(mediaPreviewModal.name);
+                          setMediaPreviewModal(null);
+                        }}
+                        className="bg-red-500 hover:bg-red-600 text-white font-bold px-4 py-2 rounded-xl text-xs flex items-center gap-1.5 shadow-sm transition"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" /> Delete Media File
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
 

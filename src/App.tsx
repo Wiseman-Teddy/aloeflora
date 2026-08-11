@@ -214,7 +214,7 @@ export default function App() {
         if (prodData && !prodErr) {
           const mappedProds: Product[] = prodData.map((p: any) => ({
             id: p.id, name: p.name, description: p.description, price: p.price, costPrice: p.cost_price,
-            category: p.category as any, subCategory: p.sub_category, imageUrl: p.image_url, stock: p.stock,
+            category: p.category as any, subCategory: p.sub_category, unitSize: p.unit_size || undefined, imageUrl: p.image_url, stock: p.stock,
             safetyStock: p.safety_stock, reorderLevel: p.reorder_level, rating: p.rating, reviewsCount: p.reviews_count,
             variants: p.variants || [], features: p.features || [], mediaUrls: p.media_urls || [], specifications: p.specifications || [], reviews: []
           }));
