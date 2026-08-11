@@ -523,8 +523,8 @@ export default function UserDashboard({ orders, products, events = [], cmsPosts 
   }, [user]);
 
   const handleSignOut = async () => {
+    navigate("/store", { replace: true });
     await signOut();
-    navigate("/");
     toast.success("Signed out successfully.");
   };
 

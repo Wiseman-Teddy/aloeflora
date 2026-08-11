@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useShop } from '../contexts/ShopContext';
+import { toast } from 'react-hot-toast';
 import { Product } from '../types';
 
 interface GlobalNavbarProps {
@@ -63,10 +64,11 @@ export default function GlobalNavbar({ darkMode, setDarkMode, products = [] }: G
   }, []);
 
   const handleSignOut = async () => {
+    navigate("/store", { replace: true });
     await signOut();
-    navigate("/");
     setIsMobileMenuOpen(false);
     setIsAccountMenuOpen(false);
+    toast.success("Signed out successfully.");
   };
 
   // Submit Search & Smooth Scroll to Store Catalog

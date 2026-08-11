@@ -82,8 +82,8 @@ export default function AdminConsole({
   const navigate = useNavigate();
 
   const handleAdminSignOut = async () => {
+    navigate("/store", { replace: true });
     await signOut();
-    navigate("/");
     toast.success("Signed out successfully.");
   };
 
