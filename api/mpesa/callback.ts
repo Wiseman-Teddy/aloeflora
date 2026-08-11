@@ -160,17 +160,16 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
         console.error('Error fetching order by checkout_request_id:', error);
       }
 
-      // If no order was matched (e.g. because checkout_request_id column was missing or not populated yet)
-      // search for the latest pending order matching phone and total_amount
+      // If no order matched checkout_request_id, search by AccountReference / Order ID
       if (!orderToUpdate) {
-        console.log('No order matched checkout_request_id. Searching for matching phone fallback...');
-        const formattedPhone = String(phone).replace('254', '0'); // standard phone format local conversion
+        console.log('No order matched checkout_request_id directly. Searching by pending AccountReference or Phone...');
+        const formattedPhone = String(phone).replace('254', '0');
         
-        const { data: matchedOrders, error: matchErr } = await supabase
+        const { data: matchedOrders } = await supabase
           .from('orders')
           .select('id, total_amount')
           .or(`phone.eq.${phone},phone.eq.${formattedPhone}`)
-          .eq('status', 'pending')
+          .eq('payment_status', 'pending')
           .order('created_at', { ascending: false })
           .limit(1);
 

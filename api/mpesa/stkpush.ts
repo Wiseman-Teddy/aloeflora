@@ -56,7 +56,7 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
 
   try {
     const body = await getRequestBody(req);
-    const { phone, amount, transactionType } = body;
+    const { phone, amount, transactionType, orderId, accountRef } = body;
 
     if (!phone || !amount) {
       res.statusCode = 400;
@@ -93,6 +93,9 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
     const callbackUrl = `${appUrl}/api/mpesa/callback`;
 
     const txType = transactionType || 'CustomerPayBillOnline';
+    // Format AccountReference to max 12 alphanumeric characters for Safaricom compliance
+    const rawRef = String(accountRef || orderId || 'Aloeflora').replace(/[^a-zA-Z0-9]/g, '');
+    const formattedAccountRef = (rawRef || 'AFORDER').slice(0, 12).toUpperCase();
 
     const payload = {
       BusinessShortCode: businessShortCode,
@@ -104,8 +107,8 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
       PartyB: businessShortCode,
       PhoneNumber: formattedPhone,
       CallBackURL: callbackUrl,
-      AccountReference: 'Aloeflora Order',
-      TransactionDesc: 'Payment for order'
+      AccountReference: formattedAccountRef,
+      TransactionDesc: `Order ${formattedAccountRef}`
     };
 
     const response = await fetch('https://api.safaricom.co.ke/mpesa/stkpush/v1/processrequest', {

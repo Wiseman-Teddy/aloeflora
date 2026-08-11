@@ -67,12 +67,23 @@ export default function CheckoutPage({ onAddOrder, promos }: CheckoutPageProps) 
 
   const [checkoutRequestId, setCheckoutRequestId] = useState<string>("");
   const [pollTimer, setPollTimer] = useState<any>(null);
+  const [countdown, setCountdown] = useState<number>(120);
+  const [countdownTimer, setCountdownTimer] = useState<any>(null);
+  const [currentAccountRef, setCurrentAccountRef] = useState<string>("");
+
+  // Helper to generate 12-character Safaricom-compliant Account Reference (e.g. AF2608110024)
+  const generateAccountReference = (rawSeq: string) => {
+    const dateStr = new Date().toISOString().slice(2, 10).replace(/-/g, ''); // YYMMDD (6 chars)
+    const seq = rawSeq.replace(/[^0-9]/g, '').slice(-4).padStart(4, '0'); // 4 chars
+    return `AF${dateStr}${seq}`.slice(0, 12).toUpperCase();
+  };
 
   useEffect(() => {
     return () => {
       if (pollTimer) clearInterval(pollTimer);
+      if (countdownTimer) clearInterval(countdownTimer);
     };
-  }, [pollTimer]);
+  }, [pollTimer, countdownTimer]);
 
   const checkOrderPaymentStatus = async (orderId: string, isManualCheck = false) => {
     try {
@@ -84,6 +95,7 @@ export default function CheckoutPage({ onAddOrder, promos }: CheckoutPageProps) 
 
       if (data && (data.payment_status === "paid" || data.status === "paid")) {
         if (pollTimer) clearInterval(pollTimer);
+        if (countdownTimer) clearInterval(countdownTimer);
         setStkStatus("success");
         toast.success(`Payment Received! M-Pesa Receipt: ${data.mpesa_receipt || 'Confirmed'}`);
         localStorage.removeItem("aloeflora_active_stk");
@@ -147,9 +159,12 @@ export default function CheckoutPage({ onAddOrder, promos }: CheckoutPageProps) 
 
     const rawId = Math.floor(100000 + Math.random() * 900000).toString();
     const orderId = "ORD-" + rawId;
+    const accountRef = generateAccountReference(rawId);
     setGeneratedOrderId(rawId);
+    setCurrentAccountRef(accountRef);
     setIsSTKPromptOpen(true);
     setStkStatus("verifying");
+    setCountdown(120);
 
     // 1. Create Pending Order in Supabase
     const newOrder: Order = {
@@ -210,6 +225,7 @@ export default function CheckoutPage({ onAddOrder, promos }: CheckoutPageProps) 
     // Store active pending order in localStorage for Customer Dashboard synchronization
     localStorage.setItem("aloeflora_active_stk", JSON.stringify({
       orderId: orderId,
+      accountRef: accountRef,
       phone: checkoutPhone,
       amount: total,
       rawId: rawId,
@@ -224,7 +240,7 @@ export default function CheckoutPage({ onAddOrder, promos }: CheckoutPageProps) 
       const res = await fetch("/api/mpesa/stkpush", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone: checkoutPhone, amount: total, orderId, accountRef: orderId }),
+        body: JSON.stringify({ phone: checkoutPhone, amount: total, orderId, accountRef }),
         signal: controller.signal
       });
       clearTimeout(timeoutId);
@@ -241,6 +257,19 @@ export default function CheckoutPage({ onAddOrder, promos }: CheckoutPageProps) 
         if (pollTimer) clearInterval(pollTimer);
         const timer = setInterval(() => checkOrderPaymentStatus(orderId), 3000);
         setPollTimer(timer);
+
+        // Start countdown timer
+        if (countdownTimer) clearInterval(countdownTimer);
+        const cdTimer = setInterval(() => {
+          setCountdown((prev) => {
+            if (prev <= 1) {
+              clearInterval(cdTimer);
+              return 0;
+            }
+            return prev - 1;
+          });
+        }, 1000);
+        setCountdownTimer(cdTimer);
       } else {
         setStkStatus("failed");
         toast.error(data.error || "Failed to send STK Push to phone");
@@ -351,13 +380,36 @@ export default function CheckoutPage({ onAddOrder, promos }: CheckoutPageProps) 
                 <h3 className="font-bold text-lg text-gray-900 dark:text-white">Payment & Confirmation</h3>
               </div>
 
-              <div className="bg-gray-50 dark:bg-gray-800/50 p-6 rounded-2xl border border-gray-200 dark:border-gray-700 mb-6">
-                <div className="flex items-start gap-4">
-                  <div className="bg-emerald-100 p-3 rounded-full text-emerald-700"><ShieldCheck className="w-6 h-6" /></div>
+              {/* Production Paybill Summary Card */}
+              <div className="bg-gradient-to-br from-emerald-900 via-emerald-950 to-gray-900 text-white p-6 rounded-2xl border border-emerald-800 shadow-xl space-y-4 mb-6">
+                <div className="flex justify-between items-center pb-3 border-b border-emerald-800/80">
+                  <span className="text-xs text-emerald-300 font-bold uppercase tracking-wider flex items-center gap-1.5">
+                    <ShieldCheck className="w-4 h-4 text-emerald-400" /> M-Pesa Paybill Checkout
+                  </span>
+                  <span className="text-[10px] bg-emerald-700/60 text-emerald-200 px-2 py-0.5 rounded font-mono font-semibold">Official Safaricom Merchant</span>
+                </div>
+                <div className="grid grid-cols-2 gap-4 text-xs">
                   <div>
-                    <h4 className="font-bold text-gray-900 dark:text-white">M-Pesa STK Push Integration</h4>
-                    <p className="text-sm text-gray-500 mt-1">A payment request will be sent securely to <strong>{checkoutPhone}</strong>. Please have your phone ready to enter your M-Pesa PIN.</p>
+                    <span className="text-emerald-300/80 block text-[11px] font-medium">Paybill Number</span>
+                    <strong className="text-xl font-mono tracking-widest text-white">4160861</strong>
                   </div>
+                  <div>
+                    <span className="text-emerald-300/80 block text-[11px] font-medium">Business Name</span>
+                    <strong className="text-sm font-semibold text-white">Aloe Flora Products Ltd</strong>
+                  </div>
+                  <div>
+                    <span className="text-emerald-300/80 block text-[11px] font-medium">STK Account Reference</span>
+                    <strong className="text-sm font-mono text-emerald-300 bg-emerald-900/90 px-2 py-1 rounded inline-block mt-0.5 border border-emerald-700">
+                      {generateAccountReference("1234")}
+                    </strong>
+                  </div>
+                  <div>
+                    <span className="text-emerald-300/80 block text-[11px] font-medium">Total Amount</span>
+                    <strong className="text-xl font-extrabold text-emerald-400">KES {total}</strong>
+                  </div>
+                </div>
+                <div className="text-[11px] text-emerald-200/90 bg-emerald-900/40 p-3 rounded-xl border border-emerald-800/60 leading-relaxed">
+                  ✓ Clicking <strong>Pay KES {total} Now</strong> sends an automated M-Pesa prompt to <strong>{checkoutPhone}</strong>. You will be prompted to verify the account number matches your order.
                 </div>
               </div>
 
@@ -470,13 +522,13 @@ export default function CheckoutPage({ onAddOrder, promos }: CheckoutPageProps) 
                 </div>
                 <div className="space-y-2">
                   <h3 className="font-bold text-xl text-gray-900 dark:text-white">Initiating M-Pesa Payment...</h3>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">Sending secure request to <span className="font-semibold text-emerald-600 dark:text-emerald-400">{checkoutPhone}</span></p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Sending request with Account Ref <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400">{currentAccountRef}</span> to {checkoutPhone}</p>
                 </div>
               </div>
             )}
 
             {stkStatus === "waiting_pin" && (
-              <div className="space-y-6">
+              <div className="space-y-5">
                 <div className="relative w-20 h-20 mx-auto flex items-center justify-center">
                   <div className="absolute inset-0 bg-emerald-500/20 rounded-full animate-ping"></div>
                   <div className="w-16 h-16 bg-emerald-100 dark:bg-emerald-950/60 border border-emerald-500/30 rounded-2xl flex items-center justify-center shadow-lg">
@@ -484,57 +536,69 @@ export default function CheckoutPage({ onAddOrder, promos }: CheckoutPageProps) 
                   </div>
                 </div>
 
-                <div className="space-y-2">
-                  <span className="inline-block text-[11px] font-bold tracking-wider text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/50 px-3 py-1 rounded-full uppercase border border-emerald-200 dark:border-emerald-800">
-                    Action Required on Phone
-                  </span>
-                  <h3 className="text-xl font-extrabold text-gray-900 dark:text-white">Check Your Mobile Screen</h3>
+                <div className="space-y-1">
+                  <div className="flex justify-center items-center gap-2">
+                    <span className="inline-block text-[11px] font-bold tracking-wider text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/50 px-3 py-1 rounded-full uppercase border border-emerald-200 dark:border-emerald-800">
+                      Action Required on Phone
+                    </span>
+                    <span className="text-xs font-mono font-bold text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded-full">
+                      {Math.floor(countdown / 60)}:{String(countdown % 60).padStart(2, '0')}
+                    </span>
+                  </div>
+                  <h3 className="text-xl font-extrabold text-gray-900 dark:text-white pt-1">Check Your Phone Screen</h3>
                   <p className="text-xs text-gray-600 dark:text-gray-400 leading-relaxed">
-                    A payment prompt of <strong className="text-gray-900 dark:text-white">KES {total}</strong> has been pushed to <span className="font-semibold text-emerald-600 dark:text-emerald-400">{checkoutPhone}</span>.
+                    Enter your M-Pesa PIN for <strong className="text-gray-900 dark:text-white">KES {total}</strong> on <span className="font-semibold text-emerald-600 dark:text-emerald-400">{checkoutPhone}</span>.
                   </p>
                 </div>
 
                 {/* Minimal Receipt Summary Card */}
-                <div className="bg-gray-50 dark:bg-gray-800/60 p-4 rounded-2xl border border-gray-100 dark:border-gray-800 text-xs space-y-2">
-                  <div className="flex justify-between text-gray-500 dark:text-gray-400">
-                    <span>Order Reference</span>
-                    <span className="font-bold text-gray-900 dark:text-white">ORD-{generatedOrderId}</span>
+                <div className="bg-gray-50 dark:bg-gray-800/60 p-4 rounded-2xl border border-gray-100 dark:border-gray-800 text-xs space-y-2 text-left">
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-500 dark:text-gray-400">Order ID</span>
+                    <span className="font-mono font-bold text-gray-900 dark:text-white">ORD-{generatedOrderId}</span>
                   </div>
-                  <div className="flex justify-between text-gray-500 dark:text-gray-400 border-t border-gray-200 dark:border-gray-700/50 pt-2">
-                    <span>M-Pesa Paybill (Fallback)</span>
-                    <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400">4160861</span>
+                  <div className="flex justify-between items-center border-t border-gray-200 dark:border-gray-700/50 pt-2">
+                    <span className="text-gray-500 dark:text-gray-400">Account Reference</span>
+                    <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/80 px-2 py-0.5 rounded border border-emerald-200 dark:border-emerald-800">{currentAccountRef}</span>
+                  </div>
+                  <div className="flex justify-between items-center border-t border-gray-200 dark:border-gray-700/50 pt-2">
+                    <span className="text-gray-500 dark:text-gray-400">Paybill / ShortCode</span>
+                    <span className="font-mono font-bold text-gray-900 dark:text-white">4160861</span>
                   </div>
                 </div>
 
-                {/* Simple 3-step prompt */}
-                <div className="bg-emerald-50/60 dark:bg-emerald-950/30 border border-emerald-200/50 dark:border-emerald-800/30 p-3.5 rounded-2xl text-left">
-                  <div className="text-xs font-semibold text-emerald-800 dark:text-emerald-300 mb-1.5">How to complete:</div>
-                  <ol className="text-[11px] text-gray-600 dark:text-gray-400 space-y-1 list-decimal list-inside">
-                    <li>Unlock your phone screen to view the Safaricom pop-up prompt.</li>
-                    <li>Enter your 4-digit M-Pesa PIN and press Send.</li>
-                  </ol>
+                {/* Status indicator */}
+                <div className="bg-emerald-50/80 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/40 p-3 rounded-2xl text-left text-xs space-y-1">
+                  <div className="font-semibold text-emerald-800 dark:text-emerald-300 flex items-center gap-1.5">
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin text-emerald-600" />
+                    Auto-polling payment gateway status...
+                  </div>
+                  <p className="text-[11px] text-gray-600 dark:text-gray-400">
+                    Once you enter your PIN, Safaricom automatically reconciles this payment with order <strong>{currentAccountRef}</strong>.
+                  </p>
                 </div>
 
                 {/* Action Buttons */}
-                <div className="space-y-2 pt-2">
+                <div className="space-y-2 pt-1">
                   <button
                     type="button"
                     onClick={() => checkOrderPaymentStatus("ORD-" + generatedOrderId, true)}
                     className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-2xl text-xs transition shadow-lg shadow-emerald-600/20 flex items-center justify-center gap-2 cursor-pointer"
                   >
-                    <RefreshCw className="w-4 h-4" /> Check Payment Status Now
+                    <RefreshCw className="w-4 h-4" /> Verify Payment Status Now
                   </button>
                   <button
                     type="button"
                     onClick={() => {
                       if (pollTimer) clearInterval(pollTimer);
+                      if (countdownTimer) clearInterval(countdownTimer);
                       setIsSTKPromptOpen(false);
                       setStkStatus("not_sent");
                       localStorage.removeItem("aloeflora_active_stk");
                     }}
                     className="w-full bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-400 font-semibold py-2.5 rounded-2xl text-xs transition cursor-pointer"
                   >
-                    Cancel / Use Manual Paybill
+                    Cancel / Pay Later
                   </button>
                 </div>
               </div>

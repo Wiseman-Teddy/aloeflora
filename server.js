@@ -73,7 +73,8 @@ app.post('/api/mpesa/stkpush', async (req, res) => {
     const password = Buffer.from(`${businessShortCode}${passkey}${timestamp}`).toString('base64');
 
     const txType = transactionType || 'CustomerPayBillOnline';
-    const ref = accountRef || orderId || 'Aloeflora Order';
+    const rawRef = String(accountRef || orderId || 'Aloeflora').replace(/[^a-zA-Z0-9]/g, '');
+    const formattedAccountRef = (rawRef || 'AFORDER').slice(0, 12).toUpperCase();
 
     const payload = {
       BusinessShortCode: businessShortCode,
@@ -85,8 +86,8 @@ app.post('/api/mpesa/stkpush', async (req, res) => {
       PartyB: businessShortCode,
       PhoneNumber: formattedPhone,
       CallBackURL: `${currentAppUrl}/api/mpesa/callback`,
-      AccountReference: String(ref).slice(0, 12),
-      TransactionDesc: 'Aloeflora Order Payment'
+      AccountReference: formattedAccountRef,
+      TransactionDesc: `Order ${formattedAccountRef}`
     };
 
     const response = await fetch(`${darajaBaseUrl}/mpesa/stkpush/v1/processrequest`, {
