@@ -431,109 +431,128 @@ export default function CheckoutPage({ onAddOrder, promos }: CheckoutPageProps) 
         </div>
       </div>
 
-      {/* M-Pesa STK Modal */}
+      {/* Modern Inline M-Pesa Payment Overlay */}
       {isSTKPromptOpen && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-[60] p-4">
-          <div className="bg-gradient-to-b from-gray-900 to-black text-white rounded-3xl max-w-sm w-full p-6 shadow-2xl relative border border-gray-800 text-center">
-            <div className="bg-emerald-600 h-1 absolute top-0 left-0 right-0"></div>
-            
-            <div className="flex flex-col items-center space-y-4">
-              <div className="bg-emerald-600/10 text-emerald-500 font-bold px-3 py-1 rounded-full text-xs uppercase flex items-center gap-1.5 border border-emerald-500/20">
-                <RefreshCw className="w-3.5 h-3.5 animate-spin" /> Safaricom Daraja v2.0 Live
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-[60] p-4 transition-all duration-300">
+          <div className="bg-white dark:bg-gray-900 text-gray-900 dark:text-white rounded-3xl max-w-md w-full p-8 shadow-2xl relative border border-gray-100 dark:border-gray-800 text-center overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            {/* Top Accent Bar */}
+            <div className="bg-emerald-600 h-1.5 absolute top-0 left-0 right-0"></div>
+
+            {stkStatus === "verifying" && (
+              <div className="py-8 space-y-6">
+                <div className="relative w-16 h-16 mx-auto flex items-center justify-center">
+                  <div className="absolute inset-0 bg-emerald-500/20 rounded-full animate-ping"></div>
+                  <RefreshCw className="w-10 h-10 text-emerald-600 dark:text-emerald-400 animate-spin relative z-10" />
+                </div>
+                <div className="space-y-2">
+                  <h3 className="font-bold text-xl text-gray-900 dark:text-white">Initiating M-Pesa Payment...</h3>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Sending secure request to <span className="font-semibold text-emerald-600 dark:text-emerald-400">{checkoutPhone}</span></p>
+                </div>
               </div>
+            )}
 
-              {stkStatus === "waiting_pin" && (
-                <div className="space-y-4 w-full py-2">
-                  <div className="relative w-16 h-16 mx-auto flex items-center justify-center">
-                    <div className="absolute inset-0 bg-emerald-500/20 rounded-full animate-ping"></div>
-                    <div className="w-14 h-14 bg-emerald-600/20 border border-emerald-500/50 rounded-full flex items-center justify-center">
-                      <Smartphone className="w-7 h-7 text-emerald-400 animate-bounce" />
-                    </div>
-                  </div>
-
-                  <div className="space-y-1">
-                    <h4 className="font-bold text-lg text-emerald-400">STK Push Sent to Phone</h4>
-                    <p className="text-xs text-gray-300">
-                      Check mobile handset <span className="text-emerald-400 font-bold">{checkoutPhone}</span>
-                    </p>
-                  </div>
-
-                  <div className="bg-gray-950 p-3.5 rounded-2xl border border-gray-800 text-left space-y-2 font-mono text-xs text-gray-300">
-                    <div className="flex justify-between border-b border-gray-800 pb-1.5 text-gray-400">
-                      <span>Shortcode:</span>
-                      <span className="text-emerald-400 font-bold">4160861</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Order Ref:</span>
-                      <span className="font-bold text-white">ORD-{generatedOrderId}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Amount:</span>
-                      <span className="font-bold text-emerald-400">KES {total}</span>
-                    </div>
-                  </div>
-
-                  <div className="p-3 bg-emerald-950/40 border border-emerald-500/20 rounded-xl text-left space-y-1">
-                    <p className="text-xs font-semibold text-emerald-300">📱 M-Pesa Instructions:</p>
-                    <ol className="text-[11px] text-gray-400 list-disc list-inside space-y-0.5">
-                      <li>Look at your phone screen for the Safaricom M-Pesa popup prompt.</li>
-                      <li>Enter your 4-digit Secret PIN on your phone handset.</li>
-                      <li>Press Send to complete payment.</li>
-                    </ol>
-                  </div>
-
-                  <div className="flex flex-col gap-2 pt-2">
-                    <button
-                      type="button"
-                      onClick={() => checkOrderPaymentStatus("ORD-" + generatedOrderId, true)}
-                      className="w-full bg-emerald-600 hover:bg-emerald-500 text-black font-bold py-2.5 rounded-xl text-xs transition shadow-lg shadow-emerald-600/20 flex items-center justify-center gap-2"
-                    >
-                      <RefreshCw className="w-3.5 h-3.5" /> Check Payment Status Now
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (pollTimer) clearInterval(pollTimer);
-                        setIsSTKPromptOpen(false);
-                        setStkStatus("not_sent");
-                        localStorage.removeItem("aloeflora_active_stk");
-                      }}
-                      className="w-full bg-gray-900 hover:bg-gray-800 text-gray-400 font-semibold py-2 rounded-xl text-xs transition border border-gray-800"
-                    >
-                      Cancel
-                    </button>
+            {stkStatus === "waiting_pin" && (
+              <div className="space-y-6">
+                <div className="relative w-20 h-20 mx-auto flex items-center justify-center">
+                  <div className="absolute inset-0 bg-emerald-500/20 rounded-full animate-ping"></div>
+                  <div className="w-16 h-16 bg-emerald-100 dark:bg-emerald-950/60 border border-emerald-500/30 rounded-2xl flex items-center justify-center shadow-lg">
+                    <Smartphone className="w-8 h-8 text-emerald-600 dark:text-emerald-400 animate-bounce" />
                   </div>
                 </div>
-              )}
 
-              {stkStatus === "verifying" && (
-                <div className="py-8 space-y-4">
-                  <RefreshCw className="w-12 h-12 text-emerald-500 animate-spin mx-auto" />
-                  <div className="font-bold text-lg animate-pulse text-emerald-400">Verifying Transaction...</div>
+                <div className="space-y-2">
+                  <span className="inline-block text-[11px] font-bold tracking-wider text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/50 px-3 py-1 rounded-full uppercase border border-emerald-200 dark:border-emerald-800">
+                    Action Required on Phone
+                  </span>
+                  <h3 className="text-xl font-extrabold text-gray-900 dark:text-white">Check Your Mobile Screen</h3>
+                  <p className="text-xs text-gray-600 dark:text-gray-400 leading-relaxed">
+                    A payment prompt of <strong className="text-gray-900 dark:text-white">KES {total}</strong> has been pushed to <span className="font-semibold text-emerald-600 dark:text-emerald-400">{checkoutPhone}</span>.
+                  </p>
                 </div>
-              )}
 
-              {stkStatus === "success" && (
-                <div className="py-8 space-y-4">
-                  <div className="w-16 h-16 bg-emerald-500 rounded-full flex items-center justify-center mx-auto shadow-[0_0_40px_rgba(16,185,129,0.5)]">
-                    <ShieldCheck className="w-8 h-8 text-black" />
+                {/* Minimal Receipt Summary Card */}
+                <div className="bg-gray-50 dark:bg-gray-800/60 p-4 rounded-2xl border border-gray-100 dark:border-gray-800 text-xs space-y-2">
+                  <div className="flex justify-between text-gray-500 dark:text-gray-400">
+                    <span>Order Reference</span>
+                    <span className="font-bold text-gray-900 dark:text-white">ORD-{generatedOrderId}</span>
                   </div>
-                  <div className="font-bold text-2xl text-emerald-400">Payment Successful!</div>
+                  <div className="flex justify-between text-gray-500 dark:text-gray-400 border-t border-gray-200 dark:border-gray-700/50 pt-2">
+                    <span>M-Pesa Paybill (Fallback)</span>
+                    <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400">4160861</span>
+                  </div>
                 </div>
-              )}
 
-              {stkStatus === "failed" && (
-                <div className="py-8 space-y-4">
-                  <div className="w-16 h-16 bg-red-500 rounded-full flex items-center justify-center mx-auto shadow-[0_0_40px_rgba(239,68,68,0.5)]">
-                    <X className="w-8 h-8 text-white" />
-                  </div>
-                  <div className="font-bold text-xl text-red-400">Transaction Cancelled or Failed</div>
-                  <button onClick={() => { setIsSTKPromptOpen(false); setStkStatus("not_sent"); localStorage.removeItem("aloeflora_active_stk"); }} className="bg-gray-800 text-white font-bold px-6 py-2 rounded-full text-xs">
-                    Retry Payment
+                {/* Simple 3-step prompt */}
+                <div className="bg-emerald-50/60 dark:bg-emerald-950/30 border border-emerald-200/50 dark:border-emerald-800/30 p-3.5 rounded-2xl text-left">
+                  <div className="text-xs font-semibold text-emerald-800 dark:text-emerald-300 mb-1.5">How to complete:</div>
+                  <ol className="text-[11px] text-gray-600 dark:text-gray-400 space-y-1 list-decimal list-inside">
+                    <li>Unlock your phone screen to view the Safaricom pop-up prompt.</li>
+                    <li>Enter your 4-digit M-Pesa PIN and press Send.</li>
+                  </ol>
+                </div>
+
+                {/* Action Buttons */}
+                <div className="space-y-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => checkOrderPaymentStatus("ORD-" + generatedOrderId, true)}
+                    className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-2xl text-xs transition shadow-lg shadow-emerald-600/20 flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    <RefreshCw className="w-4 h-4" /> Check Payment Status Now
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (pollTimer) clearInterval(pollTimer);
+                      setIsSTKPromptOpen(false);
+                      setStkStatus("not_sent");
+                      localStorage.removeItem("aloeflora_active_stk");
+                    }}
+                    className="w-full bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-400 font-semibold py-2.5 rounded-2xl text-xs transition cursor-pointer"
+                  >
+                    Cancel / Use Manual Paybill
                   </button>
                 </div>
-              )}
-            </div>
+              </div>
+            )}
+
+            {stkStatus === "success" && (
+              <div className="py-8 space-y-6">
+                <div className="w-20 h-20 bg-emerald-500 rounded-full flex items-center justify-center mx-auto shadow-xl shadow-emerald-500/30">
+                  <ShieldCheck className="w-10 h-10 text-white" />
+                </div>
+                <div className="space-y-1">
+                  <h3 className="font-extrabold text-2xl text-gray-900 dark:text-white">Payment Received!</h3>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Redirecting to your order confirmation...</p>
+                </div>
+              </div>
+            )}
+
+            {stkStatus === "failed" && (
+              <div className="py-8 space-y-6">
+                <div className="w-20 h-20 bg-red-100 dark:bg-red-950/60 rounded-full flex items-center justify-center mx-auto border border-red-200 dark:border-red-800">
+                  <X className="w-10 h-10 text-red-600 dark:text-red-400" />
+                </div>
+                <div className="space-y-1">
+                  <h3 className="font-bold text-xl text-gray-900 dark:text-white">Transaction Not Completed</h3>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">We didn't receive your M-Pesa PIN authorization.</p>
+                </div>
+                <div className="flex gap-3 pt-2">
+                  <button 
+                    onClick={() => { setIsSTKPromptOpen(false); setStkStatus("not_sent"); localStorage.removeItem("aloeflora_active_stk"); }} 
+                    className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 rounded-xl text-xs transition cursor-pointer"
+                  >
+                    Retry Payment
+                  </button>
+                  <button 
+                    onClick={() => { setIsSTKPromptOpen(false); setStkStatus("not_sent"); }} 
+                    className="flex-1 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 font-semibold py-2.5 rounded-xl text-xs transition cursor-pointer"
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
