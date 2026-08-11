@@ -166,6 +166,19 @@ app.post('/api/mpesa/callback', async (req, res) => {
         console.error('Database update failed for paid order:', dbError);
       } else {
         console.log('Updated order in Supabase:', updatedOrder);
+        // Automatically decrement inventory stock for ordered items
+        if (updatedOrder && updatedOrder.length > 0 && Array.isArray(updatedOrder[0].items)) {
+          for (const item of updatedOrder[0].items) {
+            if (item.productId && item.quantity) {
+              const { data: prod } = await supabase.from('products').select('stock').eq('id', item.productId).single();
+              if (prod && typeof prod.stock === 'number') {
+                const newStock = Math.max(0, prod.stock - item.quantity);
+                await supabase.from('products').update({ stock: newStock }).eq('id', item.productId);
+                console.log(`📦 Inventory updated for product ${item.productId}: Stock reduced from ${prod.stock} to ${newStock}`);
+              }
+            }
+          }
+        }
       }
     } else {
       console.warn(`❌ Payment Failed or Cancelled for CheckoutRequestID: ${CheckoutRequestID}. Reason: ${ResultDesc} (Code: ${ResultCode})`);
