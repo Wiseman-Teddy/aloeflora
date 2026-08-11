@@ -136,10 +136,7 @@ export default function AdminConsole({
   const [prodSafetyStock, setProdSafetyStock] = useState<number>(10);
   const [prodReorderLevel, setProdReorderLevel] = useState<number>(15);
   const [prodVariants, setProdVariants] = useState<string>("");
-  const [prodVariantsList, setProdVariantsList] = useState<ProductVariant[]>([
-    { id: "v1", name: "400ml", price: 450, costPrice: 280, stock: 45, sku: "AF-400ML", imageUrl: "" },
-    { id: "v2", name: "1 Litre", price: 1000, costPrice: 650, stock: 20, sku: "AF-1L", imageUrl: "" }
-  ]);
+  const [prodVariantsList, setProdVariantsList] = useState<ProductVariant[]>([]);
   const [uploadingVariantIdx, setUploadingVariantIdx] = useState<number | null>(null);
   const [prodFeatures, setProdFeatures] = useState<string>("");
   const [prodSpecs, setProdSpecs] = useState<string>("");
@@ -341,10 +338,7 @@ export default function AdminConsole({
     setProdSafetyStock(10);
     setProdReorderLevel(15);
     setProdVariants("");
-    setProdVariantsList([
-      { id: "v1", name: "400ml", price: 450, costPrice: 280, stock: 45, sku: "AF-400ML", imageUrl: "" },
-      { id: "v2", name: "1 Litre", price: 1000, costPrice: 650, stock: 20, sku: "AF-1L", imageUrl: "" }
-    ]);
+    setProdVariantsList([]);
     setProdFeatures("");
     setProdSpecs("");
     setProdMediaUrls([]);
