@@ -402,7 +402,7 @@ export default function App() {
       
       <ShopProvider>
         {!isDashboardMode && <GlobalNavbar darkMode={darkMode} setDarkMode={setDarkMode} products={products} />}
-        <CartSidebar promos={promos} />
+        <CartSidebar promos={promos} products={products} />
         <WishlistSidebar products={products} />
       
       {/* CENTRAL CORE WRAPPER SECTION */}
