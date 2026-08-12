@@ -453,7 +453,15 @@ export default function CheckoutPage({ onAddOrder, promos }: CheckoutPageProps) 
               {cart.map((item) => (
                 <div key={`${item.product.id}-${item.selectedVariant}`} className="flex gap-3 bg-white dark:bg-gray-800/60 p-2.5 rounded-2xl border border-gray-200/60 dark:border-gray-700/60 items-center">
                   <div className="w-14 h-14 bg-gray-100 dark:bg-gray-700 rounded-xl overflow-hidden shrink-0 border border-gray-200 dark:border-gray-700">
-                    <img src={item.product.imageUrl?.split(',')[0]} alt={item.product.name} className="w-full h-full object-cover" />
+                    <img 
+                      src={item.selectedVariantObj?.imageUrl || item.product.imageUrl?.split(',')[0] || 'https://apnmunmhlrpcbmjmywyh.supabase.co/storage/v1/object/public/images/product_fscsf9o1nk_1786355189795.jpeg'} 
+                      alt={item.product.name} 
+                      className="w-full h-full object-cover" 
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement;
+                        target.src = 'https://apnmunmhlrpcbmjmywyh.supabase.co/storage/v1/object/public/images/product_fscsf9o1nk_1786355189795.jpeg';
+                      }}
+                    />
                   </div>
                   <div className="flex-1 min-w-0 text-left">
                     <h4 className="font-bold text-xs text-gray-900 dark:text-white truncate">{item.product.name}</h4>

@@ -74,7 +74,19 @@ export default function ProductDetailPage({ products }: ProductDetailPageProps) 
         <div className="space-y-4">
           <div className="aspect-[4/5] rounded-3xl overflow-hidden bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-800 relative group">
             {currentDisplayImage ? (
-              <img src={currentDisplayImage} alt={product.name} className="w-full h-full object-cover transition duration-300 group-hover:scale-105" />
+              <img 
+                src={currentDisplayImage} 
+                alt={product.name} 
+                className="w-full h-full object-cover transition duration-300 group-hover:scale-105" 
+                onError={(e) => {
+                  const target = e.target as HTMLImageElement;
+                  if (product.name.toLowerCase().includes('butter')) {
+                    target.src = '/main hero/body_butter.png';
+                  } else {
+                    target.src = '/logo_square.jpeg';
+                  }
+                }}
+              />
             ) : (
               <div className="w-full h-full flex items-center justify-center text-gray-400">No Image</div>
             )}
@@ -92,7 +104,19 @@ export default function ProductDetailPage({ products }: ProductDetailPageProps) 
                   onClick={() => setSelectedImageIdx(idx)}
                   className={`w-20 h-20 rounded-xl overflow-hidden flex-shrink-0 border-2 transition ${selectedImageIdx === idx ? 'border-[#348C21]' : 'border-transparent hover:border-emerald-300'}`}
                 >
-                  <img src={url} alt={`${product.name} thumbnail ${idx}`} className="w-full h-full object-cover" />
+                  <img 
+                    src={url} 
+                    alt={`${product.name} thumbnail ${idx}`} 
+                    className="w-full h-full object-cover" 
+                    onError={(e) => {
+                      const target = e.target as HTMLImageElement;
+                      if (product.name.toLowerCase().includes('butter')) {
+                        target.src = '/main hero/body_butter.png';
+                      } else {
+                        target.src = '/logo_square.jpeg';
+                      }
+                    }}
+                  />
                 </button>
               ))}
             </div>

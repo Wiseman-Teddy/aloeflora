@@ -110,7 +110,15 @@ export default function CartSidebar({ promos, products = [] }: CartSidebarProps)
                 return (
                   <div key={`${item.product.id}-${item.selectedVariant}`} className="flex items-center gap-3 bg-zinc-50/70 dark:bg-gray-800/50 p-3 rounded-2xl border border-zinc-100 dark:border-gray-800">
                     <div className="h-14 w-14 bg-white dark:bg-gray-700 rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700 shrink-0">
-                      <img src={itemImg} alt={item.product.name} className="w-full h-full object-cover" />
+                      <img 
+                        src={itemImg || 'https://apnmunmhlrpcbmjmywyh.supabase.co/storage/v1/object/public/images/product_fscsf9o1nk_1786355189795.jpeg'} 
+                        alt={item.product.name} 
+                        className="w-full h-full object-cover" 
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement;
+                          target.src = 'https://apnmunmhlrpcbmjmywyh.supabase.co/storage/v1/object/public/images/product_fscsf9o1nk_1786355189795.jpeg';
+                        }}
+                      />
                     </div>
                     <div className="flex-1 min-w-0">
                       <h4 className="font-bold text-xs truncate text-gray-900 dark:text-white">{item.product.name}</h4>
@@ -182,7 +190,15 @@ export default function CartSidebar({ promos, products = [] }: CartSidebarProps)
                     {suggestedAddOns.map(addon => (
                       <div key={addon.id} className="bg-gray-50 dark:bg-gray-800/80 p-2.5 rounded-xl border border-gray-100 dark:border-gray-700/60 flex flex-col justify-between text-left">
                         <div className="flex gap-2 items-center mb-1">
-                          <img src={addon.imageUrl?.split(',')[0]} alt={addon.name} className="w-8 h-8 rounded object-cover shrink-0" />
+                          <img 
+                            src={addon.imageUrl?.split(',')[0] || 'https://apnmunmhlrpcbmjmywyh.supabase.co/storage/v1/object/public/images/product_fscsf9o1nk_1786355189795.jpeg'} 
+                            alt={addon.name} 
+                            className="w-8 h-8 rounded object-cover shrink-0" 
+                            onError={(e) => {
+                              const target = e.target as HTMLImageElement;
+                              target.src = 'https://apnmunmhlrpcbmjmywyh.supabase.co/storage/v1/object/public/images/product_fscsf9o1nk_1786355189795.jpeg';
+                            }}
+                          />
                           <div className="min-w-0">
                             <h5 className="text-[11px] font-bold truncate text-gray-900 dark:text-white">{addon.name}</h5>
                             <span className="text-[10px] font-semibold text-emerald-700 dark:text-emerald-400">KES {addon.price}</span>

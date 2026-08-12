@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { Upload, X, RefreshCw, Image as ImageIcon, AlertCircle } from 'lucide-react';
+import { Upload, X, RefreshCw, Image as ImageIcon, AlertCircle, ImageOff, ExternalLink, Trash2 } from 'lucide-react';
 import { uploadWithProgressToSupabase, deleteFromSupabase } from '../utils/supabaseStorage';
 import { toast } from 'react-hot-toast';
 
@@ -37,6 +37,7 @@ export default function MediaUploader({
 }: MediaUploaderProps) {
   const [uploads, setUploads] = useState<UploadingFile[]>([]);
   const [isDragging, setIsDragging] = useState(false);
+  const [failedUrls, setFailedUrls] = useState<Record<string, boolean>>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const urlsRef = useRef(urls);
@@ -159,10 +160,12 @@ export default function MediaUploader({
     }
   }, [urls, uploads, multiple, maxFiles]);
 
+  const validUrls = urls.filter(url => url && url.trim() !== '');
+
   return (
     <div className={`space-y-4 ${className}`}>
       {/* Dropzone */}
-      {(!multiple) || (multiple && urls.filter(url => url && url.trim() !== '').length + uploads.length < maxFiles) ? (
+      {(!multiple) || (multiple && validUrls.length + uploads.length < maxFiles) ? (
         <div
           className={`relative border-2 border-dashed rounded-xl p-6 transition flex flex-col items-center justify-center text-center cursor-pointer ${
             isDragging ? 'border-emerald-500 bg-emerald-50' : 'border-gray-300 hover:border-emerald-400 hover:bg-gray-50'
@@ -194,39 +197,96 @@ export default function MediaUploader({
       ) : null}
 
       {/* Grid of uploaded and uploading items */}
-      {(urls.filter(url => url && url.trim() !== '').length > 0 || uploads.length > 0) && (
+      {(validUrls.length > 0 || uploads.length > 0) && (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
           
           {/* Completed Uploads */}
-          {urls.filter(url => url && url.trim() !== '').map((url, idx) => (
-            <div key={idx} className="relative group rounded-xl overflow-hidden border border-gray-200 bg-gray-50 aspect-square flex items-center justify-center">
-              {accept.includes('image') ? (
-                <img src={url} alt={`Media ${idx}`} className="w-full h-full object-cover" />
-              ) : (
-                <div className="text-emerald-600"><ImageIcon className="w-8 h-8" /></div>
-              )}
-              
-              {/* Overlay */}
-              <div className="absolute inset-0 bg-black/60 opacity-90 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 p-2">
-                <button
-                  type="button"
-                  onClick={() => window.open(url, '_blank')}
-                  className="bg-white/90 text-gray-900 p-2 rounded-full hover:bg-white shadow-md transition active:scale-95 cursor-pointer"
-                  title="View Larger"
-                >
-                  <Upload className="w-3.5 h-3.5 transform rotate-45" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleRemoveUrl(url)}
-                  className="bg-red-500 text-white p-2 rounded-full hover:bg-red-600 shadow-md transition active:scale-95 cursor-pointer"
-                  title="Remove"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
+          {validUrls.map((url, idx) => {
+            const isFailed = failedUrls[url];
+
+            return (
+              <div key={idx} className="relative group rounded-xl overflow-hidden border border-gray-200 bg-gray-50 aspect-square flex items-center justify-center">
+                
+                {/* High-Visibility Badge Tag */}
+                <div className="absolute top-2 left-2 z-10 bg-slate-950/90 text-white text-[10px] font-black px-2 py-1 rounded-md border border-slate-700 shadow-md backdrop-blur-xs flex items-center gap-1">
+                  <ImageIcon className="w-3 h-3 text-emerald-400" />
+                  {idx === 0 ? 'Primary' : `Media ${idx}`}
+                </div>
+
+                {isFailed ? (
+                  /* High-Visibility Icon UX Fallback for Broken Images */
+                  <div className="w-full h-full flex flex-col items-center justify-between p-3 text-center bg-amber-50/95 border-2 border-amber-300 rounded-xl shadow-xs">
+                    <div className="flex flex-col items-center gap-1 mt-1">
+                      <div className="bg-amber-100 p-2 rounded-full border border-amber-300">
+                        <ImageOff className="w-5 h-5 text-amber-700" />
+                      </div>
+                      <span className="text-xs font-black text-amber-950 uppercase tracking-wide">Image Not Found</span>
+                      <span className="text-[10px] font-mono text-amber-800 bg-amber-100/80 px-2 py-0.5 rounded max-w-[130px] truncate">
+                        {url.split('/').pop() || 'Unreachable'}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-1.5 w-full pt-1">
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveUrl(url)}
+                        className="flex-1 bg-red-600 hover:bg-red-700 text-white text-xs font-bold py-1.5 px-2 rounded-lg shadow-sm transition cursor-pointer flex items-center justify-center gap-1 border border-red-700"
+                        title="Remove Image URL"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" /> Remove
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => window.open(url, '_blank')}
+                        className="bg-slate-800 hover:bg-slate-900 text-white p-1.5 rounded-lg shadow-sm transition cursor-pointer flex items-center justify-center border border-slate-700"
+                        title="Inspect Link in New Tab"
+                      >
+                        <ExternalLink className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  /* Standard Image Preview with High-Visibility Action Controls */
+                  <>
+                    {accept.includes('image') ? (
+                      <img 
+                        src={url} 
+                        alt={`Media ${idx}`} 
+                        className="w-full h-full object-cover transition duration-300 group-hover:scale-105" 
+                        onError={() => {
+                          setFailedUrls(prev => ({ ...prev, [url]: true }));
+                        }}
+                      />
+                    ) : (
+                      <div className="text-emerald-600"><ImageIcon className="w-8 h-8" /></div>
+                    )}
+                    
+                    {/* Controls Overlay: Prominent, High-Visibility Buttons Visible on Hover & Touch */}
+                    <div className="absolute inset-0 bg-slate-950/65 backdrop-blur-[2px] opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-all duration-200 flex flex-col items-center justify-center gap-2 p-3 z-20">
+                      <button
+                        type="button"
+                        onClick={() => window.open(url, '_blank')}
+                        className="w-full bg-white hover:bg-emerald-50 text-slate-900 font-extrabold text-xs py-1.5 px-3 rounded-lg shadow-md transition active:scale-95 cursor-pointer flex items-center justify-center gap-1.5 border border-white"
+                        title="View Full Size Image"
+                      >
+                        <ExternalLink className="w-3.5 h-3.5 text-emerald-700" />
+                        <span>Inspect Image</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveUrl(url)}
+                        className="w-full bg-red-600 hover:bg-red-700 text-white font-extrabold text-xs py-1.5 px-3 rounded-lg shadow-md transition active:scale-95 cursor-pointer flex items-center justify-center gap-1.5 border border-red-500"
+                        title="Remove Image"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        <span>Remove</span>
+                      </button>
+                    </div>
+                  </>
+                )}
               </div>
-            </div>
-          ))}
+            );
+          })}
 
           {/* Uploading items */}
           {uploads.map((u) => (

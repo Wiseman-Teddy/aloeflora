@@ -1,8 +1,13 @@
 import { IncomingMessage, ServerResponse } from 'http';
 import { createClient } from '@supabase/supabase-js';
+import { applyCors, maskPhoneNumber, verifyWebhookSignature } from '../_utils/security.js';
 
-async function getRequestBody(req: IncomingMessage): Promise<any> {
-  if ((req as any).body) return (req as any).body;
+async function getRawRequestBody(req: IncomingMessage): Promise<{ raw: string; json: any }> {
+  if ((req as any).body) {
+    const raw = typeof (req as any).body === 'string' ? (req as any).body : JSON.stringify((req as any).body);
+    const json = typeof (req as any).body === 'string' ? JSON.parse((req as any).body) : (req as any).body;
+    return { raw, json };
+  }
   return new Promise((resolve, reject) => {
     let body = '';
     req.on('data', chunk => {
@@ -10,7 +15,7 @@ async function getRequestBody(req: IncomingMessage): Promise<any> {
     });
     req.on('end', () => {
       try {
-        resolve(body ? JSON.parse(body) : {});
+        resolve({ raw: body, json: body ? JSON.parse(body) : {} });
       } catch (e) {
         reject(e);
       }
@@ -18,7 +23,7 @@ async function getRequestBody(req: IncomingMessage): Promise<any> {
   });
 }
 
-// Generate M-Pesa Token
+// Generate M-Pesa OAuth Token
 async function getMpesaToken(consumerKey: string, consumerSecret: string) {
   const auth = Buffer.from(`${consumerKey}:${consumerSecret}`).toString('base64');
   try {
@@ -38,25 +43,24 @@ async function getMpesaToken(consumerKey: string, consumerSecret: string) {
 // Automatically trigger B2C Payout to Platform (Pochi la Biashara)
 async function triggerPlatformPayout(amount: number) {
   try {
-    console.log(`Initiating automatic B2C payout of KES ${amount} to platform...`);
-    
-    const consumerKey = process.env.MPESA_CONSUMER_KEY || 'LyXnyyQ8Qqs3oNYCGjvreLspgmgTurGZLt7sXcxQHKV30QUZ';
-    const consumerSecret = process.env.MPESA_CONSUMER_SECRET || 'bkREM4ZGm3liOqGrHNN4y9IPbLyXGA78sjdT0mbB8IYHquHgjppkx29GPg51Qb1G';
+    // 1. Strictly load secrets from environment variables (Checklist #1)
+    const consumerKey = process.env.MPESA_CONSUMER_KEY;
+    const consumerSecret = process.env.MPESA_CONSUMER_SECRET;
     const initiatorName = process.env.MPESA_INITIATOR_NAME || 'api_user';
-    const securityCredential = process.env.MPESA_SECURITY_CREDENTIAL || 'base64_cert_password';
+    const securityCredential = process.env.MPESA_SECURITY_CREDENTIAL;
     const businessShortCode = process.env.MPESA_SHORTCODE || '4160861';
-    const platformPhone = '254714441312'; // Pochi la Biashara format (0714441312)
+    const platformPhone = process.env.PLATFORM_POCHI_PHONE || '254714441312';
     
-    if (!consumerKey || !consumerSecret) {
-      console.warn("Missing M-Pesa credentials. Skipping B2C payout.");
+    if (!consumerKey || !consumerSecret || !securityCredential) {
+      console.warn("Missing M-Pesa B2C credentials in environment variables. Skipping payout.");
       return;
     }
     
-    const token = await getMpesaToken(consumerKey, consumerSecret);
+    // 4. Mask phone numbers in logs (Checklist #4)
+    console.log(`Initiating automatic B2C payout of KES ${amount} to platform recipient ${maskPhoneNumber(platformPhone)}...`);
     
+    const token = await getMpesaToken(consumerKey, consumerSecret);
     const appUrl = process.env.APP_URL || 'https://aloefloraproducts.com';
-    const b2cCallbackUrl = `${appUrl}/api/mpesa/b2c_result`;
-    const b2cTimeoutUrl = `${appUrl}/api/mpesa/b2c_timeout`;
     
     const payload = {
       InitiatorName: initiatorName,
@@ -66,8 +70,8 @@ async function triggerPlatformPayout(amount: number) {
       PartyA: businessShortCode,
       PartyB: platformPhone,
       Remarks: 'Platform Commission Split',
-      QueueTimeOutURL: b2cTimeoutUrl,
-      ResultURL: b2cCallbackUrl,
+      QueueTimeOutURL: `${appUrl}/api/mpesa/b2c_timeout`,
+      ResultURL: `${appUrl}/api/mpesa/b2c_result`,
       Occasion: 'Commission Payout'
     };
     
@@ -82,23 +86,14 @@ async function triggerPlatformPayout(amount: number) {
     
     const data: any = await response.json();
     console.log('B2C Payout Response:', data);
-    
   } catch (err) {
     console.error('Failed to trigger B2C Payout:', err);
   }
 }
 
 export default async function handler(req: IncomingMessage, res: ServerResponse) {
-  // Allow all origins for webhook support
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-
-  if (req.method === 'OPTIONS') {
-    res.statusCode = 200;
-    res.end();
-    return;
-  }
+  // Apply CORS & HTTPS Security Headers (Checklist #3)
+  if (applyCors(req, res)) return;
 
   if (req.method !== 'POST') {
     res.statusCode = 405;
@@ -108,9 +103,21 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
   }
 
   try {
-    const body = await getRequestBody(req);
-    console.log('--- M-Pesa Callback Webhook Received ---');
-    console.log(JSON.stringify(body, null, 2));
+    const { raw: rawBody, json: body } = await getRawRequestBody(req);
+
+    // 2. Verify Webhook HMAC Signature if present (Checklist #2)
+    const signatureHeader = req.headers['x-safaricom-signature'] || req.headers['x-signature'] || req.headers['x-sellio-signature'];
+    const webhookSecret = process.env.SELLIO_WEBHOOK_SECRET || process.env.MPESA_CONSUMER_SECRET;
+    
+    if (signatureHeader && !verifyWebhookSignature(rawBody, signatureHeader, webhookSecret)) {
+      console.warn('SECURITY ALERT: Invalid webhook HMAC signature received! Rejecting callback request.');
+      res.statusCode = 401;
+      res.setHeader('Content-Type', 'application/json');
+      res.end(JSON.stringify({ error: 'Unauthorized: Webhook signature verification failed' }));
+      return;
+    }
+
+    console.log('--- Validated Payment Callback Webhook Received ---');
 
     const stkCallback = body?.Body?.stkCallback;
     if (!stkCallback) {
@@ -122,28 +129,28 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
 
     const { CheckoutRequestID, ResultCode, ResultDesc } = stkCallback;
 
-    // Supabase credentials
-    const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY;
+    // 1. Strictly load credentials from environment variables (Checklist #1)
+    const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
     if (!supabaseUrl || !supabaseServiceKey) {
-      console.warn('Supabase credentials missing, cannot update order status.');
-      res.statusCode = 200; // Return 200 to Safaricom to acknowledge delivery
+      console.warn('Supabase service credentials missing in environment variables.');
+      res.statusCode = 200;
       res.setHeader('Content-Type', 'application/json');
-      res.end(JSON.stringify({ message: 'Callback received but database client is not configured' }));
+      res.end(JSON.stringify({ message: 'Callback received but database credentials missing' }));
       return;
     }
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     if (ResultCode === 0) {
-      // Payment Succeeded! Extract metadata details.
       const items = stkCallback.CallbackMetadata?.Item || [];
       const mpesaReceipt = items.find((item: any) => item.Name === 'MpesaReceiptNumber')?.Value;
       const amount = items.find((item: any) => item.Name === 'Amount')?.Value;
       const phone = items.find((item: any) => item.Name === 'PhoneNumber')?.Value;
 
-      console.log(`STK Success! CheckoutRequestID: ${CheckoutRequestID}, Receipt: ${mpesaReceipt}, Amount: ${amount}`);
+      // 4. Log masked phone numbers (Checklist #4)
+      console.log(`STK Success! CheckoutID: ${CheckoutRequestID}, Receipt: ${mpesaReceipt}, Amount: KES ${amount}, Phone: ${maskPhoneNumber(phone)}`);
 
       // Try fetching order by checkout_request_id
       let { data, error } = await supabase
@@ -160,9 +167,9 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
         console.error('Error fetching order by checkout_request_id:', error);
       }
 
-      // If no order matched checkout_request_id, search by AccountReference / Order ID
-      if (!orderToUpdate) {
-        console.log('No order matched checkout_request_id directly. Searching by pending AccountReference or Phone...');
+      // If no order matched checkout_request_id, search by AccountReference / Phone
+      if (!orderToUpdate && phone) {
+        console.log(`Searching pending orders for masked phone: ${maskPhoneNumber(phone)}...`);
         const formattedPhone = String(phone).replace('254', '0');
         
         const { data: matchedOrders } = await supabase
@@ -179,9 +186,9 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
       }
 
       if (orderToUpdate) {
-        // Business Logic & Fraud Prevention Check: Validate paid amount matches order total!
+        // Fraud Prevention Check: Validate paid amount matches order total
         if (Number(orderToUpdate.total_amount) !== Number(amount)) {
-          console.warn(`FRAUD ALERT: Paid amount ${amount} does not match order total ${orderToUpdate.total_amount}! Marking as failed/fraud.`);
+          console.warn(`FRAUD ALERT: Paid amount KES ${amount} does not match order total KES ${orderToUpdate.total_amount}!`);
           await supabase
             .from('orders')
             .update({
@@ -193,11 +200,12 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
             .eq('id', orderToUpdate.id);
             
           res.statusCode = 200;
-          res.end(JSON.stringify({ ResultCode: 0, ResultDesc: 'Success (but flagged as fraud due to amount mismatch)' }));
+          res.setHeader('Content-Type', 'application/json');
+          res.end(JSON.stringify({ ResultCode: 0, ResultDesc: 'Success (flagged for fraud verification)' }));
           return;
         }
 
-        console.log(`Matching order found and amount verified: ${orderToUpdate.id}. Updating...`);
+        console.log(`Matching order verified: ${orderToUpdate.id}. Updating status to paid...`);
         
         await supabase
           .from('orders')
@@ -208,24 +216,23 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
             checkout_request_id: CheckoutRequestID
           })
           .eq('id', orderToUpdate.id);
-      } else {
-        console.warn('Could not find any matching pending orders for fallback phone. Checking event_registrations...');
       }
 
-      // Also check and update pending event_registrations if matched by phone or checkout_request_id
-      const formattedPhone = String(phone).replace('254', '0');
-      await supabase
-        .from('event_registrations')
-        .update({
-          payment_status: 'paid',
-          mpesa_receipt: mpesaReceipt,
-          amount_paid: amount
-        })
-        .or(`phone.eq.${phone},phone.eq.${formattedPhone}`)
-        .eq('payment_status', 'pending');
+      // Update event registrations if matched
+      if (phone) {
+        const formattedPhone = String(phone).replace('254', '0');
+        await supabase
+          .from('event_registrations')
+          .update({
+            payment_status: 'paid',
+            mpesa_receipt: mpesaReceipt,
+            amount_paid: amount
+          })
+          .or(`phone.eq.${phone},phone.eq.${formattedPhone}`)
+          .eq('payment_status', 'pending');
+      }
 
-
-      // Calculate and save commission split (70% Business / 30% Platform)
+      // Record commission split (70% Business / 30% Platform)
       if (amount && Number(amount) > 0) {
         const total = Number(amount);
         const business_amount = total * 0.70;
@@ -246,16 +253,14 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
           });
           
         if (commErr) {
-          console.error('Error saving commission split:', commErr);
+          console.error('Error saving commission ledger record:', commErr);
         } else {
           console.log('Successfully recorded 70/30 payment split to commissions ledger.');
-          // Fire and forget the automatic payout
           triggerPlatformPayout(platform_amount).catch(console.error);
         }
       }
     } else {
-      // Payment Failed or Cancelled
-      console.warn(`STK Failed/Cancelled! CheckoutRequestID: ${CheckoutRequestID}, ResultCode: ${ResultCode}, Desc: ${ResultDesc}`);
+      console.warn(`STK Failed/Cancelled! CheckoutRequestID: ${CheckoutRequestID}, ResultCode: ${ResultCode}`);
       
       await supabase
         .from('orders')
@@ -270,7 +275,7 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
     res.setHeader('Content-Type', 'application/json');
     res.end(JSON.stringify({ ResultCode: 0, ResultDesc: 'Success' }));
   } catch (error: any) {
-    console.error('Callback parsing exception:', error);
+    console.error('Callback handling exception:', error);
     res.statusCode = 500;
     res.setHeader('Content-Type', 'application/json');
     res.end(JSON.stringify({ error: 'Internal server error', details: error.message }));

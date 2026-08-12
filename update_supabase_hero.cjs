@@ -18,7 +18,7 @@ async function syncHeroPostsToSupabase() {
         type: "hero",
         status: "published",
         author: "ALOEFLORA Admin",
-        image_url: "/banner hero images flater/Hero Banner 1..jpeg"
+        image_url: "/banner hero images flater/hero_banner_1.jpeg"
       },
       {
         id: "hero-banner-2",

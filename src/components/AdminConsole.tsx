@@ -33,7 +33,7 @@ import { User, LogOut,
 import { Product, ProductVariant, Order, SupportTicket, MarketingCampaign, CMSPost, AuditAnomaly, StoreSettings, SystemMetrics, UserProfile, Promo } from "../types";
 import { supabase } from "../lib/supabase";
 import { sanitizeInput } from "../utils/sanitize";
-import { uploadToSupabase } from "../utils/supabaseStorage";
+import { uploadToSupabase, deleteFromSupabase } from "../utils/supabaseStorage";
 import MediaUploader from "./MediaUploader";
 import { useAuth } from "../contexts/AuthContext";
 import { exportToCSV, exportToPDF } from "../utils/exportUtils";
@@ -715,22 +715,71 @@ export default function AdminConsole({
   };
 
   const handleDeleteCMS = async (id: string) => {
-    if(confirm("Are you sure you want to permanently delete this CMS Post?")) {
+    if (confirm("Are you sure you want to permanently delete this CMS Post and its corresponding images from Supabase Storage and Media Library?")) {
       try {
         const targetPost = cmsPosts.find(p => p.id === id);
+
+        // 1. Delete associated media files from Supabase Storage
+        if (targetPost && targetPost.imageUrl) {
+          const urls = targetPost.imageUrl.split(',').map(u => u.trim()).filter(Boolean);
+          for (const u of urls) {
+            await deleteFromSupabase(u, 'images');
+            setMediaFiles(prev => prev.filter(f => f.url !== u && !u.endsWith(f.name)));
+          }
+        }
+
+        // 2. Delete CMS post from Supabase DB
         const { error } = await supabase.from('cms_posts').delete().eq('id', id);
         if (error) throw error;
-        
+
         if (targetPost && targetPost.type === 'promotion') {
           await supabase.from('events').delete().eq('id', id);
           setEventsData(prev => prev.filter(e => e.id !== id));
         }
 
+        // 3. Real-time application update
         onUpdateCMS(cmsPosts.filter(p => p.id !== id));
-        toast.success("CMS Post deleted successfully!");
+        toast.success("CMS Post and corresponding media files deleted successfully!");
       } catch (err: any) {
         console.error(err);
         toast.error(`Failed to delete CMS post: ${err.message}`);
+      }
+    }
+  };
+
+  const handleDeleteAllCMS = async () => {
+    if (cmsPosts.length === 0) {
+      toast.error("No CMS posts available to delete.");
+      return;
+    }
+
+    if (confirm(`Are you sure you want to PERMANENTLY delete ALL (${cmsPosts.length}) CMS posts and their corresponding images from Supabase Storage and Media Library?`)) {
+      try {
+        // 1. Delete all images from Supabase Storage
+        for (const post of cmsPosts) {
+          if (post.imageUrl) {
+            const urls = post.imageUrl.split(',').map(u => u.trim()).filter(Boolean);
+            for (const u of urls) {
+              await deleteFromSupabase(u, 'images');
+            }
+          }
+        }
+
+        // 2. Delete all records from Supabase DB cms_posts
+        const { error } = await supabase.from('cms_posts').delete().neq('id', 'dummy_id_none_000');
+        if (error) throw error;
+
+        // Clean up events table as well
+        await supabase.from('events').delete().neq('id', 'dummy_id_none_000');
+        setEventsData([]);
+
+        // 3. Real-time application update
+        onUpdateCMS([]);
+        setMediaFiles(prev => prev.filter(f => !f.name.startsWith('hero_') && !f.name.startsWith('blog_') && !f.name.startsWith('promo_')));
+        toast.success("All CMS posts and corresponding images permanently deleted!");
+      } catch (err: any) {
+        console.error(err);
+        toast.error(`Failed to delete all CMS posts: ${err.message}`);
       }
     }
   };
@@ -1633,7 +1682,32 @@ export default function AdminConsole({
                     return (
                       <tr key={p.id} className="hover:bg-zinc-50/50">
                         <td className="p-3 flex items-center gap-2 max-w-xs md:max-w-md">
-                          <img src={(p.mediaUrls && p.mediaUrls.length > 0) ? p.mediaUrls[0] : p.imageUrl?.split(',')[0]} alt={p.name} className="w-8 h-8 rounded border object-cover shrink-0" />
+                          <div className="relative group shrink-0">
+                            <img 
+                              src={(p.mediaUrls && p.mediaUrls.length > 0 && p.mediaUrls[0].trim() !== '') ? p.mediaUrls[0] : p.imageUrl?.split(',')[0] || '/logo_square.jpeg'} 
+                              alt={p.name} 
+                              className="w-10 h-10 rounded-lg border border-gray-200 object-cover shrink-0 shadow-xs group-hover:scale-105 transition cursor-pointer" 
+                              onClick={() => {
+                                const img = (p.mediaUrls && p.mediaUrls.length > 0 && p.mediaUrls[0].trim() !== '') ? p.mediaUrls[0] : p.imageUrl?.split(',')[0] || '/logo_square.jpeg';
+                                window.open(img, '_blank');
+                              }}
+                              onError={(e) => {
+                                (e.target as HTMLImageElement).src = '/logo_square.jpeg';
+                              }}
+                              title="Click to inspect image"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const img = (p.mediaUrls && p.mediaUrls.length > 0 && p.mediaUrls[0].trim() !== '') ? p.mediaUrls[0] : p.imageUrl?.split(',')[0] || '/logo_square.jpeg';
+                                window.open(img, '_blank');
+                              }}
+                              className="absolute -top-1 -right-1 bg-slate-900 text-white p-0.5 rounded-full opacity-0 group-hover:opacity-100 transition shadow-md border border-slate-700 cursor-pointer"
+                              title="Inspect Image"
+                            >
+                              <ExternalLink className="w-2.5 h-2.5" />
+                            </button>
+                          </div>
                           <div className="truncate">
                             <div className="font-extrabold text-gray-900 truncate">{p.name}</div>
                             <span className="text-[10px] uppercase font-bold text-lime-600 bg-emerald-50 px-1.5 py-0.5 rounded">
@@ -1896,12 +1970,23 @@ export default function AdminConsole({
                 <p className="text-xs text-gray-500 mt-0.5">Author articles, policies, and home-care tips securely.</p>
               </div>
 
-              <button
-                onClick={() => setIsAddingCms((prev) => !prev)}
-                className="bg-emerald-800 text-white font-bold text-xs py-2 px-3 rounded-xl flex items-center gap-1 cursor-pointer hover:bg-emerald-700"
-              >
-                <Plus className="w-3.5 h-3.5" /> Drafting tools
-              </button>
+              <div className="flex items-center gap-2">
+                {cmsPosts.length > 0 && (
+                  <button
+                    onClick={handleDeleteAllCMS}
+                    className="bg-red-50 hover:bg-red-100 text-red-700 font-bold text-xs py-2 px-3 rounded-xl flex items-center gap-1 cursor-pointer transition border border-red-200"
+                    title="Permanently delete all CMS posts and corresponding images"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" /> Purge All Posts
+                  </button>
+                )}
+                <button
+                  onClick={() => setIsAddingCms((prev) => !prev)}
+                  className="bg-emerald-800 text-white font-bold text-xs py-2 px-3 rounded-xl flex items-center gap-1 cursor-pointer hover:bg-emerald-700"
+                >
+                  <Plus className="w-3.5 h-3.5" /> Drafting tools
+                </button>
+              </div>
             </div>
 
             {isAddingCms && (

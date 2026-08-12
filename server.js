@@ -17,19 +17,48 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Initialize Supabase Client for background updates
-const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || 'https://apnmunmhlrpcbmjmywyh.supabase.co';
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFwbm11bm1obHJwY2Jtam15d3loIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MTUyMTk3NiwiZXhwIjoyMDk3MDk3OTc2fQ.eyYFgK3e-p1BuX9J4_Gbhymek4LPKNRUB4Vmm4xYjBM';
-const supabase = createClient(supabaseUrl, supabaseServiceKey);
+// Essential Security Middleware: Enforce HTTPS & HSTS (Checklist #3)
+app.use((req, res, next) => {
+  res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload');
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
 
-// Daraja API Credentials & Environment Settings
+  if (process.env.NODE_ENV === 'production' && req.headers['x-forwarded-proto'] && req.headers['x-forwarded-proto'] !== 'https') {
+    return res.redirect(301, `https://${req.headers.host}${req.url}`);
+  }
+  next();
+});
+
+/**
+ * Mask Phone Numbers in Logs (Checklist #4)
+ */
+function maskPhoneNumber(phone) {
+  if (!phone) return '****';
+  const str = String(phone).trim().replace(/\s+/g, '');
+  if (str.length < 8) return '****';
+  const start = str.slice(0, 4);
+  const end = str.slice(-4);
+  const middleLength = Math.max(0, str.length - 8);
+  return `${start}${'*'.repeat(middleLength || 4)}${end}`;
+}
+
+// 1. Initialize Supabase Client strictly from Environment Variables (Checklist #1)
+const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || 'https://apnmunmhlrpcbmjmywyh.supabase.co';
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+if (!supabaseServiceKey) {
+  console.warn('Warning: SUPABASE_SERVICE_ROLE_KEY is not defined in environment variables.');
+}
+const supabase = createClient(supabaseUrl, supabaseServiceKey || 'temp_missing_key');
+
+// 1. Daraja API Credentials & Environment Settings (Checklist #1)
 const mpesaEnv = process.env.MPESA_ENV || 'production';
 const darajaBaseUrl = mpesaEnv === 'sandbox' ? 'https://sandbox.safaricom.co.ke' : 'https://api.safaricom.co.ke';
 
-const consumerKey = process.env.MPESA_CONSUMER_KEY || 'LyXnyyQ8Qqs3oNYCGjvreLspgmgTurGZLt7sXcxQHKV30QUZ';
-const consumerSecret = process.env.MPESA_CONSUMER_SECRET || 'bkREM4ZGm3liOqGrHNN4y9IPbLyXGA78sjdT0mbB8IYHquHgjppkx29GPg51Qb1G';
+const consumerKey = process.env.MPESA_CONSUMER_KEY;
+const consumerSecret = process.env.MPESA_CONSUMER_SECRET;
 const businessShortCode = process.env.MPESA_SHORTCODE || '4160861';
-const passkey = process.env.MPESA_PASSKEY || 'd8880f0e3413200863cfd21d3107740766a56c8c013c813293657bf7e34e6c35';
+const passkey = process.env.MPESA_PASSKEY;
 
 // Generate M-Pesa OAuth Access Token
 async function getMpesaToken() {
@@ -149,7 +178,7 @@ app.post('/api/mpesa/callback', async (req, res) => {
         if (item.Name === 'TransactionDate') transactionDate = String(item.Value);
       }
 
-      console.log(`✅ Payment Successful for CheckoutRequestID: ${CheckoutRequestID}, Receipt: ${mpesaReceipt}, Amount: ${amountPaid}`);
+      console.log(`✅ Payment Successful for CheckoutRequestID: ${CheckoutRequestID}, Receipt: ${mpesaReceipt}, Amount: ${amountPaid}, Phone: ${maskPhoneNumber(phoneNumber)}`);
 
       // Update order status in Supabase
       const { data: updatedOrder, error: dbError } = await supabase

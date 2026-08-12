@@ -200,18 +200,38 @@ export default function App() {
   useEffect(() => {
     const fetchAllData = async () => {
       try {
-        // Orders
-        const { data: ordData, error: ordErr } = await supabase.from('orders').select('*').order('created_at', { ascending: false });
-        if (ordData && !ordErr) {
+        const [
+          ordRes,
+          prodRes,
+          cmsRes,
+          tktRes,
+          evtRes,
+          stRes,
+          profRes,
+          campRes,
+          promoRes
+        ] = await Promise.allSettled([
+          supabase.from('orders').select('*').order('created_at', { ascending: false }),
+          supabase.from('products').select('*'),
+          supabase.from('cms_posts').select('*').order('created_at', { ascending: false }),
+          supabase.from('support_tickets').select('*').order('created_at', { ascending: false }),
+          supabase.from('events').select('*'),
+          supabase.from('store_settings').select('*').eq('id', 'global').single(),
+          supabase.from('profiles').select('*'),
+          supabase.from('campaigns').select('*'),
+          supabase.from('promos').select('*')
+        ]);
+
+        if (ordRes.status === 'fulfilled' && ordRes.value.data && !ordRes.value.error) {
+          const ordData = ordRes.value.data;
           const mapped: Order[] = ordData.map((d: any) => ({
             id: d.id, customerName: d.customer_name, phone: d.phone, email: d.email || "", county: d.county || "", subCounty: d.sub_county || "", estate: d.estate || "", building: d.building || "", houseNumber: d.house_number || "", deliveryNotes: d.delivery_notes || "", items: d.items || [], subtotal: d.subtotal || d.total_amount, deliveryFee: d.delivery_fee || 0, total: d.total_amount, paymentMethod: d.payment_method || "mpesa_stk", paymentStatus: d.status, deliveryStatus: d.delivery_status || "pending", mpesaReceipt: d.mpesa_receipt || "", createdAt: d.created_at
           }));
           setOrders(mapped);
         }
-        
-        // Products
-        const { data: prodData, error: prodErr } = await supabase.from('products').select('*');
-        if (prodData && !prodErr) {
+
+        if (prodRes.status === 'fulfilled' && prodRes.value.data && !prodRes.value.error) {
+          const prodData = prodRes.value.data;
           const mappedProds: Product[] = prodData.map((p: any) => ({
             id: p.id, name: p.name, description: p.description, price: p.price, costPrice: p.cost_price,
             category: p.category as any, subCategory: p.sub_category, unitSize: p.unit_size || undefined, imageUrl: p.image_url, stock: p.stock,
@@ -221,9 +241,8 @@ export default function App() {
           setProducts(mappedProds);
         }
 
-        // CMS
-        const { data: cmsData, error: cmsErr } = await supabase.from('cms_posts').select('*').order('created_at', { ascending: false });
-        if (cmsData && !cmsErr) {
+        if (cmsRes.status === 'fulfilled' && cmsRes.value.data && !cmsRes.value.error) {
+          const cmsData = cmsRes.value.data;
           const mappedCms: CMSPost[] = cmsData.map((c: any) => ({
             id: c.id, title: c.title, content: c.content, type: c.type, status: c.status, author: c.author,
             imageUrl: c.image_url, createdAt: c.created_at, seoTitle: c.seo_title, seoDesc: c.seo_desc, seoKeywords: c.seo_keywords
@@ -231,9 +250,8 @@ export default function App() {
           setCmsPosts(mappedCms);
         }
 
-        // Tickets
-        const { data: tktData, error: tktErr } = await supabase.from('support_tickets').select('*').order('created_at', { ascending: false });
-        if (tktData && !tktErr) {
+        if (tktRes.status === 'fulfilled' && tktRes.value.data && !tktRes.value.error) {
+          const tktData = tktRes.value.data;
           const mappedTkts: SupportTicket[] = tktData.map((t: any) => ({
             id: t.id, customerName: t.customer_name, email: t.email, phone: t.phone, subject: t.subject,
             message: t.message, status: t.status, createdAt: t.created_at, replies: t.replies || []
@@ -241,9 +259,8 @@ export default function App() {
           setTickets(mappedTkts);
         }
 
-        // Events
-        const { data: evtData, error: evtErr } = await supabase.from('events').select('*');
-        if (evtData && !evtErr) {
+        if (evtRes.status === 'fulfilled' && evtRes.value.data && !evtRes.value.error) {
+          const evtData = evtRes.value.data;
           const mappedEvts: BookingEvent[] = evtData.map((e: any) => ({
             id: e.id, title: e.title, date: e.date, time: e.time || "TBA", location: e.location,
             description: e.description, imageUrl: e.image_url, capacity: e.capacity,
@@ -252,9 +269,9 @@ export default function App() {
           }));
           setEvents(mappedEvts);
         }
-        // Store Settings
-        const { data: stData, error: stErr } = await supabase.from('store_settings').select('*').eq('id', 'global').single();
-        if (stData && !stErr) {
+
+        if (stRes.status === 'fulfilled' && stRes.value.data && !stRes.value.error) {
+          const stData = stRes.value.data;
           setStoreSettings({
             id: stData.id,
             adminName: stData.admin_name,
@@ -268,9 +285,8 @@ export default function App() {
           });
         }
 
-        // Profiles / Users
-        const { data: profData, error: profErr } = await supabase.from('profiles').select('*');
-        if (profData && !profErr) {
+        if (profRes.status === 'fulfilled' && profRes.value.data && !profRes.value.error) {
+          const profData = profRes.value.data;
           const mappedUsers: UserProfile[] = profData.map((u: any) => ({
             id: u.id, fullName: u.full_name, email: u.email, phone: u.phone, role: u.role, accountStatus: u.account_status,
             createdAt: u.created_at, lastLogin: u.last_login, totalSpending: u.total_spending, orderCount: u.order_count
@@ -278,9 +294,8 @@ export default function App() {
           setUsers(mappedUsers);
         }
 
-        // Campaigns
-        const { data: campData, error: campErr } = await supabase.from('campaigns').select('*');
-        if (campData && !campErr) {
+        if (campRes.status === 'fulfilled' && campRes.value.data && !campRes.value.error) {
+          const campData = campRes.value.data;
           const mappedCamp: MarketingCampaign[] = campData.map((c: any) => ({
             id: c.id, name: c.name, platform: c.platform, status: c.status, budget: c.budget, impressions: c.impressions,
             clicks: c.clicks, conversions: c.conversions, roi: c.roi_percent, startDate: c.start_date, endDate: c.end_date
@@ -288,9 +303,8 @@ export default function App() {
           setCampaigns(mappedCamp);
         }
 
-        // Promos
-        const { data: promoData, error: promoErr } = await supabase.from('promos').select('*');
-        if (promoData && !promoErr) {
+        if (promoRes.status === 'fulfilled' && promoRes.value.data && !promoRes.value.error) {
+          const promoData = promoRes.value.data;
           const mappedPromos: Promo[] = promoData.map((p: any) => ({
             id: p.id, code: p.code, discountPercent: p.discount_percent, isActive: p.is_active, createdAt: p.created_at
           }));

@@ -1,14 +1,12 @@
 import { IncomingMessage, ServerResponse } from 'http';
-import { applyCors, checkRateLimit } from '../_utils/security.js';
+import { applyCors, checkRateLimit, maskPhoneNumber } from '../_utils/security.js';
 
-// Helper to read body if Vercel doesn't parse it (though Vercel does parse it for POST requests)
 async function getRequestBody(req: IncomingMessage): Promise<any> {
   if ((req as any).body) return (req as any).body;
   return new Promise((resolve, reject) => {
     let body = '';
     req.on('data', chunk => {
       body += chunk.toString();
-      // Payload size validation (limit 100KB)
       if (body.length > 100000) {
         reject(new Error('Payload too large'));
       }
@@ -23,7 +21,7 @@ async function getRequestBody(req: IncomingMessage): Promise<any> {
   });
 }
 
-// Generate M-Pesa Token
+// Generate M-Pesa OAuth Token
 async function getMpesaToken(consumerKey: string, consumerSecret: string) {
   const auth = Buffer.from(`${consumerKey}:${consumerSecret}`).toString('base64');
   try {
@@ -41,10 +39,10 @@ async function getMpesaToken(consumerKey: string, consumerSecret: string) {
 }
 
 export default async function handler(req: IncomingMessage, res: ServerResponse) {
-  // Apply Strict CORS
+  // Apply Strict CORS & HSTS HTTPS Headers (Checklist #3)
   if (applyCors(req, res)) return;
 
-  // Apply Strict Rate Limiting (max 5 requests per minute for STK Push)
+  // Apply Strict Rate Limiting (max 5 requests per minute per IP)
   if (checkRateLimit(req, res, 5, 60000)) return;
 
   if (req.method !== 'POST') {
@@ -65,15 +63,16 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
       return;
     }
 
-    const consumerKey = process.env.MPESA_CONSUMER_KEY || 'LyXnyyQ8Qqs3oNYCGjvreLspgmgTurGZLt7sXcxQHKV30QUZ';
-    const consumerSecret = process.env.MPESA_CONSUMER_SECRET || 'bkREM4ZGm3liOqGrHNN4y9IPbLyXGA78sjdT0mbB8IYHquHgjppkx29GPg51Qb1G';
-    const businessShortCode = process.env.MPESA_SHORTCODE || '4160861';
-    const passkey = process.env.MPESA_PASSKEY || 'bfb279f9aa9bdbcf158e97dd71a467cd2e0c893059b10f78e6b72ada1ed2c919';
+    // 1. Strictly load secrets from environment variables (Checklist #1)
+    const consumerKey = process.env.MPESA_CONSUMER_KEY;
+    const consumerSecret = process.env.MPESA_CONSUMER_SECRET;
+    const businessShortCode = process.env.MPESA_SHORTCODE;
+    const passkey = process.env.MPESA_PASSKEY;
 
-    if (!consumerKey || !consumerSecret) {
+    if (!consumerKey || !consumerSecret || !businessShortCode || !passkey) {
       res.statusCode = 500;
       res.setHeader('Content-Type', 'application/json');
-      res.end(JSON.stringify({ error: 'M-Pesa credentials not configured on server' }));
+      res.end(JSON.stringify({ error: 'M-Pesa credentials not configured in environment variables' }));
       return;
     }
 
@@ -85,6 +84,9 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
       formattedPhone = '254' + formattedPhone;
     }
 
+    // 4. Log masked phone numbers in public logs (Checklist #4)
+    console.log(`Initiating STK Push for Phone: ${maskPhoneNumber(formattedPhone)}, Amount: KES ${amount}`);
+
     const token = await getMpesaToken(consumerKey, consumerSecret);
     const timestamp = new Date().toISOString().replace(/[^0-9]/g, '').slice(0, 14);
     const password = Buffer.from(`${businessShortCode}${passkey}${timestamp}`).toString('base64');
@@ -93,7 +95,6 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
     const callbackUrl = `${appUrl}/api/mpesa/callback`;
 
     const txType = transactionType || 'CustomerPayBillOnline';
-    // Format AccountReference to max 12 alphanumeric characters for Safaricom compliance
     const rawRef = String(accountRef || orderId || 'Aloeflora').replace(/[^a-zA-Z0-9]/g, '');
     const formattedAccountRef = (rawRef || 'AFORDER').slice(0, 12).toUpperCase();
 

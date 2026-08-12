@@ -22,6 +22,23 @@ export default defineConfig(() => {
     test: {
       exclude: ['node_modules', 'e2e/**'],
     },
+    build: {
+      target: 'esnext',
+      cssCodeSplit: true,
+      minify: 'esbuild' as const,
+      chunkSizeWarningLimit: 1000,
+      rollupOptions: {
+        output: {
+          manualChunks: {
+            'vendor-react': ['react', 'react-dom', 'react-router-dom'],
+            'vendor-icons': ['lucide-react'],
+            'vendor-supabase': ['@supabase/supabase-js'],
+            'vendor-pdf': ['jspdf', 'jspdf-autotable'],
+            'vendor-motion': ['motion']
+          }
+        }
+      }
+    },
     server: {
       proxy: {
         '/api': {

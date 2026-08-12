@@ -79,21 +79,38 @@ export const uploadWithProgressToSupabase = async (
 
 export const deleteFromSupabase = async (url: string, bucket: string = 'images'): Promise<boolean> => {
   try {
-    if (!url) return false;
+    if (!url || typeof url !== 'string') return false;
     
-    // Extract file path from url (assumes standard supabase storage url structure)
-    // format: https://[project].supabase.co/storage/v1/object/public/[bucket]/[filePath]
-    const urlParts = url.split(`/public/${bucket}/`);
-    if (urlParts.length !== 2) return false;
-    
-    const filePath = urlParts[1];
+    // Handle comma-separated list of URLs
+    const urls = url.split(',').map(u => u.trim()).filter(Boolean);
+    if (urls.length > 1) {
+      const results = await Promise.all(urls.map(u => deleteFromSupabase(u, bucket)));
+      return results.some(Boolean);
+    }
+
+    const singleUrl = urls[0] || url;
+    if (!singleUrl || singleUrl.startsWith('data:')) return false;
+
+    let filePath = '';
+    if (singleUrl.includes(`/public/${bucket}/`)) {
+      filePath = singleUrl.split(`/public/${bucket}/`)[1];
+    } else if (singleUrl.includes(`/${bucket}/`)) {
+      filePath = singleUrl.split(`/${bucket}/`)[1];
+    } else if (singleUrl.startsWith('/')) {
+      filePath = singleUrl.replace(/^\/+/, '');
+    } else {
+      filePath = singleUrl.split('/').pop() || '';
+    }
+
+    if (!filePath) return false;
+    filePath = decodeURIComponent(filePath);
     
     const { error } = await supabase.storage
       .from(bucket)
       .remove([filePath]);
       
     if (error) {
-      console.error('Error deleting from Supabase:', error);
+      console.error('Error deleting from Supabase storage:', error);
       return false;
     }
     

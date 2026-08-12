@@ -46,34 +46,34 @@ import { useShop } from "../contexts/ShopContext";
 import { toast } from "react-hot-toast";
 
 const BANNER_HERO_FLATER_IMAGES = [
-  "/banner hero images flater/hero_banner_1.png",
+  "/banner hero images flater/hero_banner_1.jpeg",
   "/banner hero images flater/hero_banner_2.png",
   "/banner hero images flater/hero_banner_3.png"
 ];
 
 const HERO_SLIDES_CONFIG = [
   {
-    imageUrl: "/banner hero images flater/hero_banner_1.png",
+    imageUrl: "/banner hero images flater/hero_banner_1.jpeg",
     badge: "Premium Natural Products Made in Kenya",
     badgeIcon: "sparkles",
     titleLine1: "Naturally Better",
     titleLine2: "Living Starts Here",
-    categoryFilter: "all",
+    categoryFilter: "hair",
     subtitle: (
       <>
         Discover high-quality, affordable products crafted with care for your home and everyday wellness. From <strong className="text-gray-950 dark:text-white font-black">Home Care</strong>, <strong className="text-gray-950 dark:text-white font-black">Body Care</strong>, and <strong className="text-gray-950 dark:text-white font-black">Skin Care</strong> to <strong className="text-gray-950 dark:text-white font-black">Premium Coffee Products</strong>, AloeFlora brings you trusted natural solutions designed to enrich your lifestyle.
       </>
     ),
     badgeTag: "BEST SELLER",
-    featuredKeyword: "hair",
+    featuredKeyword: "shampoo",
     fallbackProduct: {
-      id: "p3",
-      name: "Hair Gel",
+      id: "p1786353920338",
+      name: "Aloeflora Hair Shampoo",
       rating: 5,
       reviewsCount: 125,
-      description: "Perfect hair gel for your hair with natural aloe vera extracts for medium to firm hold.",
+      description: "Give your hair the clean, refreshed feeling it deserves with Aloe Flora Hair Shampoo.",
       price: 500,
-      imageUrl: "/banner hero images flater/hero_banner_1.png",
+      imageUrl: "https://apnmunmhlrpcbmjmywyh.supabase.co/storage/v1/object/public/images/product_zwuru7fayc_1786353799555.jpeg",
       category: "hair"
     },
     features: [
@@ -99,21 +99,21 @@ const HERO_SLIDES_CONFIG = [
       </>
     ),
     badgeTag: "ORGANIC CHOICE",
-    featuredKeyword: "shower",
+    featuredKeyword: "butter",
     fallbackProduct: {
-      id: "p2",
-      name: "Aloeflora Shower Gel",
+      id: "p1786101164888",
+      name: "Aloeflora Body Butter",
       rating: 4.9,
       reviewsCount: 184,
-      description: "Moisturizing shower gel infused with organic aloe extracts for deep skin nourishment.",
-      price: 750,
-      imageUrl: "/main hero/shower_gel_1l.png",
+      description: "Experience deep hydration and skin radiance with our hand-crafted Body Butter.",
+      price: 1350,
+      imageUrl: "https://apnmunmhlrpcbmjmywyh.supabase.co/storage/v1/object/public/images/product_fscsf9o1nk_1786355189795.jpeg",
       category: "body"
     },
     features: [
       { title: "100% Organic", sub: "Raw Botanicals", icon: "shield" },
       { title: "Deep Hydration", sub: "24hr Moisture", icon: "sparkles" },
-      { title: "Dermatologist Tested", sub: "Safe & Gentle", icon: "tag" },
+      { title: "Certified & Tested By KEBS", sub: "Safe & Gentle", icon: "tag" },
       { title: "Made in Kenya", sub: "Locally Sourced", icon: "globe" },
     ],
     bgPosition: "bg-center md:bg-[center_right]",
@@ -141,7 +141,7 @@ const HERO_SLIDES_CONFIG = [
       reviewsCount: 210,
       description: "Powerful power-pack toilet cleaner formulated to remove tough stains and sanitize completely.",
       price: 450,
-      imageUrl: "/main hero/tumeric_soap.jpg",
+      imageUrl: "/Iimg_af/WhatsApp%20Image%202026-06-14%20at%2014.00.54.jpeg",
       category: "home"
     },
     features: [
@@ -263,8 +263,19 @@ export default function CustomerStore({
   }, [publishedCmsHeroPosts]);
 
   const [heroBannerIndex, setHeroBannerIndex] = useState<number>(0);
+  const [heroProductOffset, setHeroProductOffset] = useState<number>(0);
   const [isHeroHovered, setIsHeroHovered] = useState<boolean>(false);
+  const [isCardHovered, setIsCardHovered] = useState<boolean>(false);
   const heroBannerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Auto-alternate showcased catalog product every 4 seconds
+  useEffect(() => {
+    if (isCardHovered) return;
+    const timer = setInterval(() => {
+      setHeroProductOffset((prev) => prev + 1);
+    }, 4000);
+    return () => clearInterval(timer);
+  }, [isCardHovered]);
 
   // Preload hero banner background images to ensure smooth, zero-latency transitions
   useEffect(() => {
@@ -926,13 +937,19 @@ export default function CustomerStore({
         {(() => {
           const currentSlide = activeHeroSlides[heroBannerIndex] || activeHeroSlides[0];
           
-          // Match real catalog product or fallback
-          const matchedProduct = products.find(p => 
-            p.name.toLowerCase().includes(currentSlide.featuredKeyword) ||
-            p.category.toLowerCase().includes(currentSlide.featuredKeyword)
-          ) || currentSlide.fallbackProduct;
+          // Showcase ALL products across categories (Hair, Body, Home, Coffee, Skin)
+          const categoryProducts = currentSlide.categoryFilter && currentSlide.categoryFilter !== "all"
+            ? products.filter(p => p.category === currentSlide.categoryFilter)
+            : products;
 
-          const cardImg = (matchedProduct as any).mediaUrls && (matchedProduct as any).mediaUrls.length > 0
+          const showcaseCatalog = categoryProducts.length > 0 ? categoryProducts : products;
+          const displayProducts = showcaseCatalog.length > 0 ? showcaseCatalog : [currentSlide.fallbackProduct];
+
+          // Compute matched product based on hero banner index offset + heroProductOffset state
+          const activeIndex = (heroBannerIndex + heroProductOffset) % displayProducts.length;
+          const matchedProduct = displayProducts[activeIndex] || currentSlide.fallbackProduct;
+
+          const cardImg = (matchedProduct as any).mediaUrls && (matchedProduct as any).mediaUrls.length > 0 && (matchedProduct as any).mediaUrls[0].trim() !== ''
             ? (matchedProduct as any).mediaUrls[0]
             : ((matchedProduct as any).imageUrl?.split(',')[0] || currentSlide.fallbackProduct.imageUrl);
 
@@ -1014,20 +1031,58 @@ export default function CustomerStore({
 
               </div>
 
-              {/* RIGHT COLUMN: Floating Featured Product Card Overlay (Prototype Design) */}
+              {/* RIGHT COLUMN: Floating Featured Product Card Overlay with Multi-Product Catalog Navigation & Auto-Alternating */}
               <div className="lg:col-span-5 flex justify-center items-center z-10 transition-all duration-500">
-                <div className="relative w-full max-w-sm bg-white border border-gray-100 rounded-3xl p-6 shadow-2xl transition-all duration-500 hover:shadow-emerald-500/20 text-left">
-                  {/* Badge Tag */}
-                  <div className="absolute top-4 right-4 bg-[#1C3B19] text-white text-[10px] uppercase font-black px-3.5 py-1 rounded-full tracking-wider shadow-sm z-10">
-                    {currentSlide.badgeTag}
+                <div 
+                  onMouseEnter={() => setIsCardHovered(true)}
+                  onMouseLeave={() => setIsCardHovered(false)}
+                  className="relative w-full max-w-sm bg-white dark:bg-gray-900/90 border border-gray-100 dark:border-gray-800 rounded-3xl p-6 shadow-2xl transition-all duration-500 hover:shadow-emerald-500/20 text-left"
+                >
+                  
+                  {/* Floating Product Navigation Header */}
+                  <div className="flex items-center justify-between mb-3 border-b border-gray-100 dark:border-gray-800 pb-2.5">
+                    <span className="text-[10px] font-black uppercase tracking-wider text-emerald-800 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/60 px-2.5 py-1 rounded-full border border-emerald-100 dark:border-emerald-800/60 flex items-center gap-1">
+                      <Sparkles className="w-3 h-3 text-amber-500 animate-pulse" />
+                      Showcase {activeIndex + 1} / {displayProducts.length}
+                    </span>
+
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => setHeroProductOffset(prev => prev - 1)}
+                        className="p-1 rounded-full bg-gray-100 dark:bg-gray-800 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 hover:text-emerald-800 dark:hover:text-emerald-300 text-gray-700 dark:text-gray-300 transition cursor-pointer"
+                        title="Show Previous Product in Catalog"
+                        aria-label="Previous Featured Product"
+                      >
+                        <ChevronLeft className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setHeroProductOffset(prev => prev + 1)}
+                        className="p-1 rounded-full bg-gray-100 dark:bg-gray-800 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 hover:text-emerald-800 dark:hover:text-emerald-300 text-gray-700 dark:text-gray-300 transition cursor-pointer"
+                        title="Show Next Product in Catalog"
+                        aria-label="Next Featured Product"
+                      >
+                        <ChevronRight className="w-3.5 h-3.5" />
+                      </button>
+                      <span className="bg-[#1C3B19] text-white text-[9px] uppercase font-black px-2.5 py-1 rounded-full tracking-wider shadow-xs ml-1">
+                        {currentSlide.badgeTag}
+                      </span>
+                    </div>
                   </div>
 
-                  {/* Featured Product Image */}
-                  <div className="w-full h-56 rounded-2xl bg-gray-50 overflow-hidden mb-4 flex items-center justify-center p-3 border border-gray-100 relative group">
+                  {/* Featured Product Image Container - Perfectly Fitted & Centered */}
+                  <div 
+                    key={matchedProduct.id || activeIndex} 
+                    className="w-full h-60 rounded-2xl bg-gradient-to-b from-gray-50/90 to-emerald-50/40 dark:from-gray-800/80 dark:to-emerald-950/30 overflow-hidden mb-4 flex items-center justify-center p-4 border border-gray-100/80 dark:border-gray-700/60 relative group animate-in fade-in zoom-in-95 duration-300"
+                  >
                     <img 
                       src={cardImg} 
                       alt={matchedProduct.name} 
-                      className="w-full h-full object-contain group-hover:scale-105 transition duration-300"
+                      className="max-h-full max-w-full w-auto h-auto object-contain group-hover:scale-105 transition-all duration-300 drop-shadow-md select-none rounded-lg"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = currentSlide.fallbackProduct.imageUrl;
+                      }}
                     />
                   </div>
 
