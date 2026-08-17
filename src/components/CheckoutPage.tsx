@@ -428,13 +428,17 @@ export default function CheckoutPage({ onAddOrder, promos }: CheckoutPageProps) 
               <div className="pt-6">
                 <button 
                   onClick={() => {
-                    if(!checkoutName || !checkoutPhone || !checkoutSubCounty) {
+                    if(!checkoutName.trim() || !checkoutPhone.trim() || !checkoutSubCounty.trim()) {
                       toast.error("Please fill required fields (Name, Phone, Sub-County).");
                       return;
                     }
                     const phoneCheck = formatKenyanPhoneInput(checkoutPhone);
                     if (!phoneCheck.isValid) {
                       toast.error(phoneCheck.error || "Please enter a valid Kenyan phone number (e.g. 0712345678)");
+                      return;
+                    }
+                    if (checkoutEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(checkoutEmail.trim())) {
+                      toast.error("Please enter a valid email address (e.g. name@domain.com).");
                       return;
                     }
                     setCheckoutStep(2);
