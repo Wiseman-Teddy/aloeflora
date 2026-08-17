@@ -674,11 +674,13 @@ export default function CustomerStore({
         setStkStatus("waiting_pin");
         setMpesaPinInput("");
       } else {
-        throw new Error(data.error || "STK Failed");
+        toast.error(data.error || "Failed to initiate M-Pesa STK Push");
+        setStkStatus("failed");
+        return;
       }
-    } catch (err) {
-      console.error("Backend unavailable.", err);
-      toast.error("Payment service is currently unavailable. Please try again later.");
+    } catch (err: any) {
+      console.error("Backend error:", err);
+      toast.error(err.message || "Payment service is currently unavailable. Please try again later.");
       setStkStatus("failed");
     }
   };
