@@ -57,6 +57,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const isKnownAdmin = 
       currentUser.user_metadata?.role === 'admin' ||
       currentUser.app_metadata?.role === 'admin' ||
+      emailLower === 'aganyawiseman@gmail.com' ||
       emailLower === 'admin@aloeflora.com' ||
       emailLower === 'info@aloefloraproducts.com' ||
       emailLower === 'admin@aloefloraproducts.com';
