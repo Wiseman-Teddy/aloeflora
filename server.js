@@ -60,8 +60,16 @@ const consumerSecret = process.env.MPESA_CONSUMER_SECRET;
 const businessShortCode = process.env.MPESA_SHORTCODE || '4160861';
 const passkey = process.env.MPESA_PASSKEY;
 
-// Generate M-Pesa OAuth Access Token
+// In-memory OAuth Token Cache
+let cachedServerToken = null;
+let serverTokenExpiresAt = 0;
+
+// Generate M-Pesa OAuth Access Token with auto-refresh
 async function getMpesaToken() {
+  if (cachedServerToken && Date.now() < serverTokenExpiresAt - 60000) {
+    return cachedServerToken;
+  }
+
   const auth = Buffer.from(`${consumerKey}:${consumerSecret}`).toString('base64');
   try {
     const response = await fetch(`${darajaBaseUrl}/oauth/v1/generate?grant_type=client_credentials`, {
@@ -73,7 +81,10 @@ async function getMpesaToken() {
     if (!data.access_token) {
       throw new Error(`Failed to fetch M-Pesa token: ${JSON.stringify(data)}`);
     }
-    return data.access_token;
+    cachedServerToken = data.access_token;
+    const expiresIn = Number(data.expires_in) || 3599;
+    serverTokenExpiresAt = Date.now() + expiresIn * 1000;
+    return cachedServerToken;
   } catch (error) {
     console.error('Error generating M-Pesa token:', error);
     throw error;
@@ -239,16 +250,21 @@ app.post('/api/mpesa/callback', async (req, res) => {
 
         if (dbError) {
           console.error('Database update failed for paid order:', dbError);
-        } else {
-          // Decrement inventory stock
+          // Decrement inventory stock atomically
           if (updatedOrder && updatedOrder.length > 0 && Array.isArray(updatedOrder[0].items)) {
             for (const item of updatedOrder[0].items) {
               const pid = item.productId || item.id;
-              if (pid && item.quantity) {
-                const { data: prod } = await supabase.from('products').select('stock').eq('id', pid).single();
-                if (prod && typeof prod.stock === 'number') {
-                  const newStock = Math.max(0, prod.stock - item.quantity);
-                  await supabase.from('products').update({ stock: newStock }).eq('id', pid);
+              const qty = Number(item.quantity) || 1;
+              if (pid) {
+                const { data: newStock, error: rpcErr } = await supabase.rpc('decrement_product_stock', {
+                  p_product_id: pid,
+                  p_quantity: qty
+                });
+                if (rpcErr) {
+                  const { data: prod } = await supabase.from('products').select('stock').eq('id', pid).maybeSingle();
+                  if (prod && typeof prod.stock === 'number') {
+                    await supabase.from('products').update({ stock: Math.max(0, prod.stock - qty) }).eq('id', pid);
+                  }
                 }
               }
             }

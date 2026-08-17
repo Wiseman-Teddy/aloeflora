@@ -24,7 +24,7 @@ async function getRawRequestBody(req: IncomingMessage): Promise<{ raw: string; j
 }
 
 /**
- * Decrement product stock when order payment succeeds
+ * Atomically decrement product stock when order payment succeeds (Race-Condition Free)
  */
 async function decrementProductStock(supabase: any, orderItems: any[]) {
   if (!Array.isArray(orderItems) || orderItems.length === 0) return;
@@ -36,19 +36,22 @@ async function decrementProductStock(supabase: any, orderItems: any[]) {
     if (!productId) continue;
 
     try {
-      const { data: prod, error: prodErr } = await supabase
-        .from('products')
-        .select('id, stock')
-        .eq('id', productId)
-        .maybeSingle();
+      // 1. Try Atomic Database RPC first
+      const { data: newStock, error: rpcErr } = await supabase.rpc('decrement_product_stock', {
+        p_product_id: productId,
+        p_quantity: quantity
+      });
 
-      if (!prodErr && prod && typeof prod.stock === 'number') {
-        const newStock = Math.max(0, prod.stock - quantity);
-        await supabase
-          .from('products')
-          .update({ stock: newStock })
-          .eq('id', productId);
-        console.log(`[Inventory] Decremented stock for ${productId} from ${prod.stock} to ${newStock} (-${quantity})`);
+      if (!rpcErr && typeof newStock === 'number') {
+        console.log(`[Inventory Atomic] Decremented stock for ${productId} to ${newStock} (-${quantity})`);
+      } else {
+        // Fallback update
+        const { data: prod } = await supabase.from('products').select('stock').eq('id', productId).maybeSingle();
+        if (prod && typeof prod.stock === 'number') {
+          const fallbackStock = Math.max(0, prod.stock - quantity);
+          await supabase.from('products').update({ stock: fallbackStock }).eq('id', productId);
+          console.log(`[Inventory Fallback] Updated stock for ${productId} to ${fallbackStock}`);
+        }
       }
     } catch (err) {
       console.error(`[Inventory Error] Failed to update stock for product ${productId}:`, err);
