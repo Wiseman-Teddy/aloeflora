@@ -104,6 +104,29 @@ export default function CheckoutPage({ onAddOrder, promos }: CheckoutPageProps) 
         toast.success(`Payment Received! M-Pesa Receipt: ${data.mpesa_receipt || 'Confirmed'}`);
         localStorage.removeItem("aloeflora_active_stk");
         
+        // Send Order Confirmation Email
+        if (checkoutEmail) {
+          fetch('/api/email/confirm', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              type: 'order',
+              email: checkoutEmail,
+              name: checkoutName || 'Valued Customer',
+              orderId: orderId,
+              mpesaReceipt: data.mpesa_receipt || 'Confirmed',
+              amount: total,
+              deliveryAddress: `${checkoutCounty}, ${checkoutSubCounty}${checkoutEstate ? `, ${checkoutEstate}` : ''}`,
+              items: cart.map(i => ({
+                productName: i.product.name,
+                quantity: i.quantity,
+                selectedVariant: i.selectedVariant,
+                price: i.selectedVariantObj?.price || i.product.price
+              }))
+            })
+          }).catch(err => console.error("Order confirmation email error:", err));
+        }
+
         // Clear cart
         if (shop?.clearCart) {
           shop.clearCart();
@@ -135,6 +158,30 @@ export default function CheckoutPage({ onAddOrder, promos }: CheckoutPageProps) 
           setStkStatus("success");
           toast.success("Payment confirmed from M-Pesa Gateway!");
           localStorage.removeItem("aloeflora_active_stk");
+
+          // Send Order Confirmation Email
+          if (checkoutEmail) {
+            fetch('/api/email/confirm', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                type: 'order',
+                email: checkoutEmail,
+                name: checkoutName || 'Valued Customer',
+                orderId: orderId,
+                mpesaReceipt: queryRes.details?.MpesaReceiptNumber || 'Confirmed',
+                amount: total,
+                deliveryAddress: `${checkoutCounty}, ${checkoutSubCounty}${checkoutEstate ? `, ${checkoutEstate}` : ''}`,
+                items: cart.map(i => ({
+                  productName: i.product.name,
+                  quantity: i.quantity,
+                  selectedVariant: i.selectedVariant,
+                  price: i.selectedVariantObj?.price || i.product.price
+                }))
+              })
+            }).catch(err => console.error("Order confirmation email error:", err));
+          }
+
           if (shop?.clearCart) shop.clearCart();
           setTimeout(() => {
             setIsSTKPromptOpen(false);
