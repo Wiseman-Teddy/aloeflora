@@ -53,12 +53,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return;
     }
     
+    const emailLower = (currentUser.email || '').toLowerCase().trim();
+    const isKnownAdmin = 
+      currentUser.user_metadata?.role === 'admin' ||
+      currentUser.app_metadata?.role === 'admin' ||
+      emailLower === 'admin@aloeflora.com' ||
+      emailLower === 'info@aloefloraproducts.com' ||
+      emailLower === 'admin@aloefloraproducts.com';
+
+    if (isKnownAdmin) {
+      setRole('admin');
+      return;
+    }
+
     try {
       const { data, error } = await supabase
         .from('profiles')
         .select('role')
         .eq('id', currentUser.id)
-        .single();
+        .maybeSingle();
         
       if (!error && data && data.role === 'admin') {
         setRole('admin');

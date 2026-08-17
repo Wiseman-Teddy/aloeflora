@@ -486,30 +486,57 @@ const DEFAULT_PROMOS: Promo[] = [
       <main className={`${isDashboardMode ? 'w-full p-0' : 'max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-8 min-h-[calc(100vh-160px)] w-full overflow-x-hidden'}`}>
         <Suspense fallback={<div className="flex items-center justify-center py-20"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-800"></div></div>}>
           <Routes>
-            <Route path="/" element={<PublicOnlyRoute><Navigate to="/store" replace /></PublicOnlyRoute>} />
-            <Route path="/about" element={<PublicOnlyRoute><AboutUsPage cmsPosts={cmsPosts} /></PublicOnlyRoute>} />
-            <Route path="/blogs" element={<PublicOnlyRoute><BlogsPage cmsPosts={cmsPosts} /></PublicOnlyRoute>} />
+            {/* Core Store & Info Pages (Accessible to All Users - Guests and Authenticated) */}
+            <Route path="/" element={<Navigate to="/store" replace />} />
+            <Route 
+              path="/store/*" 
+              element={
+                <CustomerStore 
+                  products={products}
+                  events={events}
+                  cmsPosts={cmsPosts}
+                  promos={promos}
+                  onAddOrder={handleAddNewOrder}
+                  onRegisterEvent={handleRegisterEventSeat}
+                  onUpdateProductStock={handleUpdateProductStock}
+                />
+              } 
+            />
+            <Route path="/about" element={<AboutUsPage cmsPosts={cmsPosts} />} />
+            <Route path="/blogs" element={<BlogsPage cmsPosts={cmsPosts} />} />
+            <Route path="/faq" element={<FAQPage cmsPosts={cmsPosts} />} />
+            <Route 
+              path="/product/:id" 
+              element={
+                <ProductDetailPage 
+                  products={products}
+                  onAddReview={handleAddProductReview}
+                  promos={promos}
+                />
+              } 
+            />
+            <Route 
+              path="/checkout" 
+              element={
+                <CheckoutPage 
+                  onAddOrder={(order) => {
+                    setOrders(prev => [order, ...prev]);
+                  }}
+                  promos={promos}
+                />
+              } 
+            />
+            <Route path="/policies/:policyId" element={<PoliciesPage />} />
+            <Route path="/docs" element={<ArchitectureDocs />} />
+
+            {/* Auth Gate Pages (Only accessible when logged out; redirects to respective dashboard when logged in) */}
             <Route path="/login" element={<PublicOnlyRoute><CustomerAuth initialMode="login" /></PublicOnlyRoute>} />
             <Route path="/register" element={<PublicOnlyRoute><CustomerAuth initialMode="register" /></PublicOnlyRoute>} />
             <Route path="/forgot-password" element={<PublicOnlyRoute><CustomerAuth initialMode="forgot-password" /></PublicOnlyRoute>} />
             <Route path="/admin/login" element={<PublicOnlyRoute><AdminAuth initialMode="login" /></PublicOnlyRoute>} />
             <Route path="/admin/forgot-password" element={<PublicOnlyRoute><AdminAuth initialMode="forgot-password" /></PublicOnlyRoute>} />
-            <Route 
-              path="/store/*" 
-              element={
-                <PublicOnlyRoute>
-                  <CustomerStore 
-                    products={products}
-                    events={events}
-                    cmsPosts={cmsPosts}
-                    promos={promos}
-                    onAddOrder={handleAddNewOrder}
-                    onRegisterEvent={handleRegisterEventSeat}
-                    onUpdateProductStock={handleUpdateProductStock}
-                  />
-                </PublicOnlyRoute>
-              } 
-            />
+
+            {/* Customer Dashboard Routes */}
             <Route 
               path="/dashboard/*" 
               element={
@@ -526,7 +553,10 @@ const DEFAULT_PROMOS: Promo[] = [
                 </ProtectedRoute>
               } 
             />
+            <Route path="/customer" element={<Navigate to="/dashboard" replace />} />
             <Route path="/customer/dashboard/*" element={<Navigate to="/dashboard" replace />} />
+
+            {/* Admin Console & Dashboard Routes */}
             <Route 
               path="/admin/dashboard/*" 
               element={
@@ -553,32 +583,9 @@ const DEFAULT_PROMOS: Promo[] = [
                 </ProtectedRoute>
               } 
             />
-            <Route 
-              path="/product/:id" 
-              element={
-                <PublicOnlyRoute>
-                  <ProductDetailPage 
-                    products={products}
-                    onAddReview={handleAddProductReview}
-                    promos={promos}
-                  />
-                </PublicOnlyRoute>
-              } 
-            />
-            <Route 
-              path="/checkout" 
-              element={
-                <CheckoutPage 
-                  onAddOrder={(order) => {
-                    setOrders(prev => [order, ...prev]);
-                  }}
-                  promos={promos}
-                />
-              } 
-            />
-            <Route path="/faq" element={<PublicOnlyRoute><FAQPage cmsPosts={cmsPosts} /></PublicOnlyRoute>} />
-            <Route path="/policies/:policyId" element={<PoliciesPage />} />
-            <Route path="/docs" element={<ArchitectureDocs />} />
+            <Route path="/admin" element={<Navigate to="/admin/dashboard" replace />} />
+
+            {/* Catch-all 404 Route */}
             <Route path="*" element={<NotFound />} />
           </Routes>
         </Suspense>
