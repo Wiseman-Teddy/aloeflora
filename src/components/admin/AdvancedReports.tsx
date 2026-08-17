@@ -2,11 +2,13 @@ import React, { useState, useMemo } from "react";
 import { 
   ShoppingBag, Layers, TrendingUp, Calendar, ArrowUpRight, ArrowDownRight, Search,
   AlertCircle, DollarSign, MapPin, Users, Gift, Headphones, CalendarCheck, Percent,
-  ShieldAlert, FileText, CheckCircle, AlertTriangle, Truck, Clock, Download
+  ShieldAlert, FileText, CheckCircle, AlertTriangle, Truck, Clock, Download, RefreshCw
 } from "lucide-react";
 import { Order, Product, SupportTicket, MarketingCampaign, Promo, UserProfile, EventRegistration, AuditAnomaly } from "../../types";
 import { exportToPDF, exportToCSV } from "../../utils/exportUtils";
 import { normalizeVariants } from "../../utils/variantUtils";
+import { supabase } from "../../lib/supabase";
+import { toast } from "react-hot-toast";
 
 interface AdvancedReportsProps {
   orders?: Order[];
@@ -768,6 +770,7 @@ export default function AdvancedReports({
                     <th className="p-4 text-right">Amount (KES)</th>
                     <th className="p-4 text-center">Status</th>
                     <th className="p-4 text-center">Reconciliation Match</th>
+                    <th className="p-4 text-center">Gateway Check</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
@@ -804,11 +807,40 @@ export default function AdvancedReports({
                             {isPaid ? '✓ Matched to Order' : 'Awaiting Callback'}
                           </span>
                         </td>
+                        <td className="p-4 text-center">
+                          {!isPaid ? (
+                            <button
+                              onClick={async () => {
+                                const toastId = toast.loading(`Querying gateway for Order ${o.id}...`);
+                                try {
+                                  const { data, error } = await supabase
+                                    .from('orders')
+                                    .select('payment_status, mpesa_receipt')
+                                    .eq('id', o.id)
+                                    .maybeSingle();
+                                  if (data?.payment_status === 'paid') {
+                                    toast.success(`Order verified as Paid! Receipt: ${data.mpesa_receipt}`, { id: toastId });
+                                  } else {
+                                    toast.error(`Order is still ${data?.payment_status || 'pending'}.`, { id: toastId });
+                                  }
+                                } catch (e: any) {
+                                  toast.error(`Query failed: ${e.message}`, { id: toastId });
+                                }
+                              }}
+                              className="px-2 py-1 rounded-lg text-[10px] font-bold bg-gray-100 hover:bg-emerald-100 text-gray-700 hover:text-emerald-800 transition flex items-center gap-1 mx-auto cursor-pointer"
+                              title="Recheck / Retry Gateway Status"
+                            >
+                              <RefreshCw className="w-3 h-3" /> Recheck
+                            </button>
+                          ) : (
+                            <span className="text-[10px] text-emerald-700 font-bold">Settled</span>
+                          )}
+                        </td>
                       </tr>
                     );
                   }) : (
                     <tr>
-                      <td colSpan={7} className="p-8 text-center text-gray-400 italic">No payment records found matching filter.</td>
+                      <td colSpan={8} className="p-8 text-center text-gray-400 italic">No payment records found matching filter.</td>
                     </tr>
                   )}
                 </tbody>
