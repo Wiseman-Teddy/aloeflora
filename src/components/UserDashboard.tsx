@@ -191,6 +191,7 @@ export default function UserDashboard({ orders, products, events = [], cmsPosts 
 
   // Tracking and Returns State
   const [expandedOrder, setExpandedOrder] = useState<string | null>(null);
+  const [activeOrderStatusFilter, setActiveOrderStatusFilter] = useState<"all" | "paid" | "pending" | "cancelled" | "failed">("all");
 
   // Events & Wellness Promotions Integration State
   const [eventsSubTab, setEventsSubTab] = useState<"my_bookings" | "explore">("my_bookings");
@@ -1430,8 +1431,38 @@ export default function UserDashboard({ orders, products, events = [], cmsPosts 
               </button>
             </div>
 
+            {/* Status Filter Tabs */}
+            <div className="flex flex-wrap gap-2 mb-6 pb-2 border-b border-gray-100 dark:border-gray-800">
+              {[
+                { id: "all", label: `All (${userOrders.length})` },
+                { id: "paid", label: `Paid (${userOrders.filter(o => o.paymentStatus === 'paid' || o.status === 'paid').length})` },
+                { id: "pending", label: `Pending (${userOrders.filter(o => (o.paymentStatus === 'pending' || o.status === 'pending') && o.deliveryStatus !== 'cancelled').length})` },
+                { id: "cancelled", label: `Cancelled (${userOrders.filter(o => o.deliveryStatus === 'cancelled' || o.status === 'cancelled').length})` },
+                { id: "failed", label: `Failed (${userOrders.filter(o => o.paymentStatus === 'failed' || o.status === 'failed').length})` }
+              ].map(f => (
+                <button
+                  key={f.id}
+                  onClick={() => setActiveOrderStatusFilter(f.id as any)}
+                  className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+                    activeOrderStatusFilter === f.id
+                      ? "bg-emerald-800 text-white shadow-sm"
+                      : "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200"
+                  }`}
+                >
+                  {f.label}
+                </button>
+              ))}
+            </div>
+
             <div className="space-y-4">
-              {userOrders.map(order => (
+              {userOrders.filter(o => {
+                if (activeOrderStatusFilter === "all") return true;
+                if (activeOrderStatusFilter === "paid") return o.paymentStatus === "paid" || o.status === "paid";
+                if (activeOrderStatusFilter === "pending") return (o.paymentStatus === "pending" || o.status === "pending") && o.deliveryStatus !== "cancelled";
+                if (activeOrderStatusFilter === "cancelled") return o.deliveryStatus === "cancelled" || o.status === "cancelled";
+                if (activeOrderStatusFilter === "failed") return o.paymentStatus === "failed" || o.status === "failed";
+                return true;
+              }).map(order => (
                 <div key={order.id} className="flex flex-col">
                   <div className="flex flex-col md:flex-row md:items-center justify-between p-4 border border-gray-100 dark:border-gray-800 rounded-2xl transition hover:border-emerald-500/30">
                     <div className="flex items-center gap-4 mb-4 md:mb-0 cursor-pointer" onClick={() => setExpandedOrder(expandedOrder === order.id ? null : order.id)}>
