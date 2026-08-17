@@ -6,6 +6,7 @@ import { supabase } from "../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
 import { useShop } from "../contexts/ShopContext";
 import { toast } from "react-hot-toast";
+import { formatKenyanPhoneInput } from "../lib/payments";
 
 interface CheckoutPageProps {
   onAddOrder: (order: Order) => void;
@@ -57,7 +58,10 @@ export default function CheckoutPage({ onAddOrder, promos }: CheckoutPageProps) 
     }
   }, [cart, navigate]);
 
-  const subtotal = cart.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
+  const subtotal = cart.reduce((sum, item) => {
+    const itemPrice = item.selectedVariantObj?.price || item.product.price;
+    return sum + itemPrice * item.quantity;
+  }, 0);
   const promoDiscount = activePromo ? Math.floor(subtotal * (activePromo.discountPercent / 100)) : 0;
   
   const isCbd = checkoutCounty === "Nairobi" && ["Starehe", "CBD", "City Square", "Kamukunji"].includes(checkoutSubCounty);
@@ -157,6 +161,24 @@ export default function CheckoutPage({ onAddOrder, promos }: CheckoutPageProps) 
       return;
     }
 
+    const phoneCheck = formatKenyanPhoneInput(checkoutPhone);
+    if (!phoneCheck.isValid) {
+      toast.error(phoneCheck.error || "Please enter a valid Kenyan phone number (e.g. 0712345678)");
+      return;
+    }
+    const validatedPhone = phoneCheck.formatted;
+
+    // Stock validation: check all cart items are still available
+    const outOfStockItems = cart.filter(item => {
+      const availableStock = item.selectedVariantObj?.stock ?? item.product.stock;
+      return item.quantity > availableStock;
+    });
+    if (outOfStockItems.length > 0) {
+      const names = outOfStockItems.map(i => `${i.product.name}${i.selectedVariant ? ` (${i.selectedVariant})` : ''}`).join(', ');
+      toast.error(`Insufficient stock for: ${names}. Please reduce quantities or remove these items.`);
+      return;
+    }
+
     const rawId = Math.floor(100000 + Math.random() * 900000).toString();
     const orderId = "ORD-" + rawId;
     const accountRef = generateAccountReference(rawId);
@@ -174,7 +196,7 @@ export default function CheckoutPage({ onAddOrder, promos }: CheckoutPageProps) 
         productId: item.product.id,
         productName: item.product.name,
         quantity: item.quantity,
-        price: item.product.price,
+        price: item.selectedVariantObj?.price || item.product.price,
         costPrice: item.product.costPrice,
         selectedVariant: item.selectedVariant
       })),
@@ -191,7 +213,7 @@ export default function CheckoutPage({ onAddOrder, promos }: CheckoutPageProps) 
       houseNumber: checkoutHouseNum,
       customerName: checkoutName,
       email: checkoutEmail,
-      phone: checkoutPhone,
+      phone: validatedPhone,
       deliveryNotes: checkoutNotes
     };
 
@@ -200,10 +222,10 @@ export default function CheckoutPage({ onAddOrder, promos }: CheckoutPageProps) 
         id: newOrder.id,
         customer_name: newOrder.customerName,
         phone: newOrder.phone,
-        email: newOrder.email,
-        county: newOrder.county,
-        sub_county: newOrder.subCounty,
-        estate: newOrder.estate,
+        email: newOrder.email || 'guest@aloefloraproducts.com',
+        county: newOrder.county || 'Nairobi',
+        sub_county: newOrder.subCounty || 'Not specified',
+        estate: newOrder.estate || 'Not specified',
         building: newOrder.building,
         house_number: newOrder.houseNumber,
         delivery_notes: newOrder.deliveryNotes,
@@ -226,7 +248,7 @@ export default function CheckoutPage({ onAddOrder, promos }: CheckoutPageProps) 
     localStorage.setItem("aloeflora_active_stk", JSON.stringify({
       orderId: orderId,
       accountRef: accountRef,
-      phone: checkoutPhone,
+      phone: validatedPhone,
       amount: total,
       rawId: rawId,
       createdAt: new Date().toISOString()
@@ -240,7 +262,7 @@ export default function CheckoutPage({ onAddOrder, promos }: CheckoutPageProps) 
       const res = await fetch("/api/mpesa/stkpush", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone: checkoutPhone, amount: total, orderId, accountRef }),
+        body: JSON.stringify({ phone: validatedPhone, amount: total, orderId, accountRef }),
         signal: controller.signal
       });
       clearTimeout(timeoutId);
@@ -363,6 +385,11 @@ export default function CheckoutPage({ onAddOrder, promos }: CheckoutPageProps) 
                       toast.error("Please fill required fields (Name, Phone, Sub-County).");
                       return;
                     }
+                    const phoneCheck = formatKenyanPhoneInput(checkoutPhone);
+                    if (!phoneCheck.isValid) {
+                      toast.error(phoneCheck.error || "Please enter a valid Kenyan phone number (e.g. 0712345678)");
+                      return;
+                    }
                     setCheckoutStep(2);
                   }}
                   className="w-full bg-emerald-800 hover:bg-emerald-700 text-white font-bold p-4 rounded-xl transition cursor-pointer shadow-md"
@@ -471,7 +498,7 @@ export default function CheckoutPage({ onAddOrder, promos }: CheckoutPageProps) 
                       </span>
                     )}
                     <div className="font-bold text-emerald-700 dark:text-emerald-400 text-xs mt-0.5">
-                      KES {item.product.price * item.quantity}
+                      KES {(item.selectedVariantObj?.price || item.product.price) * item.quantity}
                     </div>
                   </div>
 
@@ -491,11 +518,62 @@ export default function CheckoutPage({ onAddOrder, promos }: CheckoutPageProps) 
               ))}
             </div>
 
+            {/* Promo Code Input & One-Click Chips */}
+            <div className="pt-3 border-t border-gray-200 dark:border-gray-800 space-y-2">
+              <div className="flex items-center justify-between text-xs font-bold text-gray-700 dark:text-gray-300">
+                <span>Have a Promo Code?</span>
+                {activePromo && (
+                  <button 
+                    onClick={() => {
+                      setActivePromo(null);
+                      toast.success("Coupon removed");
+                    }} 
+                    className="text-[10px] text-red-500 hover:underline cursor-pointer"
+                  >
+                    Remove ({activePromo.code})
+                  </button>
+                )}
+              </div>
+
+              {/* Chips */}
+              <div className="flex flex-wrap gap-1.5">
+                {(promos.length > 0 ? promos : [
+                  { id: "pr-1", code: "ALOE10", discountPercent: 10, isActive: true, createdAt: "2026-08-01" },
+                  { id: "pr-2", code: "KARIBU20", discountPercent: 20, isActive: true, createdAt: "2026-08-01" }
+                ]).map((p) => {
+                  const isCurrent = activePromo?.code === p.code;
+                  return (
+                    <button
+                      key={p.code}
+                      type="button"
+                      onClick={() => {
+                        setActivePromo(p as any);
+                        toast.success(`Coupon ${p.code} applied!`);
+                      }}
+                      className={`text-[10px] font-extrabold px-2.5 py-1 rounded-lg border transition cursor-pointer flex items-center gap-1 ${
+                        isCurrent
+                          ? "bg-emerald-700 text-white border-emerald-700 shadow-sm"
+                          : "bg-emerald-50 dark:bg-emerald-950/50 text-emerald-800 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800 hover:bg-emerald-100"
+                      }`}
+                    >
+                      {p.code} ({p.discountPercent}% OFF)
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
             <div className="space-y-3 pt-4 border-t border-gray-200 dark:border-gray-800 text-sm">
               <div className="flex justify-between text-gray-600 dark:text-gray-400 text-xs">
                 <span>Subtotal</span>
-                <span className="font-semibold text-gray-900 dark:text-white">KES {subtotal}</span>
+                <span className="font-semibold text-gray-900 dark:text-white">KES {subtotal.toLocaleString()}</span>
               </div>
+              {activePromo && (
+                <div className="flex justify-between text-xs text-emerald-600 font-bold bg-emerald-50 dark:bg-emerald-950/40 p-1.5 rounded-lg">
+                  <span>Coupon Discount ({activePromo.code} - {activePromo.discountPercent}%)</span>
+                  <span>-KES {promoDiscount.toLocaleString()}</span>
+                </div>
+              )}
               <div className="flex justify-between text-gray-600 dark:text-gray-400 text-xs">
                 <span>Delivery Fee</span>
                 <span className="font-semibold text-gray-900 dark:text-white">{deliveryFee === 0 ? <strong className="text-emerald-600">FREE</strong> : `KES ${deliveryFee}`}</span>
@@ -508,7 +586,7 @@ export default function CheckoutPage({ onAddOrder, promos }: CheckoutPageProps) 
               )}
               <div className="flex justify-between text-lg font-extrabold text-gray-900 dark:text-white pt-3 border-t border-gray-200 dark:border-gray-800">
                 <span>Total</span>
-                <span className="text-emerald-700 dark:text-emerald-400">KES {total}</span>
+                <span className="text-emerald-700 dark:text-emerald-400">KES {total.toLocaleString()}</span>
               </div>
             </div>
           </div>

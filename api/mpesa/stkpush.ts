@@ -1,5 +1,14 @@
 import { IncomingMessage, ServerResponse } from 'http';
 import { applyCors, checkRateLimit, maskPhoneNumber } from '../_utils/security.js';
+import { 
+  getDarajaBaseUrl, 
+  validateAndFormatKenyanPhone, 
+  validateAmount, 
+  sanitizeAccountReference, 
+  sanitizeTransactionDesc, 
+  getMpesaOAuthToken,
+  translateDarajaResultCode
+} from '../_utils/mpesa.js';
 
 async function getRequestBody(req: IncomingMessage): Promise<any> {
   if ((req as any).body) return (req as any).body;
@@ -21,29 +30,12 @@ async function getRequestBody(req: IncomingMessage): Promise<any> {
   });
 }
 
-// Generate M-Pesa OAuth Token
-async function getMpesaToken(consumerKey: string, consumerSecret: string) {
-  const auth = Buffer.from(`${consumerKey}:${consumerSecret}`).toString('base64');
-  try {
-    const response = await fetch('https://api.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials', {
-      headers: {
-        Authorization: `Basic ${auth}`
-      }
-    });
-    const data: any = await response.json();
-    return data.access_token;
-  } catch (error) {
-    console.error('Error generating M-Pesa token:', error);
-    throw error;
-  }
-}
-
 export default async function handler(req: IncomingMessage, res: ServerResponse) {
   // Apply Strict CORS & HSTS HTTPS Headers (Checklist #3)
   if (applyCors(req, res)) return;
 
-  // Apply Strict Rate Limiting (max 5 requests per minute per IP)
-  if (checkRateLimit(req, res, 5, 60000)) return;
+  // Apply Strict Rate Limiting (max 6 requests per minute per IP to prevent spamming/DoS)
+  if (checkRateLimit(req, res, 6, 60000)) return;
 
   if (req.method !== 'POST') {
     res.statusCode = 405;
@@ -56,63 +48,71 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
     const body = await getRequestBody(req);
     const { phone, amount, transactionType, orderId, accountRef } = body;
 
-    if (!phone || !amount) {
+    // Strict Validation: Phone Number (Kenyan standard MSISDN)
+    let formattedPhone: string;
+    try {
+      formattedPhone = validateAndFormatKenyanPhone(phone);
+    } catch (valErr: any) {
       res.statusCode = 400;
       res.setHeader('Content-Type', 'application/json');
-      res.end(JSON.stringify({ error: 'Phone and amount are required' }));
+      res.end(JSON.stringify({ error: valErr.message }));
+      return;
+    }
+
+    // Strict Validation: Amount (KES 1 to KES 300,000)
+    let validAmount: number;
+    try {
+      validAmount = validateAmount(amount);
+    } catch (amtErr: any) {
+      res.statusCode = 400;
+      res.setHeader('Content-Type', 'application/json');
+      res.end(JSON.stringify({ error: amtErr.message }));
       return;
     }
 
     // 1. Strictly load secrets from environment variables (Checklist #1)
     const consumerKey = process.env.MPESA_CONSUMER_KEY;
     const consumerSecret = process.env.MPESA_CONSUMER_SECRET;
-    const businessShortCode = process.env.MPESA_SHORTCODE;
+    const businessShortCode = process.env.MPESA_SHORTCODE || '4160861';
     const passkey = process.env.MPESA_PASSKEY;
 
     if (!consumerKey || !consumerSecret || !businessShortCode || !passkey) {
       res.statusCode = 500;
       res.setHeader('Content-Type', 'application/json');
-      res.end(JSON.stringify({ error: 'M-Pesa credentials not configured in environment variables' }));
+      res.end(JSON.stringify({ error: 'M-Pesa credentials not configured in server environment' }));
       return;
     }
 
-    // Format phone number to 254... (supports 07..., 01..., +254..., 7..., 1...)
-    let formattedPhone = String(phone).replace(/\s+/g, '').replace(/[^0-9]/g, '');
-    if (formattedPhone.startsWith('0')) {
-      formattedPhone = '254' + formattedPhone.substring(1);
-    } else if (formattedPhone.length === 9 && (formattedPhone.startsWith('7') || formattedPhone.startsWith('1'))) {
-      formattedPhone = '254' + formattedPhone;
-    }
-
     // 4. Log masked phone numbers in public logs (Checklist #4)
-    console.log(`Initiating STK Push for Phone: ${maskPhoneNumber(formattedPhone)}, Amount: KES ${amount}`);
+    console.log(`[STK Push] Initiating push for Phone: ${maskPhoneNumber(formattedPhone)}, Amount: KES ${validAmount}, Order: ${orderId || 'N/A'}`);
 
-    const token = await getMpesaToken(consumerKey, consumerSecret);
+    const token = await getMpesaOAuthToken(consumerKey, consumerSecret);
     const timestamp = new Date().toISOString().replace(/[^0-9]/g, '').slice(0, 14);
     const password = Buffer.from(`${businessShortCode}${passkey}${timestamp}`).toString('base64');
 
-    const appUrl = process.env.APP_URL || 'https://aloefloraproducts.com';
+    const appUrl = (process.env.APP_URL || 'https://aloefloraproducts.com').replace(/\/$/, '');
     const callbackUrl = `${appUrl}/api/mpesa/callback`;
 
     const txType = transactionType || 'CustomerPayBillOnline';
-    const rawRef = String(accountRef || orderId || 'Aloeflora').replace(/[^a-zA-Z0-9]/g, '');
-    const formattedAccountRef = (rawRef || 'AFORDER').slice(0, 12).toUpperCase();
+    const formattedAccountRef = sanitizeAccountReference(accountRef || orderId);
+    const formattedDesc = sanitizeTransactionDesc(`Order ${formattedAccountRef}`);
 
     const payload = {
       BusinessShortCode: businessShortCode,
       Password: password,
       Timestamp: timestamp,
       TransactionType: txType,
-      Amount: Math.round(amount),
+      Amount: validAmount,
       PartyA: formattedPhone,
       PartyB: businessShortCode,
       PhoneNumber: formattedPhone,
       CallBackURL: callbackUrl,
       AccountReference: formattedAccountRef,
-      TransactionDesc: `Order ${formattedAccountRef}`
+      TransactionDesc: formattedDesc
     };
 
-    const response = await fetch('https://api.safaricom.co.ke/mpesa/stkpush/v1/processrequest', {
+    const baseUrl = getDarajaBaseUrl();
+    const response = await fetch(`${baseUrl}/mpesa/stkpush/v1/processrequest`, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${token}`,
@@ -128,21 +128,27 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
       res.statusCode = 200;
       res.end(JSON.stringify({
         success: true,
-        message: 'STK push sent successfully',
-        checkoutRequestID: data.CheckoutRequestID
+        message: 'STK push sent successfully. Please check your phone.',
+        checkoutRequestID: data.CheckoutRequestID,
+        merchantRequestID: data.MerchantRequestID,
+        customerMessage: data.CustomerMessage || 'Success. Request accepted for processing'
       }));
     } else {
+      const friendlyError = translateDarajaResultCode(data.ResponseCode || data.errorCode, data.errorMessage || data.CustomerMessage);
       res.statusCode = 400;
       res.end(JSON.stringify({
         success: false,
-        error: data.errorMessage || 'Failed to send STK push',
+        error: friendlyError,
         details: data
       }));
     }
   } catch (error: any) {
-    console.error('STK Push Error:', error);
+    console.error('[STK Push Error]:', error);
     res.statusCode = 500;
     res.setHeader('Content-Type', 'application/json');
-    res.end(JSON.stringify({ error: 'Internal server error', details: error.message }));
+    res.end(JSON.stringify({ 
+      error: 'Internal server error processing payment request', 
+      message: error.message 
+    }));
   }
 }

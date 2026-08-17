@@ -56,9 +56,12 @@ async function run() {
         total_amount DECIMAL(10,2) NOT NULL,
         payment_method VARCHAR(50) NOT NULL,
         status VARCHAR(50) NOT NULL,
+        payment_status VARCHAR(50) DEFAULT 'pending',
+        checkout_request_id VARCHAR(255),
         delivery_status VARCHAR(50) NOT NULL DEFAULT 'pending',
         mpesa_receipt VARCHAR(100),
-        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
       );
     `);
     

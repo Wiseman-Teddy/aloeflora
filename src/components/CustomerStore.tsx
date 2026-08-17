@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { GoogleGenAI } from '@google/genai';
 import { 
   ShoppingBag, 
   Sparkles, 
@@ -509,25 +508,9 @@ export default function CustomerStore({
         // Express proxy server offline or non-responsive in dev environment
       }
 
-      // 2. Direct Gemini SDK fallback if proxy route was unavailable
+      // 2. Fallback if server proxy was unavailable (no client-side API key exposure)
       if (!aiText) {
-        const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-        if (apiKey) {
-          const ai = new GoogleGenAI({ apiKey });
-          const catalogString = products.map((p) => `- ${p.name} (${p.category}): ${p.description} [KES ${p.price}]`).join("\n");
-          const faqsString = cmsPosts.filter((p) => p.type === "faq").map((f) => `Q: ${f.title}\nA: ${f.content}`).join("\n\n");
-          const systemInstruction = `You are ALOEFLORA's expert AI Specialist based in Nairobi, Kenya. Guide customers on organic hair care, skin care, body care, and coffee. Catalog:\n${catalogString}\nFAQs:\n${faqsString}\nKeep tone warm, professional, and helpful.`;
-
-          const response = await ai.models.generateContent({
-            model: "gemini-2.5-flash",
-            contents: userMessage,
-            config: {
-              systemInstruction: systemInstruction,
-              temperature: 0.7
-            }
-          });
-          aiText = response.text || "";
-        }
+        aiText = "Habari! I'm temporarily unable to connect to our AI service. Please try again in a moment, or browse our product catalog directly for recommendations!";
       }
 
       if (aiText) {
@@ -1371,7 +1354,7 @@ export default function CustomerStore({
                           <button
                             onClick={() => toggleCompare(p)}
                             title="Compare specifications"
-                            className={`p-2 rounded-lg border transition cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center ${
+                            className={`p-2 rounded-lg border transition cursor-pointer min-h-[40px] min-w-[40px] flex items-center justify-center ${
                               compareSelected
                                 ? "bg-emerald-50 border-emerald-300 text-emerald-800"
                                 : "bg-gray-50 border-gray-200 text-gray-500 hover:bg-gray-100"
@@ -1385,9 +1368,22 @@ export default function CustomerStore({
                               addToCart(p, 1, normVars[0]?.name, normVars[0]);
                             }}
                             disabled={p.stock === 0}
-                            className="bg-[#348C21] hover:bg-[#2b751c] disabled:bg-gray-200 disabled:text-gray-400 text-white p-2 md:p-3 rounded-xl text-xs font-bold shadow transition cursor-pointer flex items-center justify-center min-h-[44px] min-w-[44px]"
+                            title="Add to Basket"
+                            className="bg-emerald-800 hover:bg-emerald-700 disabled:bg-gray-200 disabled:text-gray-400 text-white p-2.5 rounded-xl text-xs font-bold shadow-xs transition cursor-pointer flex items-center justify-center min-h-[40px] min-w-[40px]"
                           >
-                            <ShoppingCart className="w-5 h-5 md:w-4 md:h-4" />
+                            <ShoppingCart className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => {
+                              const normVars = normalizeVariants(p);
+                              addToCart(p, 1, normVars[0]?.name, normVars[0]);
+                              navigate("/checkout");
+                            }}
+                            disabled={p.stock === 0}
+                            title="1-Click Buy Now"
+                            className="bg-[#348C21] hover:bg-[#2b751c] disabled:bg-gray-200 disabled:text-gray-400 text-white px-3 py-2 rounded-xl text-[11px] font-black shadow-sm transition cursor-pointer flex items-center gap-1 min-h-[40px]"
+                          >
+                            Buy Now
                           </button>
                         </div>
                       </div>

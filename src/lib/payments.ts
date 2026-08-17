@@ -1,5 +1,31 @@
 import { supabase } from "./supabase";
 
+/**
+ * Kenyan MSISDN Formatter & Validator for Frontend
+ */
+export function formatKenyanPhoneInput(phone: string): { isValid: boolean; formatted: string; error?: string } {
+  if (!phone) {
+    return { isValid: false, formatted: '', error: 'Phone number is required' };
+  }
+  let cleaned = String(phone).trim().replace(/[\s\-\+\(\)]/g, '').replace(/[^0-9]/g, '');
+  if (cleaned.startsWith('0')) {
+    cleaned = '254' + cleaned.substring(1);
+  } else if (cleaned.length === 9 && (cleaned.startsWith('7') || cleaned.startsWith('1'))) {
+    cleaned = '254' + cleaned;
+  }
+
+  const kenyanPhoneRegex = /^254(7\d{8}|1\d{8})$/;
+  if (!kenyanPhoneRegex.test(cleaned)) {
+    return { 
+      isValid: false, 
+      formatted: cleaned, 
+      error: 'Please enter a valid Kenyan number (e.g. 0712345678 or 0112345678)' 
+    };
+  }
+
+  return { isValid: true, formatted: cleaned };
+}
+
 export const PaymentService = {
   /**
    * Triggers Safaricom M-Pesa Live STK Push request to customer phone
@@ -58,4 +84,3 @@ export const PaymentService = {
     }
   }
 };
-

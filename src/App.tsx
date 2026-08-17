@@ -48,7 +48,8 @@ import {
   AuditAnomaly, 
   StoreSettings, 
   UserProfile, 
-  Promo 
+  Promo,
+  ProductReview
 } from "./types";
 import CartSidebar from "./components/CartSidebar";
 import WishlistSidebar from "./components/WishlistSidebar";
@@ -123,8 +124,23 @@ export default function App() {
     const saved = localStorage.getItem("aloeflora_db_store_settings");
     return saved ? JSON.parse(saved) : ({} as StoreSettings);
   });
+const DEFAULT_PROMOS: Promo[] = [
+  { id: "pr-1", code: "ALOE10", discountPercent: 10, isActive: true, createdAt: "2026-08-01T00:00:00.000Z" },
+  { id: "pr-2", code: "KARIBU20", discountPercent: 20, isActive: true, createdAt: "2026-08-01T00:00:00.000Z" },
+  { id: "pr-3", code: "FREESHIP", discountPercent: 5, isActive: true, createdAt: "2026-08-01T00:00:00.000Z" }
+];
+
   const [users, setUsers] = useState<UserProfile[]>([]);
-  const [promos, setPromos] = useState<Promo[]>([]);
+  const [promos, setPromos] = useState<Promo[]>(() => {
+    const saved = localStorage.getItem("aloeflora_db_promos");
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      } catch (e) {}
+    }
+    return DEFAULT_PROMOS;
+  });
 
   // Mobile menu visibility
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
@@ -185,6 +201,10 @@ export default function App() {
     localStorage.setItem("aloeflora_db_store_settings", JSON.stringify(storeSettings));
   }, [storeSettings]);
 
+  useEffect(() => {
+    localStorage.setItem("aloeflora_db_promos", JSON.stringify(promos));
+  }, [promos]);
+
   // Apply visual theme tags
   useEffect(() => {
     const html = document.documentElement;
@@ -225,7 +245,7 @@ export default function App() {
         if (ordRes.status === 'fulfilled' && ordRes.value.data && !ordRes.value.error) {
           const ordData = ordRes.value.data;
           const mapped: Order[] = ordData.map((d: any) => ({
-            id: d.id, customerName: d.customer_name, phone: d.phone, email: d.email || "", county: d.county || "", subCounty: d.sub_county || "", estate: d.estate || "", building: d.building || "", houseNumber: d.house_number || "", deliveryNotes: d.delivery_notes || "", items: d.items || [], subtotal: d.subtotal || d.total_amount, deliveryFee: d.delivery_fee || 0, total: d.total_amount, paymentMethod: d.payment_method || "mpesa_stk", paymentStatus: d.status, deliveryStatus: d.delivery_status || "pending", mpesaReceipt: d.mpesa_receipt || "", createdAt: d.created_at
+            id: d.id, customerName: d.customer_name, phone: d.phone, email: d.email || "", county: d.county || "", subCounty: d.sub_county || "", estate: d.estate || "", building: d.building || "", houseNumber: d.house_number || "", deliveryNotes: d.delivery_notes || "", items: d.items || [], subtotal: d.subtotal || d.total_amount, deliveryFee: d.delivery_fee || 0, total: d.total_amount, paymentMethod: d.payment_method || "mpesa_stk", paymentStatus: d.payment_status || d.status, deliveryStatus: d.delivery_status || "pending", mpesaReceipt: d.mpesa_receipt || "", createdAt: d.created_at
           }));
           setOrders(mapped);
         }
@@ -401,6 +421,49 @@ export default function App() {
     setTickets((prev) => [ticket, ...prev]);
   };
 
+  const handleAddProductReview = (productId: string, review: { author: string; rating: number; comment: string }) => {
+    const newRev: ProductReview = {
+      id: "rev_" + Date.now(),
+      author: review.author || "Verified Customer",
+      rating: review.rating,
+      comment: review.comment,
+      date: new Date().toLocaleDateString("en-KE", { month: "short", day: "numeric", year: "numeric" })
+    };
+
+    setProducts((prev) => prev.map((p) => {
+      if (p.id === productId) {
+        const existingReviews = p.reviews || [];
+        const updatedReviews = [newRev, ...existingReviews];
+        const totalStars = updatedReviews.reduce((sum, r) => sum + r.rating, 0);
+        const newRating = Number((totalStars / updatedReviews.length).toFixed(1));
+        const newReviewsCount = (p.reviewsCount || 0) + 1;
+
+        try {
+          supabase
+            .from('products')
+            .update({
+              reviews: updatedReviews,
+              rating: newRating,
+              reviews_count: newReviewsCount
+            })
+            .eq('id', productId)
+            .then();
+        } catch (e) {
+          console.warn("Supabase update reviews error", e);
+        }
+
+        return {
+          ...p,
+          reviews: updatedReviews,
+          rating: newRating,
+          reviewsCount: newReviewsCount
+        };
+      }
+      return p;
+    }));
+    toast.success("Thank you! Your verified review has been posted.");
+  };
+
   return (
     <div className={`min-h-screen w-full max-w-full overflow-x-hidden transition duration-300 font-sans ${
       darkMode ? "bg-gray-950 text-white" : "bg-neutral-50/50 text-gray-900"
@@ -496,6 +559,8 @@ export default function App() {
                 <PublicOnlyRoute>
                   <ProductDetailPage 
                     products={products}
+                    onAddReview={handleAddProductReview}
+                    promos={promos}
                   />
                 </PublicOnlyRoute>
               } 

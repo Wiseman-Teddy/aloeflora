@@ -1548,19 +1548,35 @@ export default function UserDashboard({ orders, products, events = [], cmsPosts 
                       {/* Timeline Tracking */}
                       <div>
                         <h4 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-4">Order Timeline Tracking</h4>
-                        <div className="relative border-l-2 border-gray-200 dark:border-gray-700 ml-3 space-y-6">
+                        <div className="relative border-l-2 border-emerald-500/30 dark:border-emerald-800 ml-3 space-y-6">
                           <div className="relative pl-6">
                             <div className="absolute -left-[9px] top-1 w-4 h-4 rounded-full bg-emerald-500 ring-4 ring-white dark:ring-gray-900"></div>
                             <div className="text-sm font-bold text-gray-900 dark:text-white">Order Placed</div>
                             <div className="text-xs text-gray-500">{new Date(order.createdAt).toLocaleString()}</div>
                           </div>
                           <div className="relative pl-6">
+                            <div className={`absolute -left-[9px] top-1 w-4 h-4 rounded-full ${order.paymentStatus === 'paid' ? 'bg-emerald-500' : 'bg-amber-400'} ring-4 ring-white dark:ring-gray-900`}></div>
+                            <div className="text-sm font-bold text-gray-900 dark:text-white">
+                              {order.paymentStatus === 'paid' ? 'Payment Verified (M-Pesa)' : 'Payment Processing'}
+                            </div>
+                            <div className="text-xs text-gray-500">
+                              {order.mpesaReceipt ? `Receipt #${order.mpesaReceipt}` : 'M-Pesa STK / Paybill'}
+                            </div>
+                          </div>
+                          <div className="relative pl-6">
                             <div className={`absolute -left-[9px] top-1 w-4 h-4 rounded-full ${['dispatched', 'delivered'].includes(order.deliveryStatus) ? 'bg-emerald-500' : 'bg-gray-300 dark:bg-gray-700'} ring-4 ring-white dark:ring-gray-900`}></div>
-                            <div className={`text-sm font-bold ${['dispatched', 'delivered'].includes(order.deliveryStatus) ? 'text-gray-900 dark:text-white' : 'text-gray-400'}`}>Dispatched</div>
+                            <div className={`text-sm font-bold ${['dispatched', 'delivered'].includes(order.deliveryStatus) ? 'text-gray-900 dark:text-white' : 'text-gray-400'}`}>
+                              {['dispatched', 'delivered'].includes(order.deliveryStatus) ? 'Dispatched / In Transit' : 'Preparing for Dispatch'}
+                            </div>
+                            <div className="text-xs text-gray-500">
+                              Destination: {order.estate || order.subCounty || order.county}
+                            </div>
                           </div>
                           <div className="relative pl-6">
                             <div className={`absolute -left-[9px] top-1 w-4 h-4 rounded-full ${order.deliveryStatus === 'delivered' ? 'bg-emerald-500' : 'bg-gray-300 dark:bg-gray-700'} ring-4 ring-white dark:ring-gray-900`}></div>
-                            <div className={`text-sm font-bold ${order.deliveryStatus === 'delivered' ? 'text-gray-900 dark:text-white' : 'text-gray-400'}`}>Delivered</div>
+                            <div className={`text-sm font-bold ${order.deliveryStatus === 'delivered' ? 'text-gray-900 dark:text-white' : 'text-gray-400'}`}>
+                              {order.deliveryStatus === 'delivered' ? 'Delivered' : 'Pending Final Delivery'}
+                            </div>
                           </div>
                         </div>
                       </div>

@@ -80,20 +80,49 @@ async function getMpesaToken() {
   }
 }
 
+// Helper functions for Daraja Validation
+function validateAndFormatKenyanPhone(input) {
+  if (!input) throw new Error('Phone number is required');
+  let cleaned = String(input).trim().replace(/[\s\-\+\(\)]/g, '').replace(/[^0-9]/g, '');
+  if (cleaned.startsWith('0')) {
+    cleaned = '254' + cleaned.substring(1);
+  } else if (cleaned.length === 9 && (cleaned.startsWith('7') || cleaned.startsWith('1'))) {
+    cleaned = '254' + cleaned;
+  }
+  const kenyanPhoneRegex = /^254(7\d{8}|1\d{8})$/;
+  if (!kenyanPhoneRegex.test(cleaned)) {
+    throw new Error('Please provide a valid 10-digit Kenyan mobile number (e.g. 0712345678 or 0112345678)');
+  }
+  return cleaned;
+}
+
+function translateDarajaResultCode(code, defaultDesc) {
+  const num = Number(code);
+  switch (num) {
+    case 0: return 'Payment successful and confirmed.';
+    case 1: return 'Insufficient M-Pesa balance to complete payment.';
+    case 1032: return 'Payment cancelled by user.';
+    case 1037: return 'Payment request timed out (no response from handset). Please try again.';
+    case 2001: return 'Invalid M-Pesa PIN entered.';
+    case 1001: return 'A transaction is already in progress on your phone. Please try again.';
+    default: return defaultDesc || 'Payment was not completed. Please try again.';
+  }
+}
+
 // Endpoint to initiate STK Push
 app.post('/api/mpesa/stkpush', async (req, res) => {
   const { phone, amount, transactionType, orderId, accountRef } = req.body;
 
-  if (!phone || !amount) {
-    return res.status(400).json({ error: 'Phone and amount are required' });
+  let formattedPhone;
+  try {
+    formattedPhone = validateAndFormatKenyanPhone(phone);
+  } catch (err) {
+    return res.status(400).json({ error: err.message });
   }
 
-  // Format phone number to 254... (supports 07..., 01..., +254..., 7..., 1...)
-  let formattedPhone = String(phone).replace(/\s+/g, '').replace(/[^0-9]/g, '');
-  if (formattedPhone.startsWith('0')) {
-    formattedPhone = '254' + formattedPhone.substring(1);
-  } else if (formattedPhone.length === 9 && (formattedPhone.startsWith('7') || formattedPhone.startsWith('1'))) {
-    formattedPhone = '254' + formattedPhone;
+  const validAmount = Number(amount);
+  if (isNaN(validAmount) || validAmount < 1 || validAmount > 300000) {
+    return res.status(400).json({ error: 'Amount must be between KES 1 and KES 300,000' });
   }
 
   try {
@@ -102,21 +131,22 @@ app.post('/api/mpesa/stkpush', async (req, res) => {
     const password = Buffer.from(`${businessShortCode}${passkey}${timestamp}`).toString('base64');
 
     const txType = transactionType || 'CustomerPayBillOnline';
-    const rawRef = String(accountRef || orderId || 'Aloeflora').replace(/[^a-zA-Z0-9]/g, '');
-    const formattedAccountRef = (rawRef || 'AFORDER').slice(0, 12).toUpperCase();
+    const rawRef = String(accountRef || orderId || 'Aloeflora').replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+    const formattedAccountRef = (rawRef || 'AFORDER').slice(0, 12);
+    const formattedDesc = `Order ${formattedAccountRef}`.replace(/[^a-zA-Z0-9 ]/g, '').slice(0, 13);
 
     const payload = {
       BusinessShortCode: businessShortCode,
       Password: password,
       Timestamp: timestamp,
       TransactionType: txType,
-      Amount: Math.round(amount),
+      Amount: Math.round(validAmount),
       PartyA: formattedPhone,
       PartyB: businessShortCode,
       PhoneNumber: formattedPhone,
-      CallBackURL: `${currentAppUrl}/api/mpesa/callback`,
+      CallBackURL: `${currentAppUrl.replace(/\/$/, '')}/api/mpesa/callback`,
       AccountReference: formattedAccountRef,
-      TransactionDesc: `Order ${formattedAccountRef}`
+      TransactionDesc: formattedDesc
     };
 
     const response = await fetch(`${darajaBaseUrl}/mpesa/stkpush/v1/processrequest`, {
@@ -130,7 +160,6 @@ app.post('/api/mpesa/stkpush', async (req, res) => {
 
     const data = await response.json();
     if (data.ResponseCode === '0') {
-      // Save CheckoutRequestID to Supabase if orderId was passed
       if (orderId) {
         await supabase
           .from('orders')
@@ -139,12 +168,16 @@ app.post('/api/mpesa/stkpush', async (req, res) => {
       }
       res.json({
         success: true,
-        message: 'STK push sent successfully',
+        message: 'STK push sent successfully. Please check your phone.',
         checkoutRequestID: data.CheckoutRequestID,
         merchantRequestID: data.MerchantRequestID
       });
     } else {
-      res.status(400).json({ success: false, error: data.errorMessage || 'Failed to send STK push', details: data });
+      res.status(400).json({ 
+        success: false, 
+        error: translateDarajaResultCode(data.ResponseCode || data.errorCode, data.errorMessage), 
+        details: data 
+      });
     }
   } catch (error) {
     console.error('STK Push Error:', error);
@@ -155,7 +188,6 @@ app.post('/api/mpesa/stkpush', async (req, res) => {
 // Production M-Pesa Callback Endpoint
 app.post('/api/mpesa/callback', async (req, res) => {
   console.log('--- M-PESA STK PUSH CALLBACK RECEIVED ---');
-  console.log(JSON.stringify(req.body, null, 2));
 
   try {
     const callbackData = req.body?.Body?.stkCallback;
@@ -180,31 +212,44 @@ app.post('/api/mpesa/callback', async (req, res) => {
 
       console.log(`✅ Payment Successful for CheckoutRequestID: ${CheckoutRequestID}, Receipt: ${mpesaReceipt}, Amount: ${amountPaid}, Phone: ${maskPhoneNumber(phoneNumber)}`);
 
-      // Update order status in Supabase
-      const { data: updatedOrder, error: dbError } = await supabase
+      // Idempotency: fetch order and check status
+      const { data: existingOrders } = await supabase
         .from('orders')
-        .update({
-          payment_status: 'paid',
-          status: 'paid',
-          mpesa_receipt: mpesaReceipt,
-          updated_at: new Date().toISOString()
-        })
-        .eq('checkout_request_id', CheckoutRequestID)
-        .select();
+        .select('*')
+        .eq('checkout_request_id', CheckoutRequestID);
 
-      if (dbError) {
-        console.error('Database update failed for paid order:', dbError);
-      } else {
-        console.log('Updated order in Supabase:', updatedOrder);
-        // Automatically decrement inventory stock for ordered items
-        if (updatedOrder && updatedOrder.length > 0 && Array.isArray(updatedOrder[0].items)) {
-          for (const item of updatedOrder[0].items) {
-            if (item.productId && item.quantity) {
-              const { data: prod } = await supabase.from('products').select('stock').eq('id', item.productId).single();
-              if (prod && typeof prod.stock === 'number') {
-                const newStock = Math.max(0, prod.stock - item.quantity);
-                await supabase.from('products').update({ stock: newStock }).eq('id', item.productId);
-                console.log(`📦 Inventory updated for product ${item.productId}: Stock reduced from ${prod.stock} to ${newStock}`);
+      const orderToUpdate = existingOrders && existingOrders.length > 0 ? existingOrders[0] : null;
+
+      if (orderToUpdate) {
+        if (orderToUpdate.payment_status === 'paid' && orderToUpdate.mpesa_receipt === mpesaReceipt) {
+          console.log(`[Idempotency] Order ${orderToUpdate.id} already paid. Skipping duplicate processing.`);
+          return res.status(200).json({ ResultCode: 0, ResultDesc: 'Already processed' });
+        }
+
+        const { data: updatedOrder, error: dbError } = await supabase
+          .from('orders')
+          .update({
+            payment_status: 'paid',
+            status: 'paid',
+            mpesa_receipt: mpesaReceipt,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', orderToUpdate.id)
+          .select();
+
+        if (dbError) {
+          console.error('Database update failed for paid order:', dbError);
+        } else {
+          // Decrement inventory stock
+          if (updatedOrder && updatedOrder.length > 0 && Array.isArray(updatedOrder[0].items)) {
+            for (const item of updatedOrder[0].items) {
+              const pid = item.productId || item.id;
+              if (pid && item.quantity) {
+                const { data: prod } = await supabase.from('products').select('stock').eq('id', pid).single();
+                if (prod && typeof prod.stock === 'number') {
+                  const newStock = Math.max(0, prod.stock - item.quantity);
+                  await supabase.from('products').update({ stock: newStock }).eq('id', pid);
+                }
               }
             }
           }
@@ -219,13 +264,13 @@ app.post('/api/mpesa/callback', async (req, res) => {
           payment_status: 'failed',
           updated_at: new Date().toISOString()
         })
-        .eq('checkout_request_id', CheckoutRequestID);
+        .eq('checkout_request_id', CheckoutRequestID)
+        .eq('payment_status', 'pending');
     }
   } catch (error) {
     console.error('Error processing M-Pesa callback:', error);
   }
 
-  // Safaricom requires a 200 OK JSON acknowledgment
   return res.status(200).json({ ResultCode: 0, ResultDesc: 'Callback processed successfully' });
 });
 
@@ -257,8 +302,7 @@ app.post('/api/mpesa/query', async (req, res) => {
 
     const data = await response.json();
 
-    if (data.ResultCode === '0') {
-      // Order paid successfully
+    if (data.ResultCode === '0' || data.ResultCode === 0) {
       await supabase
         .from('orders')
         .update({
@@ -268,9 +312,19 @@ app.post('/api/mpesa/query', async (req, res) => {
         })
         .eq('checkout_request_id', checkoutRequestID);
 
-      return res.json({ success: true, status: 'paid', details: data });
+      return res.json({ 
+        success: true, 
+        status: 'paid', 
+        message: 'Payment confirmed successfully by M-Pesa.', 
+        details: data 
+      });
     } else {
-      return res.json({ success: false, status: 'pending_or_failed', details: data });
+      return res.json({ 
+        success: false, 
+        status: 'pending_or_failed', 
+        message: translateDarajaResultCode(data.ResultCode || data.errorCode, data.ResultDesc || data.errorMessage), 
+        details: data 
+      });
     }
   } catch (error) {
     console.error('Query STK Status Error:', error);
