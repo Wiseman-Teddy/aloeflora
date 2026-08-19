@@ -14,8 +14,61 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
-app.use(cors());
-app.use(express.json());
+
+// Production CORS: restrict to known origins only (Checklist #7)
+const allowedOrigins = [
+  'https://aloefloraproducts.com',
+  'https://www.aloefloraproducts.com',
+  'http://localhost:3000',
+  'http://localhost:5173'
+];
+app.use(cors({
+  origin: (origin, callback) => {
+    // Allow requests with no origin (server-to-server, Safaricom callbacks)
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.includes(origin) || (origin && origin.endsWith('.vercel.app'))) {
+      return callback(null, true);
+    }
+    return callback(new Error('CORS not allowed'), false);
+  },
+  methods: ['GET', 'POST', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-signature', 'x-safaricom-signature'],
+  credentials: true
+}));
+app.use(express.json({ limit: '100kb' }));
+
+// Safaricom Daraja Production IP Whitelist (Checklist: Callback Authentication)
+const SAFARICOM_IP_RANGES = [
+  '196.201.214.', // 196.201.214.0/24
+  '102.133.143.', // Azure Kenya region used by Safaricom
+];
+function isSafaricomIP(req) {
+  const forwarded = req.headers['x-forwarded-for'];
+  const ip = forwarded ? String(forwarded).split(',')[0].trim() : req.socket?.remoteAddress || '';
+  // Allow in development
+  if (ip === '127.0.0.1' || ip === '::1' || ip === '::ffff:127.0.0.1') return true;
+  return SAFARICOM_IP_RANGES.some(prefix => ip.startsWith(prefix));
+}
+
+// Simple in-memory rate limiter for Express endpoints
+const rateLimitStore = new Map();
+function rateLimit(key, maxRequests = 10, windowMs = 60000) {
+  const now = Date.now();
+  const record = rateLimitStore.get(key);
+  if (!record || record.resetTime < now) {
+    rateLimitStore.set(key, { count: 1, resetTime: now + windowMs });
+    return false;
+  }
+  record.count++;
+  return record.count > maxRequests;
+}
+// Periodic cleanup to prevent memory leak
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, record] of rateLimitStore.entries()) {
+    if (record.resetTime < now) rateLimitStore.delete(key);
+  }
+}, 300000);
 
 // Essential Security Middleware: Enforce HTTPS & HSTS (Checklist #3)
 app.use((req, res, next) => {
@@ -120,9 +173,15 @@ function translateDarajaResultCode(code, defaultDesc) {
   }
 }
 
-// Endpoint to initiate STK Push
+// Endpoint to initiate STK Push (with server-side promo validation)
 app.post('/api/mpesa/stkpush', async (req, res) => {
-  const { phone, amount, transactionType, orderId, accountRef } = req.body;
+  // Rate limit: 6 requests per minute per IP
+  const clientIP = req.headers['x-forwarded-for'] || req.socket?.remoteAddress || 'unknown';
+  if (rateLimit(`stkpush:${clientIP}`, 6, 60000)) {
+    return res.status(429).json({ error: 'Too many payment requests. Please wait a moment and try again.' });
+  }
+
+  const { phone, amount, transactionType, orderId, accountRef, promoCode, items, deliveryFee } = req.body;
 
   let formattedPhone;
   try {
@@ -134,6 +193,32 @@ app.post('/api/mpesa/stkpush', async (req, res) => {
   const validAmount = Number(amount);
   if (isNaN(validAmount) || validAmount < 1 || validAmount > 300000) {
     return res.status(400).json({ error: 'Amount must be between KES 1 and KES 300,000' });
+  }
+
+  // Server-side promo code validation & total recomputation (Checklist: prevent client-side discount manipulation)
+  if (promoCode && items && Array.isArray(items)) {
+    try {
+      const { data: promoData } = await supabase
+        .from('promos')
+        .select('discount_percent, is_active')
+        .eq('code', String(promoCode).toUpperCase().trim())
+        .eq('is_active', true)
+        .maybeSingle();
+
+      const itemsSubtotal = items.reduce((sum, it) => sum + (Number(it.price) || 0) * (Number(it.quantity) || 1), 0);
+      const discount = promoData ? Math.floor(itemsSubtotal * (promoData.discount_percent / 100)) : 0;
+      const fee = Number(deliveryFee) || 0;
+      const expectedTotal = itemsSubtotal - discount + fee;
+
+      // Allow KES 1 tolerance for rounding
+      if (Math.abs(expectedTotal - validAmount) > 1) {
+        console.warn(`[Promo Fraud] Client sent KES ${validAmount}, server computed KES ${expectedTotal}. Promo: ${promoCode}, Discount: ${discount}`);
+        return res.status(400).json({ error: 'Order total mismatch. Please refresh and try again.' });
+      }
+    } catch (promoErr) {
+      console.warn('Promo validation warning:', promoErr.message);
+      // Continue without blocking — promo validation is best-effort
+    }
   }
 
   try {
@@ -196,9 +281,15 @@ app.post('/api/mpesa/stkpush', async (req, res) => {
   }
 });
 
-// Production M-Pesa Callback Endpoint
+// Production M-Pesa Callback Endpoint (Secured with IP Whitelist)
 app.post('/api/mpesa/callback', async (req, res) => {
   console.log('--- M-PESA STK PUSH CALLBACK RECEIVED ---');
+
+  // Verify request originates from Safaricom IP range
+  if (!isSafaricomIP(req)) {
+    console.warn(`[SECURITY] M-Pesa callback rejected from non-Safaricom IP: ${req.headers['x-forwarded-for'] || req.socket?.remoteAddress}`);
+    return res.status(403).json({ ResultCode: 1, ResultDesc: 'Forbidden: IP not whitelisted' });
+  }
 
   try {
     const callbackData = req.body?.Body?.stkCallback;
@@ -237,6 +328,18 @@ app.post('/api/mpesa/callback', async (req, res) => {
           return res.status(200).json({ ResultCode: 0, ResultDesc: 'Already processed' });
         }
 
+        // Fraud Prevention: Validate paid amount equals order total
+        if (Number(orderToUpdate.total_amount) !== Number(amountPaid)) {
+          console.warn(`[FRAUD ALERT] Paid amount KES ${amountPaid} != Order total KES ${orderToUpdate.total_amount} for Order ${orderToUpdate.id}`);
+          await supabase.from('orders').update({
+            payment_status: 'failed',
+            status: 'failed',
+            mpesa_receipt: mpesaReceipt,
+            delivery_notes: `${orderToUpdate.delivery_notes || ''} [FLAGGED: Mismatched amount KES ${amountPaid}]`
+          }).eq('id', orderToUpdate.id);
+          return res.status(200).json({ ResultCode: 0, ResultDesc: 'Flagged for amount verification' });
+        }
+
         const { data: updatedOrder, error: dbError } = await supabase
           .from('orders')
           .update({
@@ -250,21 +353,30 @@ app.post('/api/mpesa/callback', async (req, res) => {
 
         if (dbError) {
           console.error('Database update failed for paid order:', dbError);
-          // Decrement inventory stock atomically
+        } else {
+          console.log(`[Order Paid] Order ${orderToUpdate.id} marked as PAID. Decrementing stock...`);
+          
+          // Decrement inventory stock atomically (single source of truth)
           if (updatedOrder && updatedOrder.length > 0 && Array.isArray(updatedOrder[0].items)) {
             for (const item of updatedOrder[0].items) {
-              const pid = item.productId || item.id;
+              const pid = item.productId || item.product_id || item.id;
               const qty = Number(item.quantity) || 1;
               if (pid) {
-                const { data: newStock, error: rpcErr } = await supabase.rpc('decrement_product_stock', {
-                  p_product_id: pid,
-                  p_quantity: qty
-                });
-                if (rpcErr) {
-                  const { data: prod } = await supabase.from('products').select('stock').eq('id', pid).maybeSingle();
-                  if (prod && typeof prod.stock === 'number') {
-                    await supabase.from('products').update({ stock: Math.max(0, prod.stock - qty) }).eq('id', pid);
+                try {
+                  const { data: newStock, error: rpcErr } = await supabase.rpc('decrement_product_stock', {
+                    p_product_id: pid,
+                    p_quantity: qty,
+                    p_reference: orderToUpdate.id,
+                    p_notes: `M-Pesa STK Push Receipt: ${mpesaReceipt}`
+                  });
+                  if (rpcErr) {
+                    const { data: prod } = await supabase.from('products').select('stock').eq('id', pid).maybeSingle();
+                    if (prod && typeof prod.stock === 'number') {
+                      await supabase.from('products').update({ stock: Math.max(0, prod.stock - qty) }).eq('id', pid);
+                    }
                   }
+                } catch (stockErr) {
+                  console.error('Stock decrement error:', stockErr);
                 }
               }
             }
@@ -290,11 +402,17 @@ app.post('/api/mpesa/callback', async (req, res) => {
   return res.status(200).json({ ResultCode: 0, ResultDesc: 'Callback processed successfully' });
 });
 
-// Endpoint to Query STK Push Payment Status from Daraja
+// Endpoint to Query STK Push Payment Status from Daraja (Rate Limited)
 app.post('/api/mpesa/query', async (req, res) => {
+  // Rate limit: 10 queries per minute per IP
+  const clientIP = req.headers['x-forwarded-for'] || req.socket?.remoteAddress || 'unknown';
+  if (rateLimit(`query:${clientIP}`, 10, 60000)) {
+    return res.status(429).json({ error: 'Too many status queries. Please wait a moment.' });
+  }
+
   const { checkoutRequestID } = req.body;
-  if (!checkoutRequestID) {
-    return res.status(400).json({ error: 'checkoutRequestID is required' });
+  if (!checkoutRequestID || typeof checkoutRequestID !== 'string' || checkoutRequestID.length > 100) {
+    return res.status(400).json({ error: 'Valid checkoutRequestID is required' });
   }
 
   try {
@@ -348,28 +466,53 @@ app.post('/api/mpesa/query', async (req, res) => {
   }
 });
 
-// C2B Direct Paybill Validation & Confirmation Endpoints
+// C2B Direct Paybill Validation & Confirmation Endpoints (Secured with IP Whitelist)
 app.post('/api/mpesa/c2b/validation', (req, res) => {
-  console.log('--- C2B Validation Request ---', req.body);
-  // Return Accept Prompt
+  if (!isSafaricomIP(req)) {
+    console.warn(`[SECURITY] C2B validation rejected from non-Safaricom IP: ${req.headers['x-forwarded-for'] || req.socket?.remoteAddress}`);
+    return res.status(403).json({ ResultCode: 1, ResultDesc: 'Forbidden' });
+  }
+  console.log('--- C2B Validation Request ---');
   res.json({ ResultCode: 0, ResultDesc: 'Accepted' });
 });
 
 app.post('/api/mpesa/c2b/confirmation', async (req, res) => {
-  console.log('--- C2B Confirmation Request ---', req.body);
+  if (!isSafaricomIP(req)) {
+    console.warn(`[SECURITY] C2B confirmation rejected from non-Safaricom IP: ${req.headers['x-forwarded-for'] || req.socket?.remoteAddress}`);
+    return res.status(403).json({ ResultCode: 1, ResultDesc: 'Forbidden' });
+  }
+
   const { TransID, TransAmount, BillRefNumber, MSISDN } = req.body;
+  console.log(`--- C2B Confirmation: TransID=${TransID}, Amount=${TransAmount}, Ref=${BillRefNumber}, Phone=${maskPhoneNumber(MSISDN)} ---`);
+
+  if (!TransID || !BillRefNumber) {
+    return res.json({ ResultCode: 0, ResultDesc: 'Missing required fields' });
+  }
 
   try {
-    if (BillRefNumber) {
-      await supabase
-        .from('orders')
-        .update({
+    // Verify order exists and amount matches before marking as paid
+    const { data: order } = await supabase
+      .from('orders')
+      .select('id, total_amount, payment_status')
+      .eq('id', BillRefNumber)
+      .maybeSingle();
+
+    if (order && order.payment_status !== 'paid') {
+      if (Number(order.total_amount) !== Number(TransAmount)) {
+        console.warn(`[C2B FRAUD] Amount mismatch: paid KES ${TransAmount}, expected KES ${order.total_amount} for order ${BillRefNumber}`);
+        await supabase.from('orders').update({
+          payment_status: 'failed',
+          delivery_notes: `[FLAGGED: C2B amount mismatch KES ${TransAmount}]`
+        }).eq('id', BillRefNumber);
+      } else {
+        await supabase.from('orders').update({
           payment_status: 'paid',
           status: 'paid',
           mpesa_receipt: TransID,
           updated_at: new Date().toISOString()
-        })
-        .eq('id', BillRefNumber);
+        }).eq('id', BillRefNumber);
+        console.log(`[C2B Paid] Order ${BillRefNumber} marked as paid. Receipt: ${TransID}`);
+      }
     }
   } catch (err) {
     console.error('Error updating order for C2B payment:', err);
@@ -439,6 +582,9 @@ SECURITY & BOUNDARIES:
     res.status(500).json({ error: 'Internal server error', details: error.message });
   }
 });
+
+// Email confirmation is handled by Supabase Auth via Hosting Africa SMTP (Info@aloefloraproducts.com)
+// No custom email endpoint needed — Supabase sends auth emails (verification, password reset) automatically.
 
 // Serve frontend if in production
 if (process.env.NODE_ENV === 'production') {

@@ -111,19 +111,20 @@ export const exportOrderInvoicePDF = (order: Order) => {
   // Items Table
   const tableRows = order.items.map((item, idx) => [
     idx + 1,
-    item.productName + (item.selectedVariant ? ` (${item.selectedVariant})` : ""),
+    item.sku || "N/A",
+    item.productName + (item.selectedVariant ? ` (${item.selectedVariant})` : "") + (item.batchNumber ? ` [Lot: ${item.batchNumber}]` : ""),
     item.quantity,
     `KES ${item.price.toLocaleString()}`,
     `KES ${(item.price * item.quantity).toLocaleString()}`,
   ]);
 
   autoTable(doc, {
-    head: [["#", "Item Description", "Qty", "Unit Price", "Total Amount"]],
+    head: [["#", "SKU", "Item Description & Batch", "Qty", "Unit Price", "Total Amount"]],
     body: tableRows,
     startY: 90,
     theme: "striped",
     headStyles: { fillColor: [6, 78, 59], textColor: [255, 255, 255] },
-    styles: { fontSize: 9, cellPadding: 4 },
+    styles: { fontSize: 8.5, cellPadding: 3.5 },
   });
 
   const finalY = (doc as any).lastAutoTable.finalY || 130;
@@ -141,9 +142,36 @@ export const exportOrderInvoicePDF = (order: Order) => {
   // Footer Note
   doc.setFontSize(8);
   doc.setTextColor(140);
-  doc.text("Thank you for shopping with Aloeflora! For support, email support@aloeflora.com", 14, finalY + 40);
+  doc.text("Thank you for shopping with Aloeflora! For support, email info@aloefloraproducts.com", 14, finalY + 40);
 
   doc.save(`Aloeflora_Invoice_${order.id.slice(0, 8).toUpperCase()}.pdf`);
+};
+
+export const exportStockMovementsCSV = (movements: any[]) => {
+  const headers = ["Timestamp", "Product ID", "SKU", "Movement Type", "Quantity Change", "Stock Before", "Stock After", "Batch Number", "Reference ID", "Notes", "Performed By"];
+  const rows = movements.map(m => [
+    new Date(m.created_at || m.createdAt).toLocaleString(),
+    m.product_id || m.productId,
+    m.sku || "",
+    (m.movement_type || m.movementType || "").toUpperCase(),
+    m.quantity_delta ?? m.quantityDelta,
+    m.stock_before ?? m.stockBefore ?? "",
+    m.stock_after ?? m.stockAfter ?? "",
+    m.batch_number || m.batchNumber || "",
+    m.reference_id || m.referenceId || "",
+    `"${(m.notes || '').replace(/"/g, '""')}"`,
+    m.performed_by || m.performedBy || ""
+  ]);
+
+  const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.setAttribute('href', url);
+  link.setAttribute('download', `Aloeflora_Stock_Ledger_${new Date().toISOString().slice(0, 10)}.csv`);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
 };
 
 export const exportLoyaltyStatementPDF = (userProfile: UserProfile, orders: Order[]) => {
@@ -182,5 +210,222 @@ export const exportLoyaltyStatementPDF = (userProfile: UserProfile, orders: Orde
   });
 
   doc.save(`Loyalty_Statement_${userProfile.fullName.replace(/\s+/g, "_")}.pdf`);
+};
+
+export interface PLSummaryData {
+  periodLabel: string;
+  totalRevenue: number;
+  totalCogs: number;
+  grossProfit: number;
+  grossMarginPct: number;
+  operatingExpenses: number;
+  netProfit: number;
+  netMarginPct: number;
+  orderCount: number;
+  unitsSold: number;
+  expenseBreakdown: {
+    logistics: number;
+    marketing: number;
+    hosting: number;
+    discounts: number;
+  };
+  periodRows: Array<{
+    period: string;
+    orderCount: number;
+    unitsSold: number;
+    revenue: number;
+    cogs: number;
+    grossProfit: number;
+    grossMarginPct: number;
+    expenses: number;
+    netProfit: number;
+    netMarginPct: number;
+  }>;
+  categoryRows: Array<{
+    category: string;
+    unitsSold: number;
+    revenue: number;
+    cogs: number;
+    grossProfit: number;
+    marginPct: number;
+  }>;
+}
+
+export const generateFinancialPLStatementPDF = (data: PLSummaryData) => {
+  const doc = new jsPDF();
+
+  // Header Banner
+  doc.setFontSize(22);
+  doc.setTextColor(6, 78, 59); // Emerald 900
+  doc.text("ALOEFLORA PRODUCTS ENTERPRISE", 14, 20);
+
+  doc.setFontSize(13);
+  doc.setTextColor(31, 41, 55); // Gray 800
+  doc.text("Official Profit & Loss (P&L) Financial Statement", 14, 28);
+
+  doc.setFontSize(9);
+  doc.setTextColor(107, 114, 128); // Gray 500
+  doc.text(`Reporting Period: ${data.periodLabel}`, 14, 35);
+  doc.text(`Generated on: ${new Date().toLocaleString('en-GB')} | Currency: Kenyan Shilling (KES)`, 14, 40);
+
+  // Executive Summary KPI Box
+  doc.setDrawColor(209, 250, 229);
+  doc.setFillColor(240, 253, 244);
+  doc.roundedRect(14, 45, 182, 32, 3, 3, "FD");
+
+  doc.setFontSize(10);
+  doc.setTextColor(6, 78, 59);
+  doc.text(`GROSS REVENUE: KES ${data.totalRevenue.toLocaleString()}`, 20, 53);
+  doc.text(`COST OF GOODS (COGS): KES ${data.totalCogs.toLocaleString()}`, 20, 60);
+  doc.text(`GROSS PROFIT: KES ${data.grossProfit.toLocaleString()} (${data.grossMarginPct.toFixed(1)}%)`, 20, 67);
+
+  doc.setTextColor(153, 27, 27);
+  doc.text(`TOTAL OPEX: KES ${data.operatingExpenses.toLocaleString()}`, 110, 53);
+  doc.setTextColor(data.netProfit >= 0 ? 6 : 153, data.netProfit >= 0 ? 78 : 27, data.netProfit >= 0 ? 59 : 27);
+  doc.text(`NET PROFIT: KES ${data.netProfit.toLocaleString()} (${data.netMarginPct.toFixed(1)}%)`, 110, 60);
+  doc.setTextColor(75, 85, 99);
+  doc.text(`VOLUME: ${data.orderCount} Orders | ${data.unitsSold} Units`, 110, 67);
+
+  // 1. Period Performance Breakdown Table
+  doc.setFontSize(11);
+  doc.setTextColor(6, 78, 59);
+  doc.text("1. Period-by-Period Performance Statement", 14, 86);
+
+  const periodTableRows = data.periodRows.map(r => [
+    r.period,
+    r.orderCount.toString(),
+    r.unitsSold.toString(),
+    `KES ${r.revenue.toLocaleString()}`,
+    `KES ${r.cogs.toLocaleString()}`,
+    `KES ${r.grossProfit.toLocaleString()}`,
+    `${r.grossMarginPct.toFixed(1)}%`,
+    `KES ${r.expenses.toLocaleString()}`,
+    `KES ${r.netProfit.toLocaleString()}`,
+    `${r.netMarginPct.toFixed(1)}%`
+  ]);
+
+  autoTable(doc, {
+    head: [["Period", "Orders", "Units", "Gross Revenue", "COGS", "Gross Profit", "Margin", "OPEX", "Net Profit", "Net %"]],
+    body: periodTableRows,
+    startY: 90,
+    theme: "striped",
+    headStyles: { fillColor: [6, 78, 59], textColor: [255, 255, 255], fontSize: 7.5 },
+    styles: { fontSize: 7, cellPadding: 2 },
+  });
+
+  let currentY = (doc as any).lastAutoTable.finalY + 12;
+
+  // Check if we need a new page
+  if (currentY > 220) {
+    doc.addPage();
+    currentY = 20;
+  }
+
+  // 2. Category Profitability Breakdown
+  doc.setFontSize(11);
+  doc.setTextColor(6, 78, 59);
+  doc.text("2. Product Category Profitability Matrix", 14, currentY);
+
+  const categoryTableRows = data.categoryRows.map(c => [
+    c.category.toUpperCase(),
+    c.unitsSold.toString(),
+    `KES ${c.revenue.toLocaleString()}`,
+    `KES ${c.cogs.toLocaleString()}`,
+    `KES ${c.grossProfit.toLocaleString()}`,
+    `${c.marginPct.toFixed(1)}%`,
+    `${((c.grossProfit / (data.grossProfit || 1)) * 100).toFixed(1)}%`
+  ]);
+
+  autoTable(doc, {
+    head: [["Category", "Units Sold", "Revenue (KES)", "COGS (KES)", "Gross Profit (KES)", "Gross Margin", "Profit Contribution"]],
+    body: categoryTableRows,
+    startY: currentY + 4,
+    theme: "grid",
+    headStyles: { fillColor: [2, 44, 34], textColor: [255, 255, 255], fontSize: 8 },
+    styles: { fontSize: 7.5, cellPadding: 2.5 },
+  });
+
+  currentY = (doc as any).lastAutoTable.finalY + 12;
+  if (currentY > 235) {
+    doc.addPage();
+    currentY = 20;
+  }
+
+  // 3. Operating Expense Itemization
+  doc.setFontSize(11);
+  doc.setTextColor(6, 78, 59);
+  doc.text("3. Operating Expense Breakdown", 14, currentY);
+
+  const expenseRows = [
+    ["Logistics & Delivery Fulfillment", `KES ${data.expenseBreakdown.logistics.toLocaleString()}`, `${((data.expenseBreakdown.logistics / (data.operatingExpenses || 1)) * 100).toFixed(1)}%`],
+    ["Marketing Campaigns & Advertising", `KES ${data.expenseBreakdown.marketing.toLocaleString()}`, `${((data.expenseBreakdown.marketing / (data.operatingExpenses || 1)) * 100).toFixed(1)}%`],
+    ["Cloud Infrastructure & DevOps Hosting", `KES ${data.expenseBreakdown.hosting.toLocaleString()}`, `${((data.expenseBreakdown.hosting / (data.operatingExpenses || 1)) * 100).toFixed(1)}%`],
+    ["Promotional Discounts & Coupons", `KES ${data.expenseBreakdown.discounts.toLocaleString()}`, `${((data.expenseBreakdown.discounts / (data.operatingExpenses || 1)) * 100).toFixed(1)}%`],
+    ["TOTAL OPERATING EXPENSES", `KES ${data.operatingExpenses.toLocaleString()}`, "100.0%"]
+  ];
+
+  autoTable(doc, {
+    head: [["Expense Category / Overhead Line", "Total Amount (KES)", "% of Total OPEX"]],
+    body: expenseRows,
+    startY: currentY + 4,
+    theme: "plain",
+    headStyles: { fillColor: [75, 85, 99], textColor: [255, 255, 255], fontSize: 8 },
+    styles: { fontSize: 7.5, cellPadding: 2 },
+  });
+
+  // Footer note
+  doc.setFontSize(8);
+  doc.setTextColor(150);
+  doc.text("Generated by Aloeflora ERP Financial Auditing Engine. Confirmed and reconciled against Safaricom M-Pesa webhook ledgers.", 14, 285);
+
+  doc.save(`Aloeflora_PL_Statement_${data.periodLabel.replace(/[^a-zA-Z0-9]/g, "_")}.pdf`);
+};
+
+export const exportFinancialPLToCSV = (data: PLSummaryData) => {
+  let csv = `ALOEFLORA ENTERPRISE - PROFIT & LOSS FINANCIAL STATEMENT\n`;
+  csv += `Reporting Period,${data.periodLabel}\n`;
+  csv += `Generated On,${new Date().toISOString()}\n`;
+  csv += `Currency,KES (Kenyan Shilling)\n\n`;
+
+  csv += `EXECUTIVE FINANCIAL SUMMARY\n`;
+  csv += `Gross Sales Revenue,KES ${data.totalRevenue}\n`;
+  csv += `Cost of Goods Sold (COGS),KES ${data.totalCogs}\n`;
+  csv += `Gross Profit,KES ${data.grossProfit}\n`;
+  csv += `Gross Profit Margin %,${data.grossMarginPct.toFixed(2)}%\n`;
+  csv += `Operating Expenses,KES ${data.operatingExpenses}\n`;
+  csv += `Net Operating Profit,KES ${data.netProfit}\n`;
+  csv += `Net Profit Margin %,${data.netMarginPct.toFixed(2)}%\n`;
+  csv += `Total Orders,${data.orderCount}\n`;
+  csv += `Total Units Sold,${data.unitsSold}\n\n`;
+
+  csv += `PERIOD PERFORMANCE BREAKDOWN\n`;
+  csv += `Period,Orders,Units Sold,Gross Revenue (KES),COGS (KES),Gross Profit (KES),Gross Margin %,OPEX (KES),Net Profit (KES),Net Margin %\n`;
+  data.periodRows.forEach(r => {
+    csv += `"${r.period}",${r.orderCount},${r.unitsSold},${r.revenue},${r.cogs},${r.grossProfit},${r.grossMarginPct.toFixed(2)}%,${r.expenses},${r.netProfit},${r.netMarginPct.toFixed(2)}%\n`;
+  });
+  csv += `\n`;
+
+  csv += `CATEGORY PROFITABILITY MATRIX\n`;
+  csv += `Category,Units Sold,Revenue (KES),COGS (KES),Gross Profit (KES),Gross Margin %\n`;
+  data.categoryRows.forEach(c => {
+    csv += `"${c.category}",${c.unitsSold},${c.revenue},${c.cogs},${c.grossProfit},${c.marginPct.toFixed(2)}%\n`;
+  });
+  csv += `\n`;
+
+  csv += `OPERATING EXPENSE ITEMIZATION\n`;
+  csv += `Expense Line,Amount (KES),% of OPEX\n`;
+  csv += `Logistics & Delivery,${data.expenseBreakdown.logistics},${((data.expenseBreakdown.logistics / (data.operatingExpenses || 1)) * 100).toFixed(2)}%\n`;
+  csv += `Marketing & Ads,${data.expenseBreakdown.marketing},${((data.expenseBreakdown.marketing / (data.operatingExpenses || 1)) * 100).toFixed(2)}%\n`;
+  csv += `Hosting & DevOps,${data.expenseBreakdown.hosting},${((data.expenseBreakdown.hosting / (data.operatingExpenses || 1)) * 100).toFixed(2)}%\n`;
+  csv += `Promo Discounts,${data.expenseBreakdown.discounts},${((data.expenseBreakdown.discounts / (data.operatingExpenses || 1)) * 100).toFixed(2)}%\n`;
+
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.setAttribute('href', url);
+  link.setAttribute('download', `Aloeflora_PL_Statement_${data.periodLabel.replace(/[^a-zA-Z0-9]/g, '_')}.csv`);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
 };
 

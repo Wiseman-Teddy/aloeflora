@@ -7,6 +7,7 @@ import { User, LogOut,
   TrendingUp, 
   Users, 
   AlertTriangle, 
+  AlertCircle,
   Terminal, 
   Settings, 
   FileText, 
@@ -14,31 +15,36 @@ import { User, LogOut,
   Search, 
   ArrowUpRight, 
   CheckCircle, 
+  Check,
   Plus, 
   RefreshCw, 
   Trash2, 
   Percent, 
   Calendar, 
   Heart,
-  Loader2,
-  Lock,
-  MessageSquare,
-  Database,
-  Upload,
-  Eye,
-  Copy,
-  ExternalLink,
-  X
+  Loader2, 
+  Lock, 
+  MessageSquare, 
+  Database, 
+  Upload, 
+  Eye, 
+  Copy, 
+  ExternalLink, 
+  Filter,
+  SlidersHorizontal,
+  Image as ImageIcon,
+  X 
 } from "lucide-react";
-import { Product, ProductVariant, Order, SupportTicket, MarketingCampaign, CMSPost, AuditAnomaly, StoreSettings, SystemMetrics, UserProfile, Promo } from "../types";
+import { Product, ProductVariant, Order, SupportTicket, MarketingCampaign, CMSPost, AuditAnomaly, StoreSettings, SystemMetrics, UserProfile, Promo, StockMovement } from "../types";
 import { supabase } from "../lib/supabase";
 import { sanitizeInput } from "../utils/sanitize";
 import { uploadToSupabase, deleteFromSupabase } from "../utils/supabaseStorage";
 import MediaUploader from "./MediaUploader";
 import { useAuth } from "../contexts/AuthContext";
-import { exportToCSV, exportToPDF } from "../utils/exportUtils";
+import { exportToCSV, exportToPDF, exportStockMovementsCSV } from "../utils/exportUtils";
 import { normalizeVariants, hasVariants } from "../utils/variantUtils";
 import AdvancedReports from "./admin/AdvancedReports";
+import FinancialPLReports from "./admin/FinancialPLReports";
 import UserManagement from "./admin/UserManagement";
 import { toast } from "react-hot-toast";
 
@@ -96,14 +102,33 @@ export default function AdminConsole({
   const [adminPhone, setAdminPhone] = useState(user?.user_metadata?.phone || "");
   const [adminAvatarUrl, setAdminAvatarUrl] = useState(user?.user_metadata?.avatar_url || "");
   
-  // Navigation
-  const [activeModule, setActiveModule] = useState<string>("executive");
+  // Navigation & URL sync
+  const getInitialModule = () => {
+    if (location.state && ((location.state as any).module || (location.state as any).tab)) {
+      return (location.state as any).module || (location.state as any).tab;
+    }
+    const pathParts = location.pathname.split('/').filter(Boolean);
+    const lastPart = pathParts[pathParts.length - 1];
+    const validModules = ["executive", "inventory", "users", "support", "cms", "events", "media", "reports", "financial", "marketing", "settings", "seo", "profile"];
+    if (lastPart && validModules.includes(lastPart)) {
+      return lastPart;
+    }
+    return "executive";
+  };
+
+  const [activeModule, setActiveModule] = useState<string>(getInitialModule);
 
   useEffect(() => {
-    if (location.state && ((location.state as any).module || (location.state as any).tab)) {
-      setActiveModule((location.state as any).module || (location.state as any).tab);
+    const targetModule = getInitialModule();
+    if (targetModule && targetModule !== activeModule) {
+      setActiveModule(targetModule);
     }
-  }, [location.state]);
+  }, [location.pathname, location.state]);
+
+  const handleSelectModule = (mod: string) => {
+    setActiveModule(mod);
+    navigate(`/admin/dashboard/${mod}`, { replace: true, state: { module: mod } });
+  };
 
   useEffect(() => {
     if (user) {
@@ -124,11 +149,21 @@ export default function AdminConsole({
 
   // Inventory Management UI state
   const [searchProductQuery, setSearchProductQuery] = useState<string>("");
+  const [inventoryCategoryFilter, setInventoryCategoryFilter] = useState<string>("all");
+  const [inventoryStockFilter, setInventoryStockFilter] = useState<string>("all");
+  const [inventorySort, setInventorySort] = useState<string>("default");
+  const [inventorySubTab, setInventorySubTab] = useState<"stock" | "ledger">("stock");
+  const [stockMovements, setStockMovements] = useState<StockMovement[]>([]);
+  const [isLoadingMovements, setIsLoadingMovements] = useState<boolean>(false);
   const [isAddingProduct, setIsAddingProduct] = useState<boolean>(false);
   const [editingProductId, setEditingProductId] = useState<string | null>(null);
 
   // Form states for creating/editing product
   const [prodName, setProdName] = useState<string>("");
+  const [prodSku, setProdSku] = useState<string>("");
+  const [prodBarcode, setProdBarcode] = useState<string>("");
+  const [prodBatchNumber, setProdBatchNumber] = useState<string>("");
+  const [prodExpiryDate, setProdExpiryDate] = useState<string>("");
   const [prodDesc, setProdDesc] = useState<string>("");
   const [prodPrice, setProdPrice] = useState<number>(500);
   const [prodCostPrice, setProdCostPrice] = useState<number>(200);
@@ -147,6 +182,15 @@ export default function AdminConsole({
   const [prodMediaUrls, setProdMediaUrls] = useState<string[]>([]);
   const [isUploadingProduct, setIsUploadingProduct] = useState(false);
 
+  // Restock ERP Modal State
+  const [isRestockModalOpen, setIsRestockModalOpen] = useState<boolean>(false);
+  const [restockTargetProduct, setRestockTargetProduct] = useState<Product | null>(null);
+  const [restockQty, setRestockQty] = useState<number>(10);
+  const [restockBatch, setRestockBatch] = useState<string>("");
+  const [restockRef, setRestockRef] = useState<string>("");
+  const [restockNotes, setRestockNotes] = useState<string>("");
+  const [isSubmittingRestock, setIsSubmittingRestock] = useState<boolean>(false);
+
   // DevOps dynamic metrics
   const [metrics, setMetrics] = useState<SystemMetrics>({
     cpuUsage: 22,
@@ -156,9 +200,13 @@ export default function AdminConsole({
     requestCount: 382
   });
 
-  // CMS forms
+  // CMS forms & filters
   const [isAddingCms, setIsAddingCms] = useState<boolean>(false);
   const [editingCmsId, setEditingCmsId] = useState<string | null>(null);
+  const [cmsSearchQuery, setCmsSearchQuery] = useState<string>("");
+  const [cmsTypeFilter, setCmsTypeFilter] = useState<string>("all");
+  const [cmsStatusFilter, setCmsStatusFilter] = useState<string>("all");
+  const [previewCmsPost, setPreviewCmsPost] = useState<CMSPost | null>(null);
   const [cmsTitle, setCmsTitle] = useState<string>("");
   const [cmsContent, setCmsContent] = useState<string>("");
   const [cmsType, setCmsType] = useState<"blog" | "testimonial" | "policy" | "faq" | "promo" | "promotion" | "hero" | "award" | "about" | "team">("blog");
@@ -329,9 +377,56 @@ export default function AdminConsole({
     }
   };
 
+  const fetchStockMovements = async () => {
+    setIsLoadingMovements(true);
+    try {
+      const { data, error } = await supabase
+        .from('stock_movements')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(150);
+      if (error) throw error;
+      setStockMovements((data || []).map((m: any) => ({
+        id: m.id,
+        productId: m.product_id,
+        sku: m.sku || undefined,
+        movementType: m.movement_type,
+        quantityDelta: m.quantity_delta,
+        stockBefore: m.stock_before,
+        stockAfter: m.stock_after,
+        batchNumber: m.batch_number,
+        referenceId: m.reference_id,
+        notes: m.notes,
+        performedBy: m.performed_by,
+        createdAt: m.created_at
+      })));
+    } catch (err: any) {
+      console.error("Error fetching stock movements:", err);
+    } finally {
+      setIsLoadingMovements(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeModule === "inventory") {
+      fetchStockMovements();
+    }
+  }, [activeModule]);
+
+  const generateAutoSku = (name: string, category: string, size?: string) => {
+    const catCode = (category || 'GEN').substring(0, 3).toUpperCase();
+    const nameCode = (name || 'PROD').replace(/[^a-zA-Z0-9]/g, '').substring(0, 6).toUpperCase();
+    const sizeCode = (size || 'STD').replace(/[^a-zA-Z0-9]/g, '').substring(0, 5).toUpperCase();
+    return `AF-${catCode}-${nameCode}-${sizeCode}`;
+  };
+
   const resetProductForm = () => {
     setEditingProductId(null);
     setProdName("");
+    setProdSku("");
+    setProdBarcode("");
+    setProdBatchNumber("");
+    setProdExpiryDate("");
     setProdDesc("");
     setProdPrice(500);
     setProdCostPrice(200);
@@ -364,6 +459,10 @@ export default function AdminConsole({
     const isUpdating = editingProductId !== null;
     const targetId = isUpdating ? editingProductId : ("p" + Date.now());
 
+    // Auto generate SKU if empty
+    const finalSku = prodSku.trim() || generateAutoSku(prodName, prodCategory, prodUnitSize);
+    const finalBatch = prodBatchNumber.trim() || `LOT-${new Date().toISOString().slice(0, 7).replace('-', '')}-01`;
+
     // Use structured variants matrix if provided by admin, otherwise empty array [] for standalone products
     const finalVariants = prodVariantsList.length > 0 
       ? prodVariantsList 
@@ -377,6 +476,10 @@ export default function AdminConsole({
 
     const newProduct: Product = {
       id: targetId,
+      sku: finalSku,
+      barcode: prodBarcode.trim() || undefined,
+      batchNumber: finalBatch,
+      expiryDate: prodExpiryDate || undefined,
       name: prodName,
       description: prodDesc,
       price: primaryPrice,
@@ -399,10 +502,28 @@ export default function AdminConsole({
 
     try {
       const dbRow = {
-        id: newProduct.id, name: newProduct.name, description: newProduct.description, price: newProduct.price, cost_price: newProduct.costPrice,
-        category: newProduct.category, sub_category: newProduct.subCategory, unit_size: newProduct.unitSize, image_url: newProduct.imageUrl, stock: newProduct.stock,
-        safety_stock: newProduct.safetyStock, reorder_level: newProduct.reorderLevel, rating: newProduct.rating, reviews_count: newProduct.reviewsCount,
-        variants: newProduct.variants, features: newProduct.features, media_urls: newProduct.mediaUrls, specifications: newProduct.specifications
+        id: newProduct.id,
+        sku: newProduct.sku,
+        barcode: newProduct.barcode,
+        batch_number: newProduct.batchNumber,
+        expiry_date: newProduct.expiryDate || null,
+        name: newProduct.name,
+        description: newProduct.description,
+        price: newProduct.price,
+        cost_price: newProduct.costPrice,
+        category: newProduct.category,
+        sub_category: newProduct.subCategory,
+        unit_size: newProduct.unitSize,
+        image_url: newProduct.imageUrl,
+        stock: newProduct.stock,
+        safety_stock: newProduct.safetyStock,
+        reorder_level: newProduct.reorderLevel,
+        rating: newProduct.rating,
+        reviews_count: newProduct.reviewsCount,
+        variants: newProduct.variants,
+        features: newProduct.features,
+        media_urls: newProduct.mediaUrls,
+        specifications: newProduct.specifications
       };
 
       let error;
@@ -428,10 +549,10 @@ export default function AdminConsole({
       
       if (isUpdating) {
         onUpdateInventory(products.map(p => p.id === targetId ? newProduct : p));
-        toast.success("Product updated successfully!");
+        toast.success(`Product updated (${finalSku})`);
       } else {
         onUpdateInventory([...products, newProduct]);
-        toast.success("Product added successfully!");
+        toast.success(`Product added with SKU ${finalSku}`);
       }
     } catch(err: any) { 
       console.error("Supabase operation error", err);
@@ -446,6 +567,10 @@ export default function AdminConsole({
   const handleEditClick = (p: Product) => {
     setEditingProductId(p.id);
     setProdName(p.name);
+    setProdSku(p.sku || generateAutoSku(p.name, p.category, p.unitSize));
+    setProdBarcode(p.barcode || "");
+    setProdBatchNumber(p.batchNumber || `LOT-${new Date().toISOString().slice(0, 7).replace('-', '')}-01`);
+    setProdExpiryDate(p.expiryDate ? p.expiryDate.slice(0, 10) : "");
     setProdDesc(p.description);
     setProdPrice(p.price);
     setProdCostPrice(p.costPrice || 200);
@@ -479,28 +604,68 @@ export default function AdminConsole({
     }
   };
 
-  // Handles Inline Quantity Replenishment
+  // Open Restock Modal
+  const handleOpenRestockModal = (p: Product, defaultQty: number = 10) => {
+    setRestockTargetProduct(p);
+    setRestockQty(defaultQty);
+    setRestockBatch(p.batchNumber || `LOT-${new Date().toISOString().slice(0, 7).replace('-', '')}-01`);
+    setRestockRef(`PO-${new Date().getFullYear()}-${Math.floor(100 + Math.random() * 900)}`);
+    setRestockNotes("");
+    setIsRestockModalOpen(true);
+  };
+
+  // Execute Inventory Replenishment via Supabase RPC
+  const handleExecuteRestock = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!restockTargetProduct) return;
+    const increment = Number(restockQty);
+    if (!increment || increment <= 0) {
+      toast.error("Please enter a valid restock quantity greater than 0");
+      return;
+    }
+
+    setIsSubmittingRestock(true);
+    const targetId = restockTargetProduct.id;
+    const newStock = (restockTargetProduct.stock || 0) + increment;
+
+    // Optimistic UI update
+    onUpdateInventory(products.map(p => p.id === targetId ? { ...p, stock: newStock, batchNumber: restockBatch.trim() || p.batchNumber } : p));
+
+    try {
+      const { data, error } = await supabase.rpc('process_inventory_restock', {
+        p_product_id: targetId,
+        p_quantity: increment,
+        p_batch: restockBatch.trim() || null,
+        p_reference: restockRef.trim() || null,
+        p_notes: restockNotes.trim() || null,
+        p_admin: adminEmail || adminName || 'admin'
+      });
+
+      if (error) {
+        // Fallback update if RPC not accessible
+        await supabase.from("products").update({ 
+          stock: newStock,
+          batch_number: restockBatch.trim() || restockTargetProduct.batchNumber
+        }).eq("id", targetId);
+      }
+
+      toast.success(`Restocked ${restockTargetProduct.name} (+${increment} units)`);
+      setIsRestockModalOpen(false);
+      setRestockTargetProduct(null);
+      fetchStockMovements();
+    } catch (err: any) {
+      console.error("Supabase restock error:", err);
+      toast.error("Failed to sync restock to database: " + err.message);
+    } finally {
+      setIsSubmittingRestock(false);
+    }
+  };
+
+  // Quick Restock shortcut
   const handleReplenishStock = async (productId: string, increment: number) => {
     const targetProduct = products.find((p) => p.id === productId);
     if (!targetProduct) return;
-    const newStock = targetProduct.stock + increment;
-
-    const nextArr = products.map((p) => {
-      if (p.id === productId) {
-        return { ...p, stock: newStock };
-      }
-      return p;
-    });
-    onUpdateInventory(nextArr);
-
-    try {
-      const { error } = await supabase.from("products").update({ stock: newStock }).eq("id", productId);
-      if (error) throw error;
-      toast.success(`Restocked ${targetProduct.name} (+${increment})`);
-    } catch (err: any) {
-      console.error("Supabase stock update error:", err);
-      toast.error("Failed to sync stock to database: " + err.message);
-    }
+    handleOpenRestockModal(targetProduct, increment);
   };
 
   const handleCreatePromo = async (e: React.FormEvent) => {
@@ -1371,398 +1536,972 @@ export default function AdminConsole({
         )}
 
         {/* TAB 2: INVENTORY ERP MANAGEMENT MODULE */}
-        {activeModule === "inventory" && (
-          <div className="space-y-6 animate-in fade-in duration-150">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-              <div>
-                <h3 className="text-lg font-bold text-gray-950">Active Inventory Records (ERP)</h3>
-                <p className="text-xs text-gray-500 mt-0.5">Control live listings stock multipliers and reorder thresholds.</p>
-              </div>
+        {activeModule === "inventory" && (() => {
+          // Inventory Calculations
+          const totalStockUnits = products.reduce((sum, p) => sum + (Number(p.stock) || 0), 0);
+          const totalAssetCost = products.reduce((sum, p) => sum + ((Number(p.costPrice) || 0) * (Number(p.stock) || 0)), 0);
+          const lowStockCount = products.filter(p => (p.stock || 0) <= (p.safetyStock || 10) && (p.stock || 0) > 0).length;
+          const outOfStockCount = products.filter(p => (p.stock || 0) === 0).length;
 
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  placeholder="Filter listings..."
-                  value={searchProductQuery}
-                  onChange={(e) => setSearchProductQuery(e.target.value)}
-                  className="px-3 py-1.5 text-xs bg-gray-50 border rounded-xl"
-                />
-                <button
-                  onClick={() => setIsAddingProduct(true)}
-                  className="bg-emerald-800 text-white font-bold text-xs py-2 px-3 rounded-xl flex items-center gap-1.5 cursor-pointer hover:bg-emerald-700"
-                >
-                  <Plus className="w-3.5 h-3.5" /> Create product
-                </button>
-              </div>
-            </div>
+          // Filter & Sort Products safely
+          const filteredProducts = products.filter(p => {
+            const name = (p.name || "").toLowerCase();
+            const subCategory = (p.subCategory || "").toLowerCase();
+            const description = (p.description || "").toLowerCase();
+            const q = searchProductQuery.toLowerCase().trim();
 
-            {/* CREATE / ADD NEW PRODUCT DIALOG OVERLAY PANEL */}
-            {isAddingProduct && (
-              <form onSubmit={handleAddProductSubmit} className="bg-gray-50 border p-5 rounded-2xl text-xs space-y-4 animate-in slide-in-from-top">
-                <div className="flex justify-between items-center pb-2 border-b">
-                  <span className="font-bold uppercase text-emerald-800">Add New Organic Product specs</span>
-                  <button type="button" onClick={() => setIsAddingProduct(false)} className="text-gray-400 font-bold hover:text-black">Cancel</button>
+            const matchesSearch = !q || name.includes(q) || subCategory.includes(q) || description.includes(q);
+            const matchesCategory = inventoryCategoryFilter === "all" || p.category === inventoryCategoryFilter;
+            
+            let matchesStock = true;
+            if (inventoryStockFilter === "healthy") {
+              matchesStock = (p.stock || 0) > (p.safetyStock || 10);
+            } else if (inventoryStockFilter === "low") {
+              matchesStock = (p.stock || 0) <= (p.safetyStock || 10) && (p.stock || 0) > 0;
+            } else if (inventoryStockFilter === "out") {
+              matchesStock = (p.stock || 0) === 0;
+            }
+
+            return matchesSearch && matchesCategory && matchesStock;
+          }).sort((a, b) => {
+            if (inventorySort === "name_asc") return (a.name || "").localeCompare(b.name || "");
+            if (inventorySort === "name_desc") return (b.name || "").localeCompare(a.name || "");
+            if (inventorySort === "stock_asc") return (a.stock || 0) - (b.stock || 0);
+            if (inventorySort === "stock_desc") return (b.stock || 0) - (a.stock || 0);
+            if (inventorySort === "price_asc") return (a.price || 0) - (b.price || 0);
+            if (inventorySort === "price_desc") return (b.price || 0) - (a.price || 0);
+            return 0;
+          });
+
+          return (
+            <div className="space-y-6 animate-in fade-in duration-150 text-left">
+              {/* Header */}
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-2 border-b border-gray-100 dark:border-gray-800">
+                <div>
+                  <h3 className="text-xl font-extrabold text-gray-950 dark:text-white flex items-center gap-2">
+                    <ShoppingBag className="w-5 h-5 text-emerald-700 dark:text-emerald-400" /> Active Inventory Records & Traceability (ERP)
+                  </h3>
+                  <p className="text-xs text-gray-500 mt-0.5">Control live listings, SKUs, lot/batch manufacturing tags, and automated reorder thresholds.</p>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-1">
-                    <label className="font-bold">Product Name</label>
-                    <input type="text" value={prodName} onChange={(e) => setProdName(e.target.value)} placeholder="e.g. Aloeflora Tea Tree Cleanser" className="w-full p-2 border bg-white rounded-lg focus:outline-none" required />
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="bg-gray-100 dark:bg-gray-800 p-1 rounded-xl flex items-center gap-1 border border-gray-200 dark:border-gray-700">
+                    <button
+                      onClick={() => setInventorySubTab("stock")}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
+                        inventorySubTab === "stock"
+                          ? "bg-emerald-800 text-white shadow-xs"
+                          : "text-gray-600 dark:text-gray-300 hover:text-gray-900"
+                      }`}
+                    >
+                      <ShoppingBag className="w-3.5 h-3.5" /> Catalog Stock
+                    </button>
+                    <button
+                      onClick={() => {
+                        setInventorySubTab("ledger");
+                        fetchStockMovements();
+                      }}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
+                        inventorySubTab === "ledger"
+                          ? "bg-emerald-800 text-white shadow-xs"
+                          : "text-gray-600 dark:text-gray-300 hover:text-gray-900"
+                      }`}
+                    >
+                      <Database className="w-3.5 h-3.5" /> Movements Ledger ({stockMovements.length})
+                    </button>
                   </div>
-                  <div className="space-y-1">
-                    <label className="font-bold">Primary Image URL (optional if uploading)</label>
-                    <input type="text" value={prodImageUrl} onChange={(e) => setProdImageUrl(e.target.value)} placeholder="Unsplash image link" className="w-full p-2 border bg-white rounded-lg focus:outline-none" />
-                  </div>
-                  <div className="space-y-1 md:col-span-2">
-                    <label className="font-bold">Media Upload (Select multiple files)</label>
-                    <MediaUploader urls={prodMediaUrls} onChange={setProdMediaUrls} multiple maxFiles={5} bucket="images" category="product" />
-                  </div>
+
+                  {inventorySubTab === "ledger" && (
+                    <button
+                      onClick={() => exportStockMovementsCSV(stockMovements)}
+                      className="bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-300 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 font-bold text-xs py-2 px-3 rounded-xl flex items-center gap-1.5 cursor-pointer hover:bg-emerald-100 transition shadow-2xs"
+                    >
+                      <Upload className="w-3.5 h-3.5 rotate-180" /> Export Ledger CSV
+                    </button>
+                  )}
+
+                  {inventorySubTab === "stock" && (
+                    <button
+                      onClick={() => {
+                        setIsAddingProduct(true);
+                        setEditingProductId(null);
+                        resetProductForm();
+                      }}
+                      className="bg-emerald-800 hover:bg-emerald-700 text-white font-bold text-xs py-2 px-3.5 rounded-xl flex items-center gap-1.5 cursor-pointer shadow-sm transition"
+                    >
+                      <Plus className="w-4 h-4" /> Add New Product
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* KPI Summary Cards */}
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
+                <div className="bg-gradient-to-br from-emerald-50/70 to-emerald-100/30 dark:from-emerald-950/40 dark:to-emerald-900/20 p-4 rounded-2xl border border-emerald-200/60 dark:border-emerald-800/40">
+                  <div className="text-[10px] font-bold text-emerald-800 dark:text-emerald-400 uppercase tracking-wider">Total Product SKUs</div>
+                  <div className="text-2xl font-black text-emerald-950 dark:text-white mt-1">{products.length}</div>
+                  <div className="text-[10px] text-gray-500 mt-1">Catalog listings</div>
                 </div>
 
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                  <div className="space-y-1">
-                    <label className="font-bold">Cost Price (KES)</label>
-                    <input type="number" value={prodCostPrice} onChange={(e) => setProdCostPrice(Number(e.target.value))} className="w-full p-2 border bg-white rounded-lg focus:outline-none" required />
+                <div className="bg-gradient-to-br from-blue-50/70 to-blue-100/30 dark:from-blue-950/40 dark:to-blue-900/20 p-4 rounded-2xl border border-blue-200/60 dark:border-blue-800/40">
+                  <div className="text-[10px] font-bold text-blue-800 dark:text-blue-400 uppercase tracking-wider">Total Units In Stock</div>
+                  <div className="text-2xl font-black text-blue-950 dark:text-white mt-1">{totalStockUnits.toLocaleString()}</div>
+                  <div className="text-[10px] text-gray-500 mt-1">Physical shelf items</div>
+                </div>
+
+                <div className="bg-gradient-to-br from-purple-50/70 to-purple-100/30 dark:from-purple-950/40 dark:to-purple-900/20 p-4 rounded-2xl border border-purple-200/60 dark:border-purple-800/40">
+                  <div className="text-[10px] font-bold text-purple-800 dark:text-purple-400 uppercase tracking-wider">Asset Cost Value</div>
+                  <div className="text-xl font-black text-purple-950 dark:text-white mt-1">KES {totalAssetCost.toLocaleString()}</div>
+                  <div className="text-[10px] text-gray-500 mt-1">Wholesale inventory capital</div>
+                </div>
+
+                <div className="bg-gradient-to-br from-amber-50/70 to-red-100/30 dark:from-amber-950/40 dark:to-red-900/20 p-4 rounded-2xl border border-amber-200/60 dark:border-amber-800/40">
+                  <div className="text-[10px] font-bold text-amber-800 dark:text-amber-400 uppercase tracking-wider">Reorder / Critical</div>
+                  <div className="text-2xl font-black text-amber-950 dark:text-white mt-1">
+                    {lowStockCount + outOfStockCount} <span className="text-xs font-semibold text-gray-500">({outOfStockCount} out of stock)</span>
                   </div>
-                  <div className="space-y-1">
-                    <label className="font-bold">Selling Price (KES)</label>
-                    <input type="number" value={prodPrice} onChange={(e) => setProdPrice(Number(e.target.value))} className="w-full p-2 border bg-white rounded-lg focus:outline-none" required />
+                  <div className="text-[10px] text-red-600 dark:text-red-400 mt-1 font-semibold">
+                    {lowStockCount + outOfStockCount > 0 ? "Requires restock replenishment" : "All items well-stocked"}
                   </div>
-                  <div className="space-y-1">
-                    <label className="font-bold">Category</label>
-                    <select value={prodCategory} onChange={(e) => setProdCategory(e.target.value as "hair"|"body"|"home"|"coffee")} className="w-full p-2 border bg-white rounded-lg focus:outline-none">
+                </div>
+              </div>
+
+              {/* Filtering, Search and Category Controls */}
+              <div className="bg-gray-50/70 dark:bg-gray-800/40 p-4 rounded-2xl border border-gray-200/70 dark:border-gray-700/60 space-y-3">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+                  {/* Search Bar */}
+                  <div className="relative flex-1">
+                    <Search className="w-4 h-4 text-gray-400 absolute left-3 top-2.5" />
+                    <input
+                      type="text"
+                      placeholder="Search by product name, category, or formulation..."
+                      value={searchProductQuery}
+                      onChange={(e) => setSearchProductQuery(e.target.value)}
+                      className="w-full pl-9 pr-8 py-2 text-xs bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-600 dark:text-white"
+                    />
+                    {searchProductQuery && (
+                      <button
+                        onClick={() => setSearchProductQuery("")}
+                        className="absolute right-2.5 top-2.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 cursor-pointer"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Category & Sorting Selectors */}
+                  <div className="flex flex-wrap items-center gap-2">
+                    <select
+                      value={inventoryCategoryFilter}
+                      onChange={(e) => setInventoryCategoryFilter(e.target.value)}
+                      className="px-3 py-2 text-xs bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none dark:text-white font-medium cursor-pointer"
+                    >
+                      <option value="all">All Categories</option>
                       <option value="hair">Hair Care</option>
                       <option value="body">Body Care</option>
                       <option value="home">Home Care</option>
                       <option value="coffee">Coffee</option>
                     </select>
-                  </div>
-                  <div className="space-y-1">
-                    <label className="font-bold">Sub-Category</label>
-                    <input type="text" value={prodSubCategory} onChange={(e) => setProdSubCategory(e.target.value)} placeholder="e.g. Shampoos" className="w-full p-2 border bg-white rounded-lg focus:outline-none" required />
-                  </div>
-                </div>
 
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                  {/* Standalone Product Net Volume/Weight Size Field */}
-                  <div className="space-y-1 bg-emerald-50/70 p-2 rounded-xl border border-emerald-200/80">
-                    <label className="font-extrabold text-emerald-950 text-xs flex items-center justify-between">
-                      <span>📏 Standalone Size</span>
-                      <span className="text-[9px] text-emerald-800 font-bold">(kg, g, ml, L)</span>
-                    </label>
-                    <input 
-                      type="text" 
-                      value={prodUnitSize} 
-                      onChange={(e) => setProdUnitSize(e.target.value)} 
-                      placeholder="e.g. 400ml, 1L, 250g, 1kg" 
-                      className="w-full p-1.5 border bg-white rounded-lg focus:outline-none font-bold text-xs" 
-                    />
-                    <p className="text-[9px] text-gray-500 leading-tight">For products without variants</p>
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="font-bold">Initial Stock qty</label>
-                    <input type="number" value={prodStock} onChange={(e) => setProdStock(Number(e.target.value))} className="w-full p-2 border bg-white rounded-lg focus:outline-none" required />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="font-bold">Safety Stock buffer</label>
-                    <input type="number" value={prodSafetyStock} onChange={(e) => setProdSafetyStock(Number(e.target.value))} className="w-full p-2 border bg-white rounded-lg focus:outline-none" required />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="font-bold">Reorder Trigger point</label>
-                    <input type="number" value={prodReorderLevel} onChange={(e) => setProdReorderLevel(Number(e.target.value))} className="w-full p-2 border bg-white rounded-lg focus:outline-none" required />
-                  </div>
-                </div>
-
-                {/* Multi-Size Variant & Pricing Matrix Manager */}
-                <div className="p-4 bg-white border border-emerald-200 rounded-xl space-y-3 shadow-2xs">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                    <div>
-                      <h4 className="font-black text-xs text-emerald-950 flex items-center gap-1.5 uppercase tracking-wide">
-                        <span>📦 Package Sizes & Pricing Matrix</span>
-                      </h4>
-                      <p className="text-[10px] text-gray-500">Configure size packages (e.g. 400ml, 1L, 250g, 1kg @ KES prices) with size-specific pricing, cost, stock, and images.</p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setProdVariantsList(prev => [
-                          ...prev,
-                          {
-                            id: `v-${Date.now()}-${prev.length}`,
-                            name: prev.length === 0 ? "500ml" : prev.length === 1 ? "1L" : `${prev.length + 1}L`,
-                            price: 500,
-                            costPrice: 250,
-                            stock: 30,
-                            sku: `AF-VAR-${prev.length + 1}`,
-                            imageUrl: ""
-                          }
-                        ]);
-                      }}
-                      className="bg-[#348C21] hover:bg-[#2b751c] text-white font-black text-[11px] px-3 py-1.5 rounded-lg flex items-center gap-1 cursor-pointer transition shadow-xs"
+                    <select
+                      value={inventorySort}
+                      onChange={(e) => setInventorySort(e.target.value)}
+                      className="px-3 py-2 text-xs bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none dark:text-white font-medium cursor-pointer"
                     >
-                      <Plus className="w-3.5 h-3.5" /> Add Size Variant
+                      <option value="default">Sort: Default</option>
+                      <option value="name_asc">Name (A-Z)</option>
+                      <option value="name_desc">Name (Z-A)</option>
+                      <option value="stock_asc">Stock: Low to High</option>
+                      <option value="stock_desc">Stock: High to Low</option>
+                      <option value="price_asc">Price: Low to High</option>
+                      <option value="price_desc">Price: High to Low</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Stock Status Pills */}
+                <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                  <span className="text-[10px] font-bold text-gray-400 uppercase mr-1">Status:</span>
+                  {[
+                    { id: "all", label: `All (${products.length})` },
+                    { id: "healthy", label: `Healthy (${products.filter(p => (p.stock || 0) > (p.safetyStock || 10)).length})` },
+                    { id: "low", label: `Low Stock (${lowStockCount})` },
+                    { id: "out", label: `Out of Stock (${outOfStockCount})` }
+                  ].map(tab => (
+                    <button
+                      key={tab.id}
+                      onClick={() => setInventoryStockFilter(tab.id)}
+                      className={`px-3 py-1 rounded-full text-[11px] font-bold transition cursor-pointer ${
+                        inventoryStockFilter === tab.id
+                          ? "bg-emerald-800 text-white shadow-xs"
+                          : "bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-700 hover:bg-gray-100"
+                      }`}
+                    >
+                      {tab.label}
+                    </button>
+                  ))}
+                  <span className="ml-auto text-[11px] text-gray-400 font-medium">
+                    Showing {filteredProducts.length} of {products.length} products
+                  </span>
+                </div>
+              </div>
+
+              {/* CREATE / ADD / EDIT PRODUCT DIALOG OVERLAY PANEL */}
+              {isAddingProduct && (
+                <form onSubmit={handleAddProductSubmit} className="bg-white dark:bg-gray-900 border border-emerald-200 dark:border-emerald-800 p-6 rounded-2xl text-xs space-y-4 shadow-md animate-in slide-in-from-top duration-200">
+                  <div className="flex justify-between items-center pb-3 border-b border-gray-100 dark:border-gray-800">
+                    <span className="font-extrabold uppercase text-emerald-800 dark:text-emerald-400 text-sm flex items-center gap-2">
+                      <PenTool className="w-4 h-4" /> {editingProductId ? "Edit Product Specifications" : "Add New Organic Product Spec"}
+                    </span>
+                    <button 
+                      type="button" 
+                      onClick={() => {
+                        setIsAddingProduct(false);
+                        setEditingProductId(null);
+                        resetProductForm();
+                      }} 
+                      className="text-gray-400 font-bold hover:text-gray-700 dark:hover:text-white p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition"
+                    >
+                      Cancel
                     </button>
                   </div>
 
-                  {prodVariantsList.length === 0 ? (
-                    <div className="text-center py-4 text-gray-400 text-xs italic bg-gray-50 rounded-lg border border-dashed border-gray-200">
-                      No multi-size variants configured. Click "Add Size Variant" above to add sizes (e.g. 400ml, 1L, 250g, 1kg).
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                      <label className="font-bold text-gray-700 dark:text-gray-300">Product Name</label>
+                      <input type="text" value={prodName} onChange={(e) => setProdName(e.target.value)} placeholder="e.g. Aloeflora Tea Tree Cleanser" className="w-full p-2.5 border bg-white dark:bg-gray-800 dark:border-gray-700 rounded-lg focus:outline-none dark:text-white font-medium" required />
                     </div>
-                  ) : (
-                    <div className="space-y-2.5 max-h-64 overflow-y-auto pr-1">
-                      {prodVariantsList.map((variant, vIdx) => (
-                        <div key={variant.id || vIdx} className="p-3 bg-emerald-50/40 border border-emerald-100 rounded-xl grid grid-cols-1 sm:grid-cols-12 gap-2.5 items-center">
-                          {/* Size Label */}
-                          <div className="sm:col-span-2 space-y-1">
-                            <label className="text-[10px] font-black text-gray-600 uppercase">Size</label>
-                            <input
-                              type="text"
-                              value={variant.name}
-                              onChange={(e) => {
-                                const updated = [...prodVariantsList];
-                                updated[vIdx].name = e.target.value;
-                                setProdVariantsList(updated);
-                              }}
-                              placeholder="e.g. 400ml, 1L, 250g, 1kg"
-                              className="w-full p-1.5 border bg-white rounded text-xs font-bold"
-                              required
-                            />
-                          </div>
+                    <div className="space-y-1">
+                      <label className="font-bold text-gray-700 dark:text-gray-300">Primary Image URL (optional if uploading)</label>
+                      <input type="text" value={prodImageUrl} onChange={(e) => setProdImageUrl(e.target.value)} placeholder="Image URL link" className="w-full p-2.5 border bg-white dark:bg-gray-800 dark:border-gray-700 rounded-lg focus:outline-none dark:text-white font-medium" />
+                    </div>
+                    <div className="space-y-1 md:col-span-2">
+                      <label className="font-bold text-gray-700 dark:text-gray-300">Media Upload (Select multiple files for catalog slider)</label>
+                      <MediaUploader urls={prodMediaUrls} onChange={setProdMediaUrls} multiple maxFiles={5} bucket="images" category="product" />
+                    </div>
+                  </div>
 
-                          {/* Price */}
-                          <div className="sm:col-span-2 space-y-1">
-                            <label className="text-[10px] font-black text-gray-600 uppercase">Sale Price (KES)</label>
-                            <input
-                              type="number"
-                              value={variant.price}
-                              onChange={(e) => {
-                                const updated = [...prodVariantsList];
-                                updated[vIdx].price = Number(e.target.value);
-                                setProdVariantsList(updated);
-                              }}
-                              className="w-full p-1.5 border bg-white rounded text-xs font-black text-emerald-800"
-                              required
-                            />
-                          </div>
+                  {/* Product Identifiers & Traceability (SKU, Barcode, Batch, Expiry) */}
+                  <div className="p-3.5 bg-emerald-50/50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/80 rounded-xl space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="font-extrabold text-[11px] uppercase text-emerald-900 dark:text-emerald-300 tracking-wider flex items-center gap-1.5">
+                        <Terminal className="w-3.5 h-3.5 text-emerald-700 dark:text-emerald-400" /> Unique Product Identifiers & QA Lot Tracking
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setProdSku(generateAutoSku(prodName, prodCategory, prodUnitSize))}
+                        className="text-[10px] font-bold text-emerald-800 dark:text-emerald-300 hover:underline cursor-pointer bg-white dark:bg-gray-800 px-2 py-1 rounded border border-emerald-200 dark:border-emerald-700"
+                      >
+                        ⚡ Auto-Generate SKU
+                      </button>
+                    </div>
 
-                          {/* Cost Price */}
-                          <div className="sm:col-span-2 space-y-1">
-                            <label className="text-[10px] font-black text-gray-600 uppercase">Cost Price (KES)</label>
-                            <input
-                              type="number"
-                              value={variant.costPrice || 0}
-                              onChange={(e) => {
-                                const updated = [...prodVariantsList];
-                                updated[vIdx].costPrice = Number(e.target.value);
-                                setProdVariantsList(updated);
-                              }}
-                              className="w-full p-1.5 border bg-white rounded text-xs font-bold text-red-600"
-                            />
-                          </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
+                      <div className="space-y-1">
+                        <label className="font-bold text-gray-700 dark:text-gray-300 flex items-center justify-between">
+                          <span>Product SKU</span>
+                          <span className="text-[9px] text-gray-400 font-mono">e.g. AF-HAIR-ROSE-250</span>
+                        </label>
+                        <input
+                          type="text"
+                          value={prodSku}
+                          onChange={(e) => setProdSku(e.target.value)}
+                          placeholder="e.g. AF-HAIR-ROSE-250ML"
+                          className="w-full p-2 border bg-white dark:bg-gray-800 dark:border-gray-700 rounded-lg focus:outline-none dark:text-white font-mono font-bold uppercase text-emerald-800 dark:text-emerald-400"
+                        />
+                      </div>
 
-                          {/* Stock */}
-                          <div className="sm:col-span-2 space-y-1">
-                            <label className="text-[10px] font-black text-gray-600 uppercase">Stock Qty</label>
-                            <input
-                              type="number"
-                              value={variant.stock || 0}
-                              onChange={(e) => {
-                                const updated = [...prodVariantsList];
-                                updated[vIdx].stock = Number(e.target.value);
-                                setProdVariantsList(updated);
-                              }}
-                              className="w-full p-1.5 border bg-white rounded text-xs font-bold"
-                            />
-                          </div>
+                      <div className="space-y-1">
+                        <label className="font-bold text-gray-700 dark:text-gray-300 flex items-center justify-between">
+                          <span>Batch / Lot #</span>
+                          <span className="text-[9px] text-gray-400 font-mono">e.g. LOT-202608-01</span>
+                        </label>
+                        <input
+                          type="text"
+                          value={prodBatchNumber}
+                          onChange={(e) => setProdBatchNumber(e.target.value)}
+                          placeholder="e.g. LOT-202608-01"
+                          className="w-full p-2 border bg-white dark:bg-gray-800 dark:border-gray-700 rounded-lg focus:outline-none dark:text-white font-mono font-medium"
+                        />
+                      </div>
 
-                          {/* Variant Image URL + Direct File Upload Button */}
-                          <div className="sm:col-span-3 space-y-1">
-                            <label className="text-[10px] font-black text-gray-600 uppercase flex items-center justify-between">
-                              <span>Variant Image</span>
-                              {variant.imageUrl && <span className="text-[#348C21] text-[9px] font-extrabold">✓ Attached</span>}
-                            </label>
-                            <div className="flex gap-1">
+                      <div className="space-y-1">
+                        <label className="font-bold text-gray-700 dark:text-gray-300 flex items-center justify-between">
+                          <span>Expiry Date</span>
+                          <span className="text-[9px] text-gray-400">Shelf Life</span>
+                        </label>
+                        <input
+                          type="date"
+                          value={prodExpiryDate}
+                          onChange={(e) => setProdExpiryDate(e.target.value)}
+                          className="w-full p-2 border bg-white dark:bg-gray-800 dark:border-gray-700 rounded-lg focus:outline-none dark:text-white font-medium cursor-pointer"
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="font-bold text-gray-700 dark:text-gray-300 flex items-center justify-between">
+                          <span>Barcode / EAN</span>
+                          <span className="text-[9px] text-gray-400 font-mono">UPC/EAN-13</span>
+                        </label>
+                        <input
+                          type="text"
+                          value={prodBarcode}
+                          onChange={(e) => setProdBarcode(e.target.value)}
+                          placeholder="e.g. 6164001234567"
+                          className="w-full p-2 border bg-white dark:bg-gray-800 dark:border-gray-700 rounded-lg focus:outline-none dark:text-white font-mono text-xs"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    <div className="space-y-1">
+                      <label className="font-bold text-gray-700 dark:text-gray-300">Cost Price (KES)</label>
+                      <input type="number" value={prodCostPrice} onChange={(e) => setProdCostPrice(Number(e.target.value))} className="w-full p-2.5 border bg-white dark:bg-gray-800 dark:border-gray-700 rounded-lg focus:outline-none dark:text-white font-bold text-red-600 dark:text-red-400" required />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="font-bold text-gray-700 dark:text-gray-300">Selling Price (KES)</label>
+                      <input type="number" value={prodPrice} onChange={(e) => setProdPrice(Number(e.target.value))} className="w-full p-2.5 border bg-white dark:bg-gray-800 dark:border-gray-700 rounded-lg focus:outline-none dark:text-white font-bold text-emerald-800 dark:text-emerald-400" required />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="font-bold text-gray-700 dark:text-gray-300">Category</label>
+                      <select value={prodCategory} onChange={(e) => setProdCategory(e.target.value as "hair"|"body"|"home"|"coffee")} className="w-full p-2.5 border bg-white dark:bg-gray-800 dark:border-gray-700 rounded-lg focus:outline-none dark:text-white font-semibold">
+                        <option value="hair">Hair Care</option>
+                        <option value="body">Body Care</option>
+                        <option value="home">Home Care</option>
+                        <option value="coffee">Coffee</option>
+                      </select>
+                    </div>
+                    <div className="space-y-1">
+                      <label className="font-bold text-gray-700 dark:text-gray-300">Sub-Category</label>
+                      <input type="text" value={prodSubCategory} onChange={(e) => setProdSubCategory(e.target.value)} placeholder="e.g. Shampoos" className="w-full p-2.5 border bg-white dark:bg-gray-800 dark:border-gray-700 rounded-lg focus:outline-none dark:text-white font-medium" required />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    {/* Standalone Product Net Volume/Weight Size Field */}
+                    <div className="space-y-1 bg-emerald-50/70 dark:bg-emerald-950/40 p-2.5 rounded-xl border border-emerald-200/80 dark:border-emerald-800/60">
+                      <label className="font-extrabold text-emerald-950 dark:text-emerald-300 text-xs flex items-center justify-between">
+                        <span>📏 Standalone Size</span>
+                        <span className="text-[9px] text-emerald-800 dark:text-emerald-400 font-bold">(kg, g, ml, L)</span>
+                      </label>
+                      <input 
+                        type="text" 
+                        value={prodUnitSize} 
+                        onChange={(e) => setProdUnitSize(e.target.value)} 
+                        placeholder="e.g. 400ml, 1L, 250g, 1kg" 
+                        className="w-full p-1.5 border bg-white dark:bg-gray-800 dark:border-gray-700 rounded-lg focus:outline-none font-bold text-xs dark:text-white" 
+                      />
+                      <p className="text-[9px] text-gray-500 leading-tight">For products without variants</p>
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="font-bold text-gray-700 dark:text-gray-300">Initial Stock qty</label>
+                      <input type="number" value={prodStock} onChange={(e) => setProdStock(Number(e.target.value))} className="w-full p-2.5 border bg-white dark:bg-gray-800 dark:border-gray-700 rounded-lg focus:outline-none dark:text-white font-bold" required />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="font-bold text-gray-700 dark:text-gray-300">Safety Stock buffer</label>
+                      <input type="number" value={prodSafetyStock} onChange={(e) => setProdSafetyStock(Number(e.target.value))} className="w-full p-2.5 border bg-white dark:bg-gray-800 dark:border-gray-700 rounded-lg focus:outline-none dark:text-white font-medium" required />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="font-bold text-gray-700 dark:text-gray-300">Reorder Trigger point</label>
+                      <input type="number" value={prodReorderLevel} onChange={(e) => setProdReorderLevel(Number(e.target.value))} className="w-full p-2.5 border bg-white dark:bg-gray-800 dark:border-gray-700 rounded-lg focus:outline-none dark:text-white font-medium" required />
+                    </div>
+                  </div>
+
+                  {/* Multi-Size Variant & Pricing Matrix Manager */}
+                  <div className="p-4 bg-white dark:bg-gray-800 border border-emerald-200 dark:border-emerald-800 rounded-xl space-y-3 shadow-2xs">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                      <div>
+                        <h4 className="font-black text-xs text-emerald-950 dark:text-emerald-300 flex items-center gap-1.5 uppercase tracking-wide">
+                          <span>📦 Package Sizes & Pricing Matrix</span>
+                        </h4>
+                        <p className="text-[10px] text-gray-500">Configure size packages (e.g. 400ml, 1L, 250g, 1kg @ KES prices) with size-specific pricing, cost, stock, and images.</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setProdVariantsList(prev => [
+                            ...prev,
+                            {
+                              id: `v-${Date.now()}-${prev.length}`,
+                              name: prev.length === 0 ? "500ml" : prev.length === 1 ? "1L" : `${prev.length + 1}L`,
+                              price: 500,
+                              costPrice: 250,
+                              stock: 30,
+                              sku: `AF-VAR-${prev.length + 1}`,
+                              imageUrl: ""
+                            }
+                          ]);
+                        }}
+                        className="bg-[#348C21] hover:bg-[#2b751c] text-white font-black text-[11px] px-3 py-1.5 rounded-lg flex items-center gap-1 cursor-pointer transition shadow-xs"
+                      >
+                        <Plus className="w-3.5 h-3.5" /> Add Size Variant
+                      </button>
+                    </div>
+
+                    {prodVariantsList.length === 0 ? (
+                      <div className="text-center py-4 text-gray-400 text-xs italic bg-gray-50 dark:bg-gray-900 rounded-lg border border-dashed border-gray-200 dark:border-gray-700">
+                        No multi-size variants configured. Click "Add Size Variant" above to add sizes (e.g. 400ml, 1L, 250g, 1kg).
+                      </div>
+                    ) : (
+                      <div className="space-y-2.5 max-h-64 overflow-y-auto pr-1">
+                        {prodVariantsList.map((variant, vIdx) => (
+                          <div key={variant.id || vIdx} className="p-3 bg-emerald-50/40 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-900/60 rounded-xl grid grid-cols-1 sm:grid-cols-12 gap-2.5 items-center">
+                            {/* Size Label */}
+                            <div className="sm:col-span-2 space-y-1">
+                              <label className="text-[10px] font-black text-gray-600 dark:text-gray-300 uppercase">Size</label>
                               <input
                                 type="text"
-                                value={variant.imageUrl || ""}
+                                value={variant.name}
                                 onChange={(e) => {
                                   const updated = [...prodVariantsList];
-                                  updated[vIdx].imageUrl = e.target.value;
+                                  updated[vIdx].name = e.target.value;
                                   setProdVariantsList(updated);
                                 }}
-                                placeholder="URL or upload file"
-                                className="w-full p-1.5 border bg-white rounded text-[11px]"
+                                placeholder="e.g. 400ml, 1L, 250g, 1kg"
+                                className="w-full p-1.5 border bg-white dark:bg-gray-800 dark:border-gray-700 rounded text-xs font-bold dark:text-white"
+                                required
                               />
-                              <label 
-                                className={`px-2 py-1.5 text-xs font-bold rounded cursor-pointer shrink-0 transition flex items-center justify-center gap-1 ${
-                                  uploadingVariantIdx === vIdx
-                                    ? "bg-amber-100 text-amber-900 border border-amber-300"
-                                    : "bg-[#348C21] hover:bg-[#2b751c] text-white shadow-2xs"
-                                }`}
-                                title="Upload image file from computer"
-                              >
-                                {uploadingVariantIdx === vIdx ? (
-                                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                                ) : (
-                                  <Upload className="w-3.5 h-3.5" />
-                                )}
-                                <input
-                                  type="file"
-                                  accept="image/*"
-                                  className="hidden"
-                                  disabled={uploadingVariantIdx === vIdx}
-                                  onChange={(e) => {
-                                    const file = e.target.files?.[0];
-                                    if (file) handleVariantFileUpload(vIdx, file);
-                                  }}
-                                />
+                            </div>
+
+                            {/* Price */}
+                            <div className="sm:col-span-2 space-y-1">
+                              <label className="text-[10px] font-black text-gray-600 dark:text-gray-300 uppercase">Sale Price (KES)</label>
+                              <input
+                                type="number"
+                                value={variant.price}
+                                onChange={(e) => {
+                                  const updated = [...prodVariantsList];
+                                  updated[vIdx].price = Number(e.target.value);
+                                  setProdVariantsList(updated);
+                                }}
+                                className="w-full p-1.5 border bg-white dark:bg-gray-800 dark:border-gray-700 rounded text-xs font-black text-emerald-800 dark:text-emerald-400"
+                                required
+                              />
+                            </div>
+
+                            {/* Cost Price */}
+                            <div className="sm:col-span-2 space-y-1">
+                              <label className="text-[10px] font-black text-gray-600 dark:text-gray-300 uppercase">Cost Price (KES)</label>
+                              <input
+                                type="number"
+                                value={variant.costPrice || 0}
+                                onChange={(e) => {
+                                  const updated = [...prodVariantsList];
+                                  updated[vIdx].costPrice = Number(e.target.value);
+                                  setProdVariantsList(updated);
+                                }}
+                                className="w-full p-1.5 border bg-white dark:bg-gray-800 dark:border-gray-700 rounded text-xs font-bold text-red-600 dark:text-red-400"
+                              />
+                            </div>
+
+                            {/* Stock */}
+                            <div className="sm:col-span-2 space-y-1">
+                              <label className="text-[10px] font-black text-gray-600 dark:text-gray-300 uppercase">Stock Qty</label>
+                              <input
+                                type="number"
+                                value={variant.stock || 0}
+                                onChange={(e) => {
+                                  const updated = [...prodVariantsList];
+                                  updated[vIdx].stock = Number(e.target.value);
+                                  setProdVariantsList(updated);
+                                }}
+                                className="w-full p-1.5 border bg-white dark:bg-gray-800 dark:border-gray-700 rounded text-xs font-bold dark:text-white"
+                              />
+                            </div>
+
+                            {/* Variant Image URL + Direct File Upload Button */}
+                            <div className="sm:col-span-3 space-y-1">
+                              <label className="text-[10px] font-black text-gray-600 dark:text-gray-300 uppercase flex items-center justify-between">
+                                <span>Variant Image</span>
+                                {variant.imageUrl && <span className="text-[#348C21] text-[9px] font-extrabold">✓ Attached</span>}
                               </label>
+                              <div className="flex gap-1">
+                                <input
+                                  type="text"
+                                  value={variant.imageUrl || ""}
+                                  onChange={(e) => {
+                                    const updated = [...prodVariantsList];
+                                    updated[vIdx].imageUrl = e.target.value;
+                                    setProdVariantsList(updated);
+                                  }}
+                                  placeholder="URL or upload file"
+                                  className="w-full p-1.5 border bg-white dark:bg-gray-800 dark:border-gray-700 rounded text-[11px] dark:text-white"
+                                />
+                                <label 
+                                  className={`px-2 py-1.5 text-xs font-bold rounded cursor-pointer shrink-0 transition flex items-center justify-center gap-1 ${
+                                    uploadingVariantIdx === vIdx
+                                      ? "bg-amber-100 text-amber-900 border border-amber-300"
+                                      : "bg-[#348C21] hover:bg-[#2b751c] text-white shadow-2xs"
+                                  }`}
+                                  title="Upload image file from computer"
+                                >
+                                  {uploadingVariantIdx === vIdx ? (
+                                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                  ) : (
+                                    <Upload className="w-3.5 h-3.5" />
+                                  )}
+                                  <input
+                                    type="file"
+                                    accept="image/*"
+                                    className="hidden"
+                                    disabled={uploadingVariantIdx === vIdx}
+                                    onChange={(e) => {
+                                      const file = e.target.files?.[0];
+                                      if (file) handleVariantFileUpload(vIdx, file);
+                                    }}
+                                  />
+                                </label>
+                              </div>
+                            </div>
+
+                            {/* Delete */}
+                            <div className="sm:col-span-1 flex justify-end pt-3 sm:pt-0">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setProdVariantsList(prev => prev.filter((_, idx) => idx !== vIdx));
+                                }}
+                                className="text-red-500 hover:text-red-700 p-1.5 bg-red-50 hover:bg-red-100 dark:bg-red-950/40 dark:hover:bg-red-900/60 rounded-md transition cursor-pointer"
+                                title="Remove size variant"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
                             </div>
                           </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
 
-                          {/* Delete */}
-                          <div className="sm:col-span-1 flex justify-end pt-3 sm:pt-0">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setProdVariantsList(prev => prev.filter((_, idx) => idx !== vIdx));
-                              }}
-                              className="text-red-500 hover:text-red-700 p-1.5 bg-red-50 hover:bg-red-100 rounded-md transition cursor-pointer"
-                              title="Remove size variant"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        </div>
-                      ))}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <label className="font-bold text-gray-700 dark:text-gray-300">Features (split by comma)</label>
+                      <input type="text" value={prodFeatures} onChange={(e) => setProdFeatures(e.target.value)} placeholder="e.g. Sulfate Free, Raw Aloe" className="w-full p-2.5 border bg-white dark:bg-gray-800 dark:border-gray-700 rounded-lg focus:outline-none dark:text-white" />
                     </div>
-                  )}
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <div className="space-y-1">
-                    <label className="font-bold">Features (split by comma)</label>
-                    <input type="text" value={prodFeatures} onChange={(e) => setProdFeatures(e.target.value)} placeholder="e.g. Sulfate Free, Raw Aloe" className="w-full p-2 border bg-white rounded-lg focus:outline-none" />
+                    <div className="space-y-1">
+                      <label className="font-bold text-gray-700 dark:text-gray-300">Specifications (split by comma)</label>
+                      <input type="text" value={prodSpecs} onChange={(e) => setProdSpecs(e.target.value)} placeholder="e.g. pH: 5.5, Scent: Rosemary" className="w-full p-2.5 border bg-white dark:bg-gray-800 dark:border-gray-700 rounded-lg focus:outline-none dark:text-white" />
+                    </div>
                   </div>
+
                   <div className="space-y-1">
-                    <label className="font-bold">Specifications (split by comma)</label>
-                    <input type="text" value={prodSpecs} onChange={(e) => setProdSpecs(e.target.value)} placeholder="e.g. pH: 5.5, Scent: Rosemary" className="w-full p-2 border bg-white rounded-lg focus:outline-none" />
+                    <label className="font-bold text-gray-700 dark:text-gray-300">Detailed description</label>
+                    <textarea value={prodDesc} onChange={(e) => setProdDesc(e.target.value)} rows={3} className="w-full p-2.5 border bg-white dark:bg-gray-800 dark:border-gray-700 rounded-lg focus:outline-none dark:text-white" placeholder="Explain the botanical advantages..." required></textarea>
                   </div>
-                </div>
 
-                <div className="space-y-1">
-                  <label className="font-bold">Detailed description</label>
-                  <textarea value={prodDesc} onChange={(e) => setProdDesc(e.target.value)} rows={3} className="w-full p-2 border bg-white rounded-lg focus:outline-none" placeholder="Explain the botanical advantages..." required></textarea>
-                </div>
+                  <button type="submit" disabled={isUploadingProduct} className="bg-emerald-800 hover:bg-emerald-700 text-white font-extrabold p-3 rounded-xl w-full uppercase cursor-pointer disabled:opacity-50 transition shadow-sm">
+                    {isUploadingProduct ? "Uploading Media & Saving..." : editingProductId ? "Save Updated Product Specs" : "Activate & Add to Web Catalog"}
+                  </button>
+                </form>
+              )}
 
-                <button type="submit" disabled={isUploadingProduct} className="bg-emerald-800 text-white font-bold p-3 rounded-xl w-full uppercase cursor-pointer disabled:opacity-50">
-                  {isUploadingProduct ? "Uploading Media & Saving..." : "Activate & Add to Web Catalog"}
-                </button>
-              </form>
-            )}
-
-            {/* Structured Table Inventory */}
-            <div className="border border-gray-100 rounded-2xl overflow-x-auto mt-4">
-              <table className="w-full text-xs">
-                <thead className="bg-zinc-50 border-b border-gray-100 font-bold uppercase text-gray-400 text-[10px]">
-                  <tr>
-                    <th className="p-3 text-left">Listing Description</th>
-                    <th className="p-3 text-center">Cost Price</th>
-                    <th className="p-3 text-center">Selling Price</th>
-                    <th className="p-3 text-center">Stock multiplier</th>
-                    <th className="p-3 text-center">Safety Stock</th>
-                    <th className="p-3 text-center">Trigger point</th>
-                    <th className="p-3 text-center">Quick Adjust</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {products.filter(p => p.name.toLowerCase().includes(searchProductQuery.toLowerCase())).map((p) => {
-                    const isLow = p.stock <= p.safetyStock;
-                    return (
-                      <tr key={p.id} className="hover:bg-zinc-50/50">
-                        <td className="p-3 flex items-center gap-2 max-w-xs md:max-w-md">
-                          <div className="relative group shrink-0">
-                            <img 
-                              src={(p.mediaUrls && p.mediaUrls.length > 0 && p.mediaUrls[0].trim() !== '') ? p.mediaUrls[0] : p.imageUrl?.split(',')[0] || '/logo_square.jpeg'} 
-                              alt={p.name} 
-                              className="w-10 h-10 rounded-lg border border-gray-200 object-cover shrink-0 shadow-xs group-hover:scale-105 transition cursor-pointer" 
-                              onClick={() => {
-                                const img = (p.mediaUrls && p.mediaUrls.length > 0 && p.mediaUrls[0].trim() !== '') ? p.mediaUrls[0] : p.imageUrl?.split(',')[0] || '/logo_square.jpeg';
-                                window.open(img, '_blank');
-                              }}
-                              onError={(e) => {
-                                (e.target as HTMLImageElement).src = '/logo_square.jpeg';
-                              }}
-                              title="Click to inspect image"
-                            />
-                            <button
-                              type="button"
-                              onClick={() => {
-                                const img = (p.mediaUrls && p.mediaUrls.length > 0 && p.mediaUrls[0].trim() !== '') ? p.mediaUrls[0] : p.imageUrl?.split(',')[0] || '/logo_square.jpeg';
-                                window.open(img, '_blank');
-                              }}
-                              className="absolute -top-1 -right-1 bg-slate-900 text-white p-0.5 rounded-full opacity-0 group-hover:opacity-100 transition shadow-md border border-slate-700 cursor-pointer"
-                              title="Inspect Image"
-                            >
-                              <ExternalLink className="w-2.5 h-2.5" />
-                            </button>
-                          </div>
-                          <div className="truncate">
-                            <div className="font-extrabold text-gray-900 truncate">{p.name}</div>
-                            <span className="text-[10px] uppercase font-bold text-lime-600 bg-emerald-50 px-1.5 py-0.5 rounded">
-                              {p.subCategory}
-                            </span>
-                          </div>
-                        </td>
-                        <td className="p-3 text-center font-bold text-red-500">KES {p.costPrice}</td>
-                        <td className="p-3 text-center font-bold text-emerald-800">KES {p.price}</td>
-                        <td className="p-3 text-center">
-                          <span className={`font-bold px-2 py-0.5 rounded ${
-                            p.stock === 0 
-                              ? "bg-red-150 text-red-900" 
-                              : isLow 
-                                ? "bg-amber-100 text-amber-900" 
-                                : "bg-emerald-50 text-emerald-900"
-                          }`}>
-                            {p.stock} units
-                          </span>
-                        </td>
-                        <td className="p-3 text-center text-gray-400 font-mono">{p.safetyStock}</td>
-                        <td className="p-3 text-center text-gray-400 font-mono">{p.reorderLevel}</td>
-                        <td className="p-3 text-center flex items-center justify-center gap-1">
-                          <button
-                            onClick={() => handleReplenishStock(p.id, 10)}
-                            className="bg-emerald-80 bg-emerald-50 text-emerald-800 border p-1 rounded font-bold hover:bg-emerald-100 cursor-pointer"
-                            title="Restock +10"
-                          >
-                            +10
-                          </button>
-                          
-                          <button
-                            onClick={() => handleEditClick(p)}
-                            className="bg-blue-50 border text-blue-600 p-1.5 rounded hover:bg-blue-100 tooltip cursor-pointer"
-                            title="Edit Product"
-                          >
-                            <PenTool className="w-3.5 h-3.5" />
-                          </button>
-
-                          <button
-                            onClick={() => handleDeleteProduct(p.id)}
-                            className="bg-rose-50 border text-rose-600 p-1.5 rounded hover:bg-rose-100 tooltip cursor-pointer"
-                            title="Remove listing"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </td>
+              {/* VIEW SUB-TAB 1: Structured Table Inventory */}
+              {inventorySubTab === "stock" && (
+              <div className="border border-gray-200/80 dark:border-gray-800 rounded-2xl overflow-hidden bg-white dark:bg-gray-900 shadow-xs">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs">
+                    <thead className="bg-gray-50/80 dark:bg-gray-800/60 border-b border-gray-200 dark:border-gray-800 font-extrabold uppercase text-gray-500 dark:text-gray-400 text-[10px] tracking-wider">
+                      <tr>
+                        <th className="p-3.5 text-left">Listing Description</th>
+                        <th className="p-3.5 text-center">Cost Price</th>
+                        <th className="p-3.5 text-center">Selling Price</th>
+                        <th className="p-3.5 text-center">Stock Units</th>
+                        <th className="p-3.5 text-center">Safety Buffer</th>
+                        <th className="p-3.5 text-center">Reorder Point</th>
+                        <th className="p-3.5 text-center">Quick Adjust</th>
                       </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                      {filteredProducts.length === 0 ? (
+                        <tr>
+                          <td colSpan={7} className="p-12 text-center text-gray-500 dark:text-gray-400">
+                            <div className="flex flex-col items-center justify-center space-y-3 max-w-sm mx-auto">
+                              <div className="w-12 h-12 rounded-full bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 flex items-center justify-center">
+                                <ShoppingBag className="w-6 h-6" />
+                              </div>
+                              <div className="font-extrabold text-sm text-gray-900 dark:text-white">
+                                {products.length === 0 ? "No inventory products registered" : "No products matched your filter"}
+                              </div>
+                              <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
+                                {products.length === 0 
+                                  ? "Get started by adding your first organic personal or home care product to the catalog."
+                                  : "Try changing your search terms, status filters, or category selection to view listings."}
+                              </p>
+                              <div className="flex gap-2 pt-1">
+                                {searchProductQuery || inventoryCategoryFilter !== "all" || inventoryStockFilter !== "all" ? (
+                                  <button
+                                    onClick={() => {
+                                      setSearchProductQuery("");
+                                      setInventoryCategoryFilter("all");
+                                      setInventoryStockFilter("all");
+                                    }}
+                                    className="px-3 py-1.5 rounded-xl text-xs font-bold border border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-200 transition"
+                                  >
+                                    Reset Filters
+                                  </button>
+                                ) : null}
+                                <button
+                                  onClick={() => {
+                                    setIsAddingProduct(true);
+                                    setEditingProductId(null);
+                                    resetProductForm();
+                                  }}
+                                  className="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-emerald-800 hover:bg-emerald-700 text-white shadow-xs transition"
+                                >
+                                  + Create Product
+                                </button>
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      ) : (
+                        filteredProducts.map((p) => {
+                          const stock = Number(p.stock) || 0;
+                          const safetyStock = Number(p.safetyStock) || 10;
+                          const isOut = stock === 0;
+                          const isLow = stock <= safetyStock && !isOut;
+                          const hasVars = hasVariants(p);
+                          const variantList = hasVars ? normalizeVariants(p) : [];
+
+                          return (
+                            <tr key={p.id} className="hover:bg-gray-50/60 dark:hover:bg-gray-800/40 transition">
+                              <td className="p-3 flex items-center gap-3 max-w-xs md:max-w-md">
+                                <div className="relative group shrink-0">
+                                  <img 
+                                    src={(p.mediaUrls && p.mediaUrls.length > 0 && p.mediaUrls[0].trim() !== '') ? p.mediaUrls[0] : p.imageUrl?.split(',')[0] || '/logo_square.jpeg'} 
+                                    alt={p.name || "Product"} 
+                                    className="w-11 h-11 rounded-xl border border-gray-200 dark:border-gray-700 object-cover shrink-0 shadow-2xs group-hover:scale-105 transition cursor-pointer" 
+                                    onClick={() => {
+                                      const img = (p.mediaUrls && p.mediaUrls.length > 0 && p.mediaUrls[0].trim() !== '') ? p.mediaUrls[0] : p.imageUrl?.split(',')[0] || '/logo_square.jpeg';
+                                      window.open(img, '_blank');
+                                    }}
+                                    onError={(e) => {
+                                      (e.target as HTMLImageElement).src = '/logo_square.jpeg';
+                                    }}
+                                    title="Click to inspect image"
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const img = (p.mediaUrls && p.mediaUrls.length > 0 && p.mediaUrls[0].trim() !== '') ? p.mediaUrls[0] : p.imageUrl?.split(',')[0] || '/logo_square.jpeg';
+                                      window.open(img, '_blank');
+                                    }}
+                                    className="absolute -top-1 -right-1 bg-slate-900 text-white p-0.5 rounded-full opacity-0 group-hover:opacity-100 transition shadow-md border border-slate-700 cursor-pointer"
+                                    title="Inspect Image"
+                                  >
+                                    <ExternalLink className="w-2.5 h-2.5" />
+                                  </button>
+                                </div>
+                                <div className="truncate">
+                                  <div className="font-extrabold text-gray-900 dark:text-white truncate">{p.name || "Untitled Product"}</div>
+                                  <div className="flex flex-wrap items-center gap-1 mt-0.5">
+                                    {p.sku && (
+                                      <span className="text-[9px] font-mono font-bold text-emerald-900 dark:text-emerald-300 bg-emerald-100/80 dark:bg-emerald-900/60 px-1.5 py-0.5 rounded border border-emerald-300 dark:border-emerald-700">
+                                        SKU: {p.sku}
+                                      </span>
+                                    )}
+                                    {p.batchNumber && (
+                                      <span className="text-[9px] font-mono font-medium text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded">
+                                        Lot: {p.batchNumber}
+                                      </span>
+                                    )}
+                                    <span className="text-[9px] uppercase font-bold text-lime-700 dark:text-lime-400 bg-emerald-50 dark:bg-emerald-950/60 px-1.5 py-0.5 rounded">
+                                      {p.subCategory || p.category || "General"}
+                                    </span>
+                                    {p.unitSize && (
+                                      <span className="text-[9px] font-bold text-emerald-800 dark:text-emerald-300 bg-emerald-100/60 dark:bg-emerald-900/40 px-1.5 py-0.5 rounded">
+                                        {p.unitSize}
+                                      </span>
+                                    )}
+                                    {hasVars && variantList.length > 0 && (
+                                      <span className="text-[9px] font-bold text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-950/50 px-1.5 py-0.5 rounded">
+                                        {variantList.length} sizes
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              </td>
+                              <td className="p-3 text-center font-bold text-red-600 dark:text-red-400">KES {(Number(p.costPrice) || 0).toLocaleString()}</td>
+                              <td className="p-3 text-center font-bold text-emerald-800 dark:text-emerald-400">KES {(Number(p.price) || 0).toLocaleString()}</td>
+                              <td className="p-3 text-center">
+                                <span className={`font-bold px-2.5 py-1 rounded-full inline-block text-[11px] ${
+                                  isOut
+                                    ? "bg-red-100 text-red-800 dark:bg-red-950/80 dark:text-red-300 border border-red-300 dark:border-red-800" 
+                                    : isLow 
+                                      ? "bg-amber-100 text-amber-900 dark:bg-amber-950/80 dark:text-amber-300 border border-amber-300 dark:border-amber-800" 
+                                      : "bg-emerald-50 text-emerald-900 dark:bg-emerald-950/80 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800"
+                                }`}>
+                                  {stock} units
+                                </span>
+                              </td>
+                              <td className="p-3 text-center text-gray-500 dark:text-gray-400 font-mono">{safetyStock}</td>
+                              <td className="p-3 text-center text-gray-500 dark:text-gray-400 font-mono">{Number(p.reorderLevel) || 15}</td>
+                              <td className="p-3 text-center">
+                                <div className="flex items-center justify-center gap-1.5">
+                                  <button
+                                    onClick={() => handleOpenRestockModal(p, 10)}
+                                    className="bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 px-2 py-1 rounded-lg font-extrabold hover:bg-emerald-100 dark:hover:bg-emerald-900/60 cursor-pointer transition shadow-2xs text-[11px] flex items-center gap-1"
+                                    title="Restock units & log QA batch"
+                                  >
+                                    ⚡ Restock
+                                  </button>
+                                  
+                                  <button
+                                    onClick={() => handleEditClick(p)}
+                                    className="bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300 p-1.5 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/60 cursor-pointer transition shadow-2xs"
+                                    title="Edit Product Details & Identifiers"
+                                  >
+                                    <PenTool className="w-3.5 h-3.5" />
+                                  </button>
+
+                                  <button
+                                    onClick={() => handleDeleteProduct(p.id)}
+                                    className="bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-800 text-rose-600 dark:text-rose-300 p-1.5 rounded-lg hover:bg-rose-100 dark:hover:bg-rose-900/60 cursor-pointer transition shadow-2xs"
+                                    title="Remove listing permanently"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+              )}
+
+              {/* VIEW SUB-TAB 2: IMMUTABLE STOCK MOVEMENTS AUDIT LEDGER */}
+              {inventorySubTab === "ledger" && (
+                <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-5 space-y-4 shadow-sm animate-in fade-in duration-150">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-gray-100 dark:border-gray-800">
+                    <div>
+                      <h4 className="font-extrabold text-sm text-gray-900 dark:text-white flex items-center gap-2">
+                        <Database className="w-4 h-4 text-emerald-700 dark:text-emerald-400" /> Stock Movements & Audit Trail Ledger
+                      </h4>
+                      <p className="text-xs text-gray-500 mt-0.5">Real-time ledger tracking every purchase restock, customer checkout sale, refund, and batch movement.</p>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={fetchStockMovements}
+                        disabled={isLoadingMovements}
+                        className="p-1.5 rounded-lg border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition cursor-pointer"
+                        title="Refresh stock ledger"
+                      >
+                        <RefreshCw className={`w-3.5 h-3.5 ${isLoadingMovements ? 'animate-spin' : ''}`} />
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="overflow-x-auto rounded-xl border border-gray-200 dark:border-gray-800">
+                    <table className="w-full text-xs text-left">
+                      <thead className="bg-gray-50/80 dark:bg-gray-800/80 text-gray-600 dark:text-gray-300 font-bold border-b border-gray-200 dark:border-gray-700">
+                        <tr>
+                          <th className="p-3">Timestamp</th>
+                          <th className="p-3">Product / SKU</th>
+                          <th className="p-3 text-center">Movement Type</th>
+                          <th className="p-3 text-center">Quantity Delta</th>
+                          <th className="p-3 text-center">Stock Transition</th>
+                          <th className="p-3">Batch / Lot #</th>
+                          <th className="p-3">Reference / Order ID</th>
+                          <th className="p-3">Performed By</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                        {isLoadingMovements ? (
+                          <tr>
+                            <td colSpan={8} className="p-8 text-center text-gray-400">
+                              <Loader2 className="w-5 h-5 animate-spin mx-auto mb-2 text-emerald-700" />
+                              Loading stock movement records from database...
+                            </td>
+                          </tr>
+                        ) : stockMovements.length === 0 ? (
+                          <tr>
+                            <td colSpan={8} className="p-8 text-center text-gray-400 italic">
+                              No stock movement logs recorded yet. Restocks and sales will automatically populate this audit ledger.
+                            </td>
+                          </tr>
+                        ) : (
+                          stockMovements.map((m) => {
+                            const isPositive = Number(m.quantityDelta) > 0;
+                            const prod = products.find(p => p.id === m.productId);
+                            return (
+                              <tr key={m.id} className="hover:bg-gray-50/60 dark:hover:bg-gray-800/40 transition font-medium">
+                                <td className="p-3 text-gray-500 font-mono text-[11px] whitespace-nowrap">
+                                  {new Date(m.createdAt).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                </td>
+                                <td className="p-3 max-w-xs">
+                                  <div className="font-bold text-gray-900 dark:text-white truncate">{prod?.name || m.productId}</div>
+                                  <div className="text-[10px] font-mono text-emerald-800 dark:text-emerald-400 font-semibold">{m.sku || prod?.sku || 'N/A'}</div>
+                                </td>
+                                <td className="p-3 text-center">
+                                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider ${
+                                    m.movementType === 'restock'
+                                      ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800'
+                                      : m.movementType === 'order_sale'
+                                        ? 'bg-blue-100 text-blue-800 dark:bg-blue-950/80 dark:text-blue-300 border border-blue-300 dark:border-blue-800'
+                                        : m.movementType === 'return'
+                                          ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/80 dark:text-amber-300 border border-amber-300 dark:border-amber-800'
+                                          : 'bg-purple-100 text-purple-800 dark:bg-purple-950/80 dark:text-purple-300 border border-purple-300 dark:border-purple-800'
+                                  }`}>
+                                    {m.movementType === 'order_sale' ? 'Sale Order' : m.movementType}
+                                  </span>
+                                </td>
+                                <td className="p-3 text-center font-black font-mono">
+                                  <span className={isPositive ? "text-emerald-700 dark:text-emerald-400 text-sm" : "text-rose-600 dark:text-rose-400 text-sm"}>
+                                    {isPositive ? `+${m.quantityDelta}` : m.quantityDelta}
+                                  </span>
+                                </td>
+                                <td className="p-3 text-center text-gray-600 dark:text-gray-300 font-mono text-[11px]">
+                                  {m.stockBefore !== undefined && m.stockAfter !== undefined 
+                                    ? `${m.stockBefore} → ${m.stockAfter}`
+                                    : 'Recorded'}
+                                </td>
+                                <td className="p-3 font-mono text-[11px] text-gray-700 dark:text-gray-300">
+                                  {m.batchNumber ? (
+                                    <span className="bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded border border-gray-200 dark:border-gray-700">
+                                      {m.batchNumber}
+                                    </span>
+                                  ) : '—'}
+                                </td>
+                                <td className="p-3 font-mono text-[11px] text-gray-700 dark:text-gray-300">
+                                  {m.referenceId || '—'}
+                                </td>
+                                <td className="p-3 text-gray-500 text-[11px]">
+                                  {m.performedBy || 'system'}
+                                </td>
+                              </tr>
+                            );
+                          })
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* RESTOCK ERP DIALOG MODAL */}
+              {isRestockModalOpen && restockTargetProduct && (
+                <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+                  <div className="bg-white dark:bg-gray-900 border border-emerald-200 dark:border-emerald-800 w-full max-w-lg rounded-2xl p-6 space-y-5 shadow-2xl animate-in zoom-in-95 duration-150 text-left">
+                    <div className="flex items-center justify-between pb-3 border-b border-gray-100 dark:border-gray-800">
+                      <div>
+                        <span className="text-[10px] font-extrabold uppercase tracking-widest text-emerald-700 dark:text-emerald-400">Inventory ERP Replenishment</span>
+                        <h4 className="text-base font-bold text-gray-950 dark:text-white mt-0.5">{restockTargetProduct.name}</h4>
+                        {restockTargetProduct.sku && (
+                          <span className="text-[10px] font-mono text-emerald-800 dark:text-emerald-300 font-bold">SKU: {restockTargetProduct.sku}</span>
+                        )}
+                      </div>
+                      <button 
+                        onClick={() => setIsRestockModalOpen(false)}
+                        className="text-gray-400 hover:text-gray-700 dark:hover:text-white p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+
+                    <form onSubmit={handleExecuteRestock} className="space-y-4 text-xs">
+                      <div className="p-3 bg-emerald-50/60 dark:bg-emerald-950/40 rounded-xl border border-emerald-200/70 dark:border-emerald-800/60 grid grid-cols-2 gap-2 text-center">
+                        <div>
+                          <div className="text-[10px] text-gray-500 uppercase font-bold">Current Shelf Stock</div>
+                          <div className="text-xl font-black text-gray-900 dark:text-white mt-0.5">{restockTargetProduct.stock || 0} units</div>
+                        </div>
+                        <div>
+                          <div className="text-[10px] text-emerald-800 dark:text-emerald-400 uppercase font-bold">Stock After Restock</div>
+                          <div className="text-xl font-black text-emerald-800 dark:text-emerald-400 mt-0.5">{(restockTargetProduct.stock || 0) + (Number(restockQty) || 0)} units</div>
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className="font-bold text-gray-700 dark:text-gray-300 flex items-center justify-between">
+                          <span>Units to Restock</span>
+                          <div className="flex gap-1">
+                            {[10, 25, 50, 100].map(amt => (
+                              <button
+                                key={amt}
+                                type="button"
+                                onClick={() => setRestockQty(amt)}
+                                className={`px-2 py-0.5 rounded text-[10px] font-bold cursor-pointer transition ${restockQty === amt ? 'bg-emerald-800 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300'}`}
+                              >
+                                +{amt}
+                              </button>
+                            ))}
+                          </div>
+                        </label>
+                        <input
+                          type="number"
+                          min="1"
+                          value={restockQty}
+                          onChange={(e) => setRestockQty(Number(e.target.value))}
+                          className="w-full p-2.5 border bg-white dark:bg-gray-800 dark:border-gray-700 rounded-xl text-base font-black text-emerald-800 dark:text-emerald-400 focus:outline-none"
+                          required
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div className="space-y-1">
+                          <label className="font-bold text-gray-700 dark:text-gray-300">Manufacturing Batch / Lot #</label>
+                          <input
+                            type="text"
+                            value={restockBatch}
+                            onChange={(e) => setRestockBatch(e.target.value)}
+                            placeholder="e.g. LOT-202608-01"
+                            className="w-full p-2 border bg-white dark:bg-gray-800 dark:border-gray-700 rounded-lg font-mono focus:outline-none dark:text-white"
+                          />
+                        </div>
+
+                        <div className="space-y-1">
+                          <label className="font-bold text-gray-700 dark:text-gray-300">Supplier PO / Invoice Ref</label>
+                          <input
+                            type="text"
+                            value={restockRef}
+                            onChange={(e) => setRestockRef(e.target.value)}
+                            placeholder="e.g. PO-2026-084"
+                            className="w-full p-2 border bg-white dark:bg-gray-800 dark:border-gray-700 rounded-lg font-mono focus:outline-none dark:text-white"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="font-bold text-gray-700 dark:text-gray-300">Restock Notes (Optional)</label>
+                        <input
+                          type="text"
+                          value={restockNotes}
+                          onChange={(e) => setRestockNotes(e.target.value)}
+                          placeholder="e.g. Received new fresh organic shipment from Nairobi supplier"
+                          className="w-full p-2 border bg-white dark:bg-gray-800 dark:border-gray-700 rounded-lg focus:outline-none dark:text-white"
+                        />
+                      </div>
+
+                      <div className="flex items-center justify-end gap-2 pt-3 border-t border-gray-100 dark:border-gray-800">
+                        <button
+                          type="button"
+                          onClick={() => setIsRestockModalOpen(false)}
+                          className="px-4 py-2 text-gray-600 dark:text-gray-400 font-bold hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl cursor-pointer"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="submit"
+                          disabled={isSubmittingRestock}
+                          className="px-5 py-2 bg-emerald-800 hover:bg-emerald-700 text-white font-bold rounded-xl cursor-pointer shadow-md disabled:opacity-50 flex items-center gap-1.5"
+                        >
+                          {isSubmittingRestock ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                          Confirm Restock & Log Audit
+                        </button>
+                      </div>
+                    </form>
+                  </div>
+                </div>
+              )}
             </div>
-          </div>
-        )}
+          );
+        })()}
 
         {/* TAB 2.5: ADVANCED REPORTS MODULE */}
         {activeModule === "reports" && (
@@ -1780,62 +2519,15 @@ export default function AdminConsole({
           />
         )}
 
-        {/* TAB 3: FINANCIAL REPORTING & AUDITING */}
+        {/* TAB 3: ENTERPRISE FINANCIAL P&L REPORTING & AUDITING */}
         {activeModule === "financial" && (
-          <div className="space-y-6 animate-in fade-in duration-150 text-left">
-            <div className="flex items-center justify-between pb-4 border-b">
-              <div>
-                <h3 className="text-lg font-bold text-gray-950">Enterprise Profit & Loss Statement</h3>
-                <p className="text-xs text-gray-500">Calculated operating summaries based on live completed customer checkout batches.</p>
-              </div>
-
-              <button
-                onClick={triggerAuditReportGen}
-                className="bg-emerald-800 hover:bg-emerald-700 text-white font-bold text-xs py-2 px-3.5 rounded-xl cursor-pointer shadow transition"
-              >
-                Export Audit Report PDF
-              </button>
-            </div>
-
-            {/* P & L Sheets ledger card */}
-            <div className="bg-zinc-55/35 border border-zinc-100 p-6 rounded-2xl md:max-w-xl mx-auto space-y-4">
-              <div className="flex justify-between font-bold border-b pb-2 text-xs uppercase text-gray-400">
-                <span>Account Ledger Line</span>
-                <span>Calculated Volume (KES)</span>
-              </div>
-
-              <div className="space-y-3 text-xs">
-                <div className="flex justify-between items-center text-gray-700 font-bold">
-                  <span>Total Revenue (Money In)</span>
-                  <span>KES {totalPaidRevenue}</span>
-                </div>
-
-                <div className="flex justify-between items-center text-gray-500 pl-4">
-                  <span>- Total Product Costs (Money out for items)</span>
-                  <span>KES {totalCogs}</span>
-                </div>
-
-                <div className="flex justify-between items-center text-gray-800 font-bold border-t pt-2">
-                  <span>Gross Profit</span>
-                  <span className="text-emerald-800">KES {grossProfit}</span>
-                </div>
-
-                <div className="flex justify-between items-center text-gray-500 pl-4">
-                  <span>- Operating Expenses (Logistics & Hosting)</span>
-                  <span>KES {operatingExpenses}</span>
-                </div>
-
-                <div className="flex justify-between items-center text-gray-950 font-extrabold border-t-2 pt-2 text-sm">
-                  <span>Net Profit (Money You Keep)</span>
-                  <span className="text-emerald-900">KES {netProfit > 0 ? netProfit : 0}</span>
-                </div>
-              </div>
-
-              <div className="text-[10px] text-gray-400 italic font-mono pt-4 text-center border-t border-dashed">
-                Ledger audited automatically under GDPR principles. All payments synchronized with Safaricom webhook pools.
-              </div>
-            </div>
-          </div>
+          <FinancialPLReports
+            orders={orders || []}
+            products={products || []}
+            campaigns={campaigns || []}
+            promos={promos || []}
+            storeSettings={storeSettings}
+          />
         )}
 
         {/* TAB 4: MARKETING & CAMPAIGNS PLANNERS */}
@@ -1962,185 +2654,541 @@ export default function AdminConsole({
         )}
 
         {/* TAB 5: CMS WEB EDITOR PANEL */}
-        {activeModule === "cms" && (
-          <div className="space-y-6 animate-in fade-in duration-150">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-lg font-bold text-gray-950">CMS Content Controller</h3>
-                <p className="text-xs text-gray-500 mt-0.5">Author articles, policies, and home-care tips securely.</p>
-              </div>
+        {activeModule === "cms" && (() => {
+          // Calculations
+          const publishedCount = cmsPosts.filter(p => p.status === "published").length;
+          const draftCount = cmsPosts.filter(p => p.status === "draft").length;
+          const heroEventCount = cmsPosts.filter(p => p.type === "hero" || p.type === "promotion").length;
 
-              <div className="flex items-center gap-2">
-                {cmsPosts.length > 0 && (
+          // Filter CMS Posts safely
+          const filteredCms = cmsPosts.filter(p => {
+            const title = (p.title || "").toLowerCase();
+            const content = (p.content || "").toLowerCase();
+            const type = (p.type || "").toLowerCase();
+            const q = cmsSearchQuery.toLowerCase().trim();
+
+            const matchesSearch = !q || title.includes(q) || content.includes(q) || type.includes(q);
+            const matchesType = cmsTypeFilter === "all" || p.type === cmsTypeFilter;
+            const matchesStatus = cmsStatusFilter === "all" || p.status === cmsStatusFilter;
+
+            return matchesSearch && matchesType && matchesStatus;
+          });
+
+          const getTypeBadgeStyle = (type: string) => {
+            switch (type) {
+              case "blog": return "bg-emerald-50 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800";
+              case "faq": return "bg-amber-50 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border-amber-200 dark:border-amber-800";
+              case "policy": return "bg-blue-50 text-blue-800 dark:bg-blue-950/60 dark:text-blue-300 border-blue-200 dark:border-blue-800";
+              case "hero": return "bg-purple-50 text-purple-800 dark:bg-purple-950/60 dark:text-purple-300 border-purple-200 dark:border-purple-800";
+              case "promotion": return "bg-rose-50 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300 border-rose-200 dark:border-rose-800";
+              case "award": return "bg-yellow-50 text-yellow-800 dark:bg-yellow-950/60 dark:text-yellow-300 border-yellow-200 dark:border-yellow-800";
+              case "about": return "bg-teal-50 text-teal-800 dark:bg-teal-950/60 dark:text-teal-300 border-teal-200 dark:border-teal-800";
+              case "team": return "bg-indigo-50 text-indigo-800 dark:bg-indigo-950/60 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800";
+              default: return "bg-gray-50 text-gray-800 dark:bg-gray-800 dark:text-gray-300 border-gray-200 dark:border-gray-700";
+            }
+          };
+
+          return (
+            <div className="space-y-6 animate-in fade-in duration-150 text-left">
+              {/* Header */}
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-2 border-b border-gray-100 dark:border-gray-800">
+                <div>
+                  <h3 className="text-xl font-extrabold text-gray-950 dark:text-white flex items-center gap-2">
+                    <PenTool className="w-5 h-5 text-emerald-700 dark:text-emerald-400" /> CMS Content Controller & Web Editor
+                  </h3>
+                  <p className="text-xs text-gray-500 mt-0.5">Author articles, FAQs, store terms & policies, hero sliders, team bios, and event showcases.</p>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  {cmsPosts.length > 0 && (
+                    <button
+                      onClick={handleDeleteAllCMS}
+                      className="bg-red-50 hover:bg-red-100 text-red-700 dark:bg-red-950/40 dark:hover:bg-red-900/60 dark:text-red-300 font-bold text-xs py-2 px-3 rounded-xl flex items-center gap-1.5 cursor-pointer transition border border-red-200 dark:border-red-800"
+                      title="Permanently delete all CMS posts"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" /> Purge All Posts
+                    </button>
+                  )}
                   <button
-                    onClick={handleDeleteAllCMS}
-                    className="bg-red-50 hover:bg-red-100 text-red-700 font-bold text-xs py-2 px-3 rounded-xl flex items-center gap-1 cursor-pointer transition border border-red-200"
-                    title="Permanently delete all CMS posts and corresponding images"
+                    onClick={() => {
+                      setIsAddingCms((prev) => !prev);
+                      setEditingCmsId(null);
+                      setCmsTitle("");
+                      setCmsContent("");
+                      setCmsImageUrls([]);
+                    }}
+                    className="bg-emerald-800 hover:bg-emerald-700 text-white font-bold text-xs py-2 px-3.5 rounded-xl flex items-center gap-1.5 cursor-pointer shadow-sm transition"
                   >
-                    <Trash2 className="w-3.5 h-3.5" /> Purge All Posts
+                    <Plus className="w-4 h-4" /> {isAddingCms ? "Close Editor" : "Draft New Content"}
                   </button>
-                )}
-                <button
-                  onClick={() => setIsAddingCms((prev) => !prev)}
-                  className="bg-emerald-800 text-white font-bold text-xs py-2 px-3 rounded-xl flex items-center gap-1 cursor-pointer hover:bg-emerald-700"
-                >
-                  <Plus className="w-3.5 h-3.5" /> Drafting tools
-                </button>
+                </div>
               </div>
-            </div>
 
-            {isAddingCms && (
-              <form onSubmit={handleCmsSubmit} className="bg-gray-50 border p-5 rounded-2xl text-xs space-y-3 text-left">
-                <span className="font-bold uppercase text-emerald-800 block">Rich Draft editor</span>
-                
-
-
-                <div className="space-y-1">
-                  <label className="font-bold">Publication headline title</label>
-                  <input
-                    type="text"
-                    required
-                    value={cmsTitle}
-                    onChange={(e) => setCmsTitle(e.target.value)}
-                    placeholder="Kenyan rosemary extracts advantage"
-                    className="w-full p-2.5 bg-white border rounded-lg focus:outline-none"
-                  />
+              {/* KPI Summary Cards */}
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
+                <div className="bg-gradient-to-br from-emerald-50/70 to-emerald-100/30 dark:from-emerald-950/40 dark:to-emerald-900/20 p-4 rounded-2xl border border-emerald-200/60 dark:border-emerald-800/40">
+                  <div className="text-[10px] font-bold text-emerald-800 dark:text-emerald-400 uppercase tracking-wider">Total Publications</div>
+                  <div className="text-2xl font-black text-emerald-950 dark:text-white mt-1">{cmsPosts.length}</div>
+                  <div className="text-[10px] text-gray-500 mt-1">Managed web entries</div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1">
-                    <label className="font-bold">Content category type</label>
-                    <select value={cmsType} onChange={(e) => setCmsType(e.target.value as any)} className="w-full p-2.5 bg-white border rounded-lg focus:outline-none">
-                      <option value="blog">Scientific Blog</option>
-                      <option value="policy">Terms and Policies</option>
-                      <option value="faq">Customer FAQ item</option>
-                      <option value="hero">Hero Slide</option>
-                      <option value="award">Award Showcase</option>
-                      <option value="promotion">Wellness Promotion Event</option>
-                      <option value="about">About Us Section</option>
-                      <option value="team">Our Team Section</option>
-                    </select>
+                <div className="bg-gradient-to-br from-blue-50/70 to-blue-100/30 dark:from-blue-950/40 dark:to-blue-900/20 p-4 rounded-2xl border border-blue-200/60 dark:border-blue-800/40">
+                  <div className="text-[10px] font-bold text-blue-800 dark:text-blue-400 uppercase tracking-wider">Live & Published</div>
+                  <div className="text-2xl font-black text-blue-950 dark:text-white mt-1">{publishedCount}</div>
+                  <div className="text-[10px] text-gray-500 mt-1">Visible on customer store</div>
+                </div>
+
+                <div className="bg-gradient-to-br from-amber-50/70 to-amber-100/30 dark:from-amber-950/40 dark:to-amber-900/20 p-4 rounded-2xl border border-amber-200/60 dark:border-amber-800/40">
+                  <div className="text-[10px] font-bold text-amber-800 dark:text-amber-400 uppercase tracking-wider">Draft Sandbox</div>
+                  <div className="text-2xl font-black text-amber-950 dark:text-white mt-1">{draftCount}</div>
+                  <div className="text-[10px] text-gray-500 mt-1">Unpublished articles</div>
+                </div>
+
+                <div className="bg-gradient-to-br from-purple-50/70 to-purple-100/30 dark:from-purple-950/40 dark:to-purple-900/20 p-4 rounded-2xl border border-purple-200/60 dark:border-purple-800/40">
+                  <div className="text-[10px] font-bold text-purple-800 dark:text-purple-400 uppercase tracking-wider">Media & Events</div>
+                  <div className="text-2xl font-black text-purple-950 dark:text-white mt-1">{heroEventCount}</div>
+                  <div className="text-[10px] text-gray-500 mt-1">Hero slides & workshops</div>
+                </div>
+              </div>
+
+              {/* Filtering and Search Controls */}
+              <div className="bg-gray-50/70 dark:bg-gray-800/40 p-4 rounded-2xl border border-gray-200/70 dark:border-gray-700/60 space-y-3">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+                  {/* Search input */}
+                  <div className="relative flex-1">
+                    <Search className="w-4 h-4 text-gray-400 absolute left-3 top-2.5" />
+                    <input
+                      type="text"
+                      placeholder="Search content by title, excerpt keywords, or type..."
+                      value={cmsSearchQuery}
+                      onChange={(e) => setCmsSearchQuery(e.target.value)}
+                      className="w-full pl-9 pr-8 py-2 text-xs bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-600 dark:text-white"
+                    />
+                    {cmsSearchQuery && (
+                      <button
+                        onClick={() => setCmsSearchQuery("")}
+                        className="absolute right-2.5 top-2.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 cursor-pointer"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    )}
                   </div>
 
-                  <div className="space-y-1">
-                    <label className="font-bold">Status state</label>
-                    <select value={cmsStatus} onChange={(e) => setCmsStatus(e.target.value as any)} className="w-full p-2.5 bg-white border rounded-lg focus:outline-none">
-                      <option value="draft">Save in Draft sandbox</option>
-                      <option value="published">Publish instantly on live servers</option>
+                  {/* Status Dropdown */}
+                  <div className="flex items-center gap-2">
+                    <select
+                      value={cmsStatusFilter}
+                      onChange={(e) => setCmsStatusFilter(e.target.value)}
+                      className="px-3 py-2 text-xs bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none dark:text-white font-medium cursor-pointer"
+                    >
+                      <option value="all">All Statuses</option>
+                      <option value="published">Published Only</option>
+                      <option value="draft">Drafts Only</option>
                     </select>
                   </div>
                 </div>
 
-                {cmsType === 'faq' && (
-                  <div className="space-y-1">
-                    <label className="font-bold">FAQ Category</label>
-                    <select value={faqCategory} onChange={(e) => setFaqCategory(e.target.value)} className="w-full p-2.5 bg-white border rounded-lg focus:outline-none">
-                      <option value="Getting Started">Getting Started</option>
-                      <option value="Products">Products</option>
-                      <option value="Orders">Orders</option>
-                      <option value="Payments">Payments</option>
-                      <option value="Shipping & Delivery">Shipping & Delivery</option>
-                      <option value="Returns & Refunds">Returns & Refunds</option>
-                      <option value="Discounts & Promotions">Discounts & Promotions</option>
-                    </select>
-                  </div>
-                )}
+                {/* Category Type Filter Pills */}
+                <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                  <span className="text-[10px] font-bold text-gray-400 uppercase mr-1">Section:</span>
+                  {[
+                    { id: "all", label: `All (${cmsPosts.length})` },
+                    { id: "blog", label: `Blogs (${cmsPosts.filter(p => p.type === "blog").length})` },
+                    { id: "faq", label: `FAQs (${cmsPosts.filter(p => p.type === "faq").length})` },
+                    { id: "policy", label: `Policies (${cmsPosts.filter(p => p.type === "policy").length})` },
+                    { id: "hero", label: `Hero Slides (${cmsPosts.filter(p => p.type === "hero").length})` },
+                    { id: "award", label: `Awards (${cmsPosts.filter(p => p.type === "award").length})` },
+                    { id: "promotion", label: `Events (${cmsPosts.filter(p => p.type === "promotion").length})` },
+                    { id: "about", label: `About Us (${cmsPosts.filter(p => p.type === "about").length})` },
+                    { id: "team", label: `Team (${cmsPosts.filter(p => p.type === "team").length})` }
+                  ].map(tab => (
+                    <button
+                      key={tab.id}
+                      onClick={() => setCmsTypeFilter(tab.id)}
+                      className={`px-2.5 py-1 rounded-full text-[11px] font-bold transition cursor-pointer ${
+                        cmsTypeFilter === tab.id
+                          ? "bg-emerald-800 text-white shadow-xs"
+                          : "bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-700 hover:bg-gray-100"
+                      }`}
+                    >
+                      {tab.label}
+                    </button>
+                  ))}
+                  <span className="ml-auto text-[11px] text-gray-400 font-medium">
+                    Showing {filteredCms.length} of {cmsPosts.length} entries
+                  </span>
+                </div>
+              </div>
 
-                {cmsType === 'promotion' && (
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3 p-4 border border-emerald-100 bg-emerald-50/30 rounded-xl mb-4">
-                    <div className="md:col-span-3 pb-2 border-b border-emerald-100 flex items-center justify-between">
-                        <h4 className="font-bold text-emerald-900">Event Configuration</h4>
-                    </div>
+              {/* DRAFTING / EDITING FORM */}
+              {isAddingCms && (
+                <form onSubmit={handleCmsSubmit} className="bg-white dark:bg-gray-900 border border-emerald-200 dark:border-emerald-800 p-6 rounded-2xl text-xs space-y-4 shadow-md animate-in slide-in-from-top duration-200">
+                  <div className="flex justify-between items-center pb-3 border-b border-gray-100 dark:border-gray-800">
+                    <span className="font-extrabold uppercase text-emerald-800 dark:text-emerald-400 text-sm flex items-center gap-2">
+                      <PenTool className="w-4 h-4" /> {editingCmsId ? "Update CMS Article Entry" : "Rich Draft Content Authoring"}
+                    </span>
+                    <button 
+                      type="button" 
+                      onClick={() => {
+                        setIsAddingCms(false);
+                        setEditingCmsId(null);
+                        setCmsTitle("");
+                        setCmsContent("");
+                        setCmsImageUrls([]);
+                      }} 
+                      className="text-gray-400 font-bold hover:text-gray-700 dark:hover:text-white p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="font-bold text-gray-700 dark:text-gray-300">Publication Headline / Title</label>
+                    <input
+                      type="text"
+                      required
+                      value={cmsTitle}
+                      onChange={(e) => setCmsTitle(e.target.value)}
+                      placeholder="e.g. The Science of Cold-Pressed Aloe Vera in Scalp Health"
+                      className="w-full p-2.5 bg-white dark:bg-gray-800 dark:border-gray-700 border rounded-lg focus:outline-none dark:text-white font-semibold"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <div className="space-y-1">
-                      <label className="font-bold text-xs">Event Date & Time</label>
-                      <input type="text" value={eventDate} onChange={(e) => setEventDate(e.target.value)} placeholder="e.g. Oct 15 - 18, 2026" className="w-full p-2.5 bg-white border rounded-lg focus:outline-none text-sm" />
+                      <label className="font-bold text-gray-700 dark:text-gray-300">Content Category Type</label>
+                      <select 
+                        value={cmsType} 
+                        onChange={(e) => setCmsType(e.target.value as any)} 
+                        className="w-full p-2.5 bg-white dark:bg-gray-800 dark:border-gray-700 border rounded-lg focus:outline-none dark:text-white font-medium cursor-pointer"
+                      >
+                        <option value="blog">Scientific Blog</option>
+                        <option value="policy">Terms & Policies</option>
+                        <option value="faq">Customer FAQ Item</option>
+                        <option value="hero">Hero Banner Slide</option>
+                        <option value="award">Award Showcase</option>
+                        <option value="promotion">Wellness Promotion / Event</option>
+                        <option value="about">About Us Section</option>
+                        <option value="team">Our Team Section</option>
+                      </select>
                     </div>
+
                     <div className="space-y-1">
-                      <label className="font-bold text-xs">Location</label>
-                      <input type="text" value={eventLocation} onChange={(e) => setEventLocation(e.target.value)} placeholder="e.g. Nairobi, KICC" className="w-full p-2.5 bg-white border rounded-lg focus:outline-none text-sm" />
+                      <label className="font-bold text-gray-700 dark:text-gray-300">Publishing Status</label>
+                      <select 
+                        value={cmsStatus} 
+                        onChange={(e) => setCmsStatus(e.target.value as any)} 
+                        className="w-full p-2.5 bg-white dark:bg-gray-800 dark:border-gray-700 border rounded-lg focus:outline-none dark:text-white font-medium cursor-pointer"
+                      >
+                        <option value="published">Publish Instantly on Live Store</option>
+                        <option value="draft">Save in Draft Sandbox</option>
+                      </select>
                     </div>
-                    <div className="space-y-1"></div>
-                    
-                    {/* Attendee Settings */}
-                    <div className="p-3 bg-white border rounded-lg shadow-sm space-y-3">
-                        <div className="flex items-center justify-between border-b pb-2">
-                            <label className="font-bold text-sm text-gray-900">Attendee Access</label>
-                            <input type="checkbox" checked={attendeeEnabled} onChange={(e) => setAttendeeEnabled(e.target.checked)} className="w-4 h-4 text-emerald-600 focus:ring-emerald-500 rounded" />
+                  </div>
+
+                  {cmsType === 'faq' && (
+                    <div className="space-y-1 bg-amber-50/50 dark:bg-amber-950/20 p-3 rounded-xl border border-amber-200 dark:border-amber-800">
+                      <label className="font-bold text-gray-700 dark:text-gray-300">FAQ Group Category</label>
+                      <select 
+                        value={faqCategory} 
+                        onChange={(e) => setFaqCategory(e.target.value)} 
+                        className="w-full p-2.5 bg-white dark:bg-gray-800 dark:border-gray-700 border rounded-lg focus:outline-none dark:text-white font-medium cursor-pointer"
+                      >
+                        <option value="Getting Started">Getting Started</option>
+                        <option value="Products">Products</option>
+                        <option value="Orders">Orders</option>
+                        <option value="Payments">Payments</option>
+                        <option value="Shipping & Delivery">Shipping & Delivery</option>
+                        <option value="Returns & Refunds">Returns & Refunds</option>
+                        <option value="Discounts & Promotions">Discounts & Promotions</option>
+                      </select>
+                    </div>
+                  )}
+
+                  {cmsType === 'promotion' && (
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3 p-4 border border-emerald-200 dark:border-emerald-800 bg-emerald-50/30 dark:bg-emerald-950/20 rounded-xl mb-4">
+                      <div className="md:col-span-3 pb-2 border-b border-emerald-100 dark:border-emerald-800/80 flex items-center justify-between">
+                        <h4 className="font-bold text-emerald-900 dark:text-emerald-300">Event & Registration Settings</h4>
+                      </div>
+                      <div className="space-y-1">
+                        <label className="font-bold text-xs text-gray-700 dark:text-gray-300">Event Date & Time</label>
+                        <input type="text" value={eventDate} onChange={(e) => setEventDate(e.target.value)} placeholder="e.g. Oct 15 - 18, 2026" className="w-full p-2.5 bg-white dark:bg-gray-800 dark:border-gray-700 border rounded-lg focus:outline-none text-sm dark:text-white" />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="font-bold text-xs text-gray-700 dark:text-gray-300">Location</label>
+                        <input type="text" value={eventLocation} onChange={(e) => setEventLocation(e.target.value)} placeholder="e.g. Nairobi, KICC" className="w-full p-2.5 bg-white dark:bg-gray-800 dark:border-gray-700 border rounded-lg focus:outline-none text-sm dark:text-white" />
+                      </div>
+                      <div className="space-y-1"></div>
+                      
+                      {/* Attendee Settings */}
+                      <div className="p-3 bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-lg shadow-xs space-y-3">
+                        <div className="flex items-center justify-between border-b dark:border-gray-700 pb-2">
+                          <label className="font-bold text-sm text-gray-900 dark:text-white">Attendee Access</label>
+                          <input type="checkbox" checked={attendeeEnabled} onChange={(e) => setAttendeeEnabled(e.target.checked)} className="w-4 h-4 text-emerald-600 focus:ring-emerald-500 rounded" />
                         </div>
                         <div className="space-y-1">
                           <label className="font-bold text-xs text-gray-500">Ticket Price (0 for Free)</label>
-                          <input type="number" value={eventPrice} onChange={(e) => setEventPrice(e.target.value)} disabled={!attendeeEnabled} className="w-full p-2 bg-gray-50 border rounded-lg focus:outline-none text-sm disabled:opacity-50" />
+                          <input type="number" value={eventPrice} onChange={(e) => setEventPrice(e.target.value)} disabled={!attendeeEnabled} className="w-full p-2 bg-gray-50 dark:bg-gray-900 border dark:border-gray-700 rounded-lg focus:outline-none text-sm disabled:opacity-50 dark:text-white" />
                         </div>
                         <div className="space-y-1">
                           <label className="font-bold text-xs text-gray-500">Attendee Capacity</label>
-                          <input type="number" value={eventCapacity} onChange={(e) => setEventCapacity(e.target.value)} disabled={!attendeeEnabled} className="w-full p-2 bg-gray-50 border rounded-lg focus:outline-none text-sm disabled:opacity-50" />
+                          <input type="number" value={eventCapacity} onChange={(e) => setEventCapacity(e.target.value)} disabled={!attendeeEnabled} className="w-full p-2 bg-gray-50 dark:bg-gray-900 border dark:border-gray-700 rounded-lg focus:outline-none text-sm disabled:opacity-50 dark:text-white" />
                         </div>
-                    </div>
+                      </div>
 
-                    {/* Vendor Settings */}
-                    <div className="p-3 bg-white border rounded-lg shadow-sm space-y-3">
-                        <div className="flex items-center justify-between border-b pb-2">
-                            <label className="font-bold text-sm text-gray-900">Vendor Access</label>
-                            <input type="checkbox" checked={vendorEnabled} onChange={(e) => setVendorEnabled(e.target.checked)} className="w-4 h-4 text-emerald-600 focus:ring-emerald-500 rounded" />
+                      {/* Vendor Settings */}
+                      <div className="p-3 bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-lg shadow-xs space-y-3">
+                        <div className="flex items-center justify-between border-b dark:border-gray-700 pb-2">
+                          <label className="font-bold text-sm text-gray-900 dark:text-white">Vendor Access</label>
+                          <input type="checkbox" checked={vendorEnabled} onChange={(e) => setVendorEnabled(e.target.checked)} className="w-4 h-4 text-emerald-600 focus:ring-emerald-500 rounded" />
                         </div>
                         <div className="space-y-1">
-                          <label className="font-bold text-xs text-gray-500">Vendor Fee</label>
-                          <input type="number" value={vendorPrice} onChange={(e) => setVendorPrice(e.target.value)} disabled={!vendorEnabled} className="w-full p-2 bg-gray-50 border rounded-lg focus:outline-none text-sm disabled:opacity-50" />
+                          <label className="font-bold text-xs text-gray-500">Vendor Fee (KES)</label>
+                          <input type="number" value={vendorPrice} onChange={(e) => setVendorPrice(e.target.value)} disabled={!vendorEnabled} className="w-full p-2 bg-gray-50 dark:bg-gray-900 border dark:border-gray-700 rounded-lg focus:outline-none text-sm disabled:opacity-50 dark:text-white" />
                         </div>
                         <div className="space-y-1">
                           <label className="font-bold text-xs text-gray-500">Vendor Slots</label>
-                          <input type="number" value={vendorCapacity} onChange={(e) => setVendorCapacity(e.target.value)} disabled={!vendorEnabled} className="w-full p-2 bg-gray-50 border rounded-lg focus:outline-none text-sm disabled:opacity-50" />
+                          <input type="number" value={vendorCapacity} onChange={(e) => setVendorCapacity(e.target.value)} disabled={!vendorEnabled} className="w-full p-2 bg-gray-50 dark:bg-gray-900 border dark:border-gray-700 rounded-lg focus:outline-none text-sm disabled:opacity-50 dark:text-white" />
                         </div>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="space-y-1">
+                    <label className="font-bold text-gray-700 dark:text-gray-300">Attached Media {cmsType !== 'hero' ? "(1 Image Max)" : "(Multiple Allowed for Carousel Slider)"}</label>
+                    <MediaUploader urls={cmsImageUrls} onChange={setCmsImageUrls} multiple={cmsType === 'hero'} maxFiles={cmsType === 'hero' ? 10 : 1} bucket="images" category={cmsType} />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="font-bold text-gray-700 dark:text-gray-300">Detailed Article / Plaintext Content</label>
+                    <textarea
+                      required
+                      rows={5}
+                      value={cmsContent}
+                      onChange={(e) => setCmsContent(e.target.value)}
+                      className="w-full p-3 bg-white dark:bg-gray-800 dark:border-gray-700 border rounded-xl focus:outline-none dark:text-white leading-relaxed"
+                      placeholder="Write natural guidelines, scientific breakdown, policy rules, or about description here..."
+                    ></textarea>
+                  </div>
+
+                  <button type="submit" disabled={isUploadingCms} className="bg-emerald-800 hover:bg-emerald-700 text-white font-extrabold p-3.5 rounded-xl w-full uppercase cursor-pointer disabled:opacity-50 transition shadow-sm">
+                    {isUploadingCms ? "Uploading Media & Saving..." : editingCmsId ? "Update Publication Entry" : "Publish CMS Entry"}
+                  </button>
+                </form>
+              )}
+
+              {/* CARD GRID OF CMS ENTRIES */}
+              {filteredCms.length === 0 ? (
+                <div className="bg-white dark:bg-gray-900 border border-gray-200/80 dark:border-gray-800 rounded-2xl p-12 text-center text-gray-500 dark:text-gray-400 shadow-xs">
+                  <div className="flex flex-col items-center justify-center space-y-3 max-w-sm mx-auto">
+                    <div className="w-12 h-12 rounded-full bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 flex items-center justify-center">
+                      <PenTool className="w-6 h-6" />
+                    </div>
+                    <div className="font-extrabold text-sm text-gray-900 dark:text-white">
+                      {cmsPosts.length === 0 ? "No CMS entries found" : "No publications matched your filter"}
+                    </div>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
+                      {cmsPosts.length === 0
+                        ? "Get started by creating your first scientific article, customer FAQ, or promotional event."
+                        : "Try adjusting your search query or selecting 'All' in the section filter pills above."}
+                    </p>
+                    <div className="flex gap-2 pt-1">
+                      {cmsSearchQuery || cmsTypeFilter !== "all" || cmsStatusFilter !== "all" ? (
+                        <button
+                          onClick={() => {
+                            setCmsSearchQuery("");
+                            setCmsTypeFilter("all");
+                            setCmsStatusFilter("all");
+                          }}
+                          className="px-3 py-1.5 rounded-xl text-xs font-bold border border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-200 transition"
+                        >
+                          Reset Filters
+                        </button>
+                      ) : null}
+                      <button
+                        onClick={() => {
+                          setIsAddingCms(true);
+                          setEditingCmsId(null);
+                          setCmsTitle("");
+                          setCmsContent("");
+                          setCmsImageUrls([]);
+                        }}
+                        className="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-emerald-800 hover:bg-emerald-700 text-white shadow-xs transition"
+                      >
+                        + Create First Article
+                      </button>
                     </div>
                   </div>
-                )}
-
-                <div className="space-y-1">
-                  <label className="font-bold">Image Upload {cmsType !== 'hero' ? "(1 Image Max)" : "(Multiple Allowed)"}</label>
-                  <MediaUploader urls={cmsImageUrls} onChange={setCmsImageUrls} multiple={cmsType === 'hero'} maxFiles={cmsType === 'hero' ? 10 : 1} bucket="images" category={cmsType} />
                 </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pt-1">
+                  {filteredCms.map((post) => {
+                    const primaryImg = post.imageUrl ? post.imageUrl.split(',')[0].trim() : null;
 
-                <div className="space-y-1">
-                  <label className="font-bold">Detailed HTML / Plaintext Content</label>
-                  <textarea
-                    required
-                    rows={4}
-                    value={cmsContent}
-                    onChange={(e) => setCmsContent(e.target.value)}
-                    className="w-full p-2.5 bg-white border rounded-lg focus:outline-none"
-                    placeholder="Provide natural guidelines content here..."
-                  ></textarea>
+                    return (
+                      <div key={post.id} className="bg-white dark:bg-gray-900 border border-gray-200/80 dark:border-gray-800 p-4 rounded-2xl text-xs flex flex-col justify-between shadow-2xs hover:shadow-md transition duration-200 group">
+                        <div className="space-y-3">
+                          {/* Image thumbnail if present */}
+                          {primaryImg ? (
+                            <div className="relative w-full h-36 rounded-xl overflow-hidden bg-gray-100 dark:bg-gray-800 border border-gray-200/60 dark:border-gray-700">
+                              <img 
+                                src={primaryImg} 
+                                alt={post.title || "CMS Media"} 
+                                className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
+                                onError={(e) => {
+                                  (e.target as HTMLElement).style.display = 'none';
+                                }}
+                              />
+                              <div className="absolute top-2 right-2 flex gap-1">
+                                <span className={`text-[9px] font-extrabold px-2 py-0.5 rounded-full shadow-xs ${
+                                  post.status === "published" 
+                                    ? "bg-emerald-600 text-white" 
+                                    : "bg-gray-800/80 text-white backdrop-blur-xs"
+                                }`}>
+                                  {post.status}
+                                </span>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="flex items-center justify-between">
+                              <span className={`text-[10px] font-mono uppercase px-2 py-0.5 rounded-full font-bold border ${getTypeBadgeStyle(post.type)}`}>
+                                {post.type}
+                              </span>
+                              <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${
+                                post.status === "published" 
+                                  ? "bg-emerald-50 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300" 
+                                  : "bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400"
+                              }`}>
+                                {post.status}
+                              </span>
+                            </div>
+                          )}
+
+                          {primaryImg && (
+                            <div className="flex items-center gap-1.5">
+                              <span className={`text-[10px] font-mono uppercase px-2 py-0.5 rounded-full font-bold border ${getTypeBadgeStyle(post.type)}`}>
+                                {post.type}
+                              </span>
+                            </div>
+                          )}
+
+                          <div>
+                            <h4 className="font-extrabold text-gray-950 dark:text-white text-sm line-clamp-2 leading-snug group-hover:text-emerald-800 dark:group-hover:text-emerald-400 transition">
+                              {post.title || "Untitled Post"}
+                            </h4>
+                            <p className="text-gray-500 dark:text-gray-400 line-clamp-3 leading-relaxed mt-1.5">
+                              {post.content || "No excerpt text provided."}
+                            </p>
+                          </div>
+
+                          {/* Extra Context tags */}
+                          {post.type === 'promotion' && post.seoTitle && (
+                            <div className="bg-emerald-50/80 dark:bg-emerald-950/40 p-2 rounded-lg text-[10px] text-emerald-900 dark:text-emerald-300 font-semibold space-y-0.5 border border-emerald-100 dark:border-emerald-900">
+                              <div>📅 Date: {post.seoTitle}</div>
+                              {post.seoDesc && <div>📍 Location: {post.seoDesc}</div>}
+                            </div>
+                          )}
+
+                          {post.type === 'faq' && post.seoTitle && (
+                            <div className="text-[10px] text-amber-800 dark:text-amber-300 font-bold">
+                              🏷️ FAQ Category: {post.seoTitle}
+                            </div>
+                          )}
+                        </div>
+                        
+                        <div className="pt-3 border-t border-gray-100 dark:border-gray-800 mt-4">
+                          <div className="flex items-center justify-between text-[10px] text-gray-400 mb-2">
+                            <span>{post.author || "Admin"}</span>
+                            <span>{post.createdAt ? String(post.createdAt).split('T')[0] : "Recent"}</span>
+                          </div>
+
+                          <div className="flex gap-1.5">
+                            <button 
+                              type="button" 
+                              onClick={() => setPreviewCmsPost(post)} 
+                              className="flex-1 bg-gray-50 hover:bg-gray-100 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 py-1.5 rounded-lg text-[11px] font-bold transition flex items-center justify-center gap-1 cursor-pointer"
+                            >
+                              <Eye className="w-3 h-3" /> Preview
+                            </button>
+                            <button 
+                              type="button" 
+                              onClick={() => handleEditCMS(post)} 
+                              className="flex-1 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/50 dark:hover:bg-emerald-900/60 text-emerald-800 dark:text-emerald-300 py-1.5 rounded-lg text-[11px] font-bold transition flex items-center justify-center gap-1 cursor-pointer"
+                            >
+                              <PenTool className="w-3 h-3" /> Edit
+                            </button>
+                            <button 
+                              type="button" 
+                              onClick={() => handleDeleteCMS(post.id)} 
+                              className="bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/50 dark:hover:bg-rose-900/60 text-rose-700 dark:text-rose-300 p-1.5 rounded-lg transition flex items-center justify-center cursor-pointer" 
+                              title="Delete Post"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
+              )}
 
-                <button type="submit" disabled={isUploadingCms} className="bg-emerald-800 hover:bg-emerald-800 text-white font-bold p-3 rounded-xl w-full uppercase cursor-pointer disabled:opacity-50">
-                  {isUploadingCms ? "Uploading Media & Saving..." : "Submit CMS Entry"}
-                </button>
-              </form>
-            )}
+              {/* ARTICLE PREVIEW MODAL */}
+              {previewCmsPost && (
+                <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+                  <div className="bg-white dark:bg-gray-900 rounded-3xl max-w-2xl w-full max-h-[85vh] overflow-y-auto border border-gray-200 dark:border-gray-800 shadow-2xl p-6 md:p-8 space-y-4 text-left animate-in zoom-in-95 duration-150">
+                    <div className="flex items-center justify-between pb-3 border-b border-gray-100 dark:border-gray-800">
+                      <div className="flex items-center gap-2">
+                        <span className={`text-[10px] font-mono uppercase px-2 py-0.5 rounded-full font-bold border ${getTypeBadgeStyle(previewCmsPost.type)}`}>
+                          {previewCmsPost.type}
+                        </span>
+                        <span className="text-[10px] font-bold text-gray-400">
+                          Status: {previewCmsPost.status}
+                        </span>
+                      </div>
+                      <button
+                        onClick={() => setPreviewCmsPost(null)}
+                        className="p-1 text-gray-400 hover:text-gray-900 dark:hover:text-white rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer"
+                      >
+                        <X className="w-5 h-5" />
+                      </button>
+                    </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
-              {cmsPosts.map((post) => (
-                <div key={post.id} className="bg-zinc-50/40 p-4 border rounded-xl text-xs space-y-2 relative">
-                  <span className={`absolute top-2 right-2 text-[9px] font-bold px-1.5 py-0.5 rounded ${
-                    post.status === "published" ? "bg-emerald-50 text-emerald-800" : "bg-gray-100 text-gray-500"
-                  }`}>
-                    {post.status}
-                  </span>
-                  <span className="text-[10px] font-mono uppercase bg-emerald-50 text-emerald-800 px-1.5 py-0.5 rounded font-bold">
-                    {post.type}
-                  </span>
-                  <h4 className="font-bold text-gray-900 mt-1">{post.title}</h4>
-                  <p className="text-gray-500 line-clamp-3 leading-relaxed leading-normal">{post.content}</p>
-                  
-                  <div className="flex gap-2 pt-2 border-t mt-3 border-gray-100">
-                    <button onClick={() => handleEditCMS(post)} className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 py-1.5 rounded text-[10px] font-bold transition">Edit</button>
-                    <button onClick={() => handleDeleteCMS(post.id)} className="flex-1 bg-red-50 hover:bg-red-100 text-red-700 py-1.5 rounded text-[10px] font-bold transition">Delete</button>
+                    {previewCmsPost.imageUrl && (
+                      <div className="w-full h-56 rounded-2xl overflow-hidden bg-gray-100 dark:bg-gray-800">
+                        <img 
+                          src={previewCmsPost.imageUrl.split(',')[0]} 
+                          alt={previewCmsPost.title} 
+                          className="w-full h-full object-cover" 
+                        />
+                      </div>
+                    )}
+
+                    <div>
+                      <h2 className="text-2xl font-black text-gray-950 dark:text-white">{previewCmsPost.title}</h2>
+                      <div className="text-xs text-gray-400 mt-1">
+                        By {previewCmsPost.author || "Admin"} • {previewCmsPost.createdAt ? String(previewCmsPost.createdAt).split('T')[0] : "Published"}
+                      </div>
+                    </div>
+
+                    <div className="prose dark:prose-invert max-w-none text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap leading-relaxed">
+                      {previewCmsPost.content}
+                    </div>
+
+                    <div className="pt-4 border-t border-gray-100 dark:border-gray-800 flex justify-end">
+                      <button
+                        onClick={() => setPreviewCmsPost(null)}
+                        className="px-4 py-2 bg-emerald-800 text-white font-bold text-xs rounded-xl hover:bg-emerald-700 transition"
+                      >
+                        Close Preview
+                      </button>
+                    </div>
                   </div>
                 </div>
-              ))}
+              )}
             </div>
-          </div>
-        )}
+          );
+        })()}
 
         {/* TAB 5.5: USER MANAGEMENT */}
         {activeModule === "users" && (

@@ -1,5 +1,6 @@
 import { IncomingMessage, ServerResponse } from 'http';
 import { applyCors, checkRateLimit, maskPhoneNumber } from '../_utils/security.js';
+import { createClient } from '@supabase/supabase-js';
 import { 
   getDarajaBaseUrl, 
   validateAndFormatKenyanPhone, 
@@ -46,7 +47,7 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
 
   try {
     const body = await getRequestBody(req);
-    const { phone, amount, transactionType, orderId, accountRef } = body;
+    const { phone, amount, transactionType, orderId, accountRef, promoCode, items, deliveryFee } = body;
 
     // Strict Validation: Phone Number (Kenyan standard MSISDN)
     let formattedPhone: string;
@@ -68,6 +69,38 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
       res.setHeader('Content-Type', 'application/json');
       res.end(JSON.stringify({ error: amtErr.message }));
       return;
+    }
+
+    // Server-side promo code validation & total recomputation (prevent client-side discount manipulation)
+    if (promoCode && items && Array.isArray(items)) {
+      try {
+        const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+        const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+        if (supabaseUrl && supabaseServiceKey) {
+          const supabase = createClient(supabaseUrl, supabaseServiceKey);
+          const { data: promoData } = await supabase
+            .from('promos')
+            .select('discount_percent, is_active')
+            .eq('code', String(promoCode).toUpperCase().trim())
+            .eq('is_active', true)
+            .maybeSingle();
+
+          const itemsSubtotal = items.reduce((sum: number, it: any) => sum + (Number(it.price) || 0) * (Number(it.quantity) || 1), 0);
+          const discount = promoData ? Math.floor(itemsSubtotal * (promoData.discount_percent / 100)) : 0;
+          const fee = Number(deliveryFee) || 0;
+          const expectedTotal = itemsSubtotal - discount + fee;
+
+          if (Math.abs(expectedTotal - validAmount) > 1) {
+            console.warn(`[Promo Fraud] Client sent KES ${validAmount}, server computed KES ${expectedTotal}. Promo: ${promoCode}`);
+            res.statusCode = 400;
+            res.setHeader('Content-Type', 'application/json');
+            res.end(JSON.stringify({ error: 'Order total mismatch. Please refresh and try again.' }));
+            return;
+          }
+        }
+      } catch (promoErr: any) {
+        console.warn('Promo validation warning:', promoErr.message);
+      }
     }
 
     // 1. Strictly load secrets from environment variables (Checklist #1)

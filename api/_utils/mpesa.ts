@@ -4,6 +4,10 @@ import { IncomingMessage } from 'http';
  * Safaricom Daraja API Helpers & Validators for Production & Sandbox
  */
 
+// In-memory OAuth Token Cache with safety buffer
+let cachedOAuthToken: string | null = null;
+let tokenExpiresAt: number = 0;
+
 /**
  * Resolves the Daraja Base URL based on environment setting
  */
@@ -80,9 +84,15 @@ export function sanitizeTransactionDesc(rawDesc: string | undefined | null): str
 }
 
 /**
- * Generate M-Pesa OAuth Access Token from Safaricom Daraja
+ * Generate & Cache M-Pesa OAuth Access Token from Safaricom Daraja.
+ * Tokens are cached in memory and automatically refreshed 60 seconds before expiry.
  */
 export async function getMpesaOAuthToken(consumerKey: string, consumerSecret: string): Promise<string> {
+  // Return cached token if still valid (with 60-second safety window)
+  if (cachedOAuthToken && Date.now() < tokenExpiresAt - 60000) {
+    return cachedOAuthToken;
+  }
+
   const auth = Buffer.from(`${consumerKey}:${consumerSecret}`).toString('base64');
   const baseUrl = getDarajaBaseUrl();
 
@@ -102,7 +112,11 @@ export async function getMpesaOAuthToken(consumerKey: string, consumerSecret: st
     throw new Error(`Invalid OAuth response: ${JSON.stringify(data)}`);
   }
 
-  return data.access_token;
+  cachedOAuthToken = data.access_token;
+  const expiresInSeconds = Number(data.expires_in) || 3599;
+  tokenExpiresAt = Date.now() + expiresInSeconds * 1000;
+
+  return cachedOAuthToken;
 }
 
 /**

@@ -1,6 +1,6 @@
 import { IncomingMessage, ServerResponse } from 'http';
 import { createClient } from '@supabase/supabase-js';
-import { applyCors, maskPhoneNumber, verifyWebhookSignature } from '../_utils/security.js';
+import { applyCors, maskPhoneNumber, verifyWebhookSignature, isSafaricomIP } from '../_utils/security.js';
 
 async function getRawRequestBody(req: IncomingMessage): Promise<{ raw: string; json: any }> {
   if ((req as any).body) {
@@ -67,6 +67,16 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
     res.statusCode = 405;
     res.setHeader('Content-Type', 'application/json');
     res.end(JSON.stringify({ error: 'Method not allowed' }));
+    return;
+  }
+
+  // Verify request originates from Safaricom IP range (Production Security)
+  if (!isSafaricomIP(req)) {
+    const sourceIP = req.headers['x-forwarded-for'] || req.socket?.remoteAddress || 'unknown';
+    console.warn(`[SECURITY] M-Pesa callback rejected from non-Safaricom IP: ${sourceIP}`);
+    res.statusCode = 403;
+    res.setHeader('Content-Type', 'application/json');
+    res.end(JSON.stringify({ ResultCode: 1, ResultDesc: 'Forbidden: IP not whitelisted' }));
     return;
   }
 

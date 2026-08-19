@@ -10,6 +10,10 @@ export interface ProductVariant {
 
 export interface Product {
   id: string;
+  sku?: string;
+  barcode?: string;
+  batchNumber?: string;
+  expiryDate?: string;
   name: string;
   description: string;
   price: number;
@@ -30,6 +34,21 @@ export interface Product {
   specifications?: string[];
 }
 
+export interface StockMovement {
+  id: string;
+  productId: string;
+  sku?: string;
+  movementType: "restock" | "order_sale" | "return" | "adjustment";
+  quantityDelta: number;
+  stockBefore?: number;
+  stockAfter?: number;
+  batchNumber?: string;
+  referenceId?: string;
+  notes?: string;
+  performedBy?: string;
+  createdAt: string;
+}
+
 export interface ProductReview {
   id: string;
   author: string;
@@ -45,6 +64,17 @@ export interface CartItem {
   selectedVariantObj?: ProductVariant;
 }
 
+export interface OrderItem {
+  productId: string;
+  sku?: string;
+  batchNumber?: string;
+  productName: string;
+  quantity: number;
+  price: number;
+  costPrice?: number;
+  selectedVariant?: string;
+}
+
 export interface Order {
   id: string;
   customerName: string;
@@ -56,14 +86,7 @@ export interface Order {
   building?: string;
   houseNumber?: string;
   deliveryNotes?: string;
-  items: {
-    productId: string;
-    productName: string;
-    quantity: number;
-    price: number;
-    costPrice?: number;
-    selectedVariant?: string;
-  }[];
+  items: OrderItem[];
   subtotal: number;
   deliveryFee: number;
   total: number;

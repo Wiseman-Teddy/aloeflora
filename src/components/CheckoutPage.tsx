@@ -103,29 +103,6 @@ export default function CheckoutPage({ onAddOrder, promos }: CheckoutPageProps) 
         setStkStatus("success");
         toast.success(`Payment Received! M-Pesa Receipt: ${data.mpesa_receipt || 'Confirmed'}`);
         localStorage.removeItem("aloeflora_active_stk");
-        
-        // Send Order Confirmation Email
-        if (checkoutEmail) {
-          fetch('/api/email/confirm', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              type: 'order',
-              email: checkoutEmail,
-              name: checkoutName || 'Valued Customer',
-              orderId: orderId,
-              mpesaReceipt: data.mpesa_receipt || 'Confirmed',
-              amount: total,
-              deliveryAddress: `${checkoutCounty}, ${checkoutSubCounty}${checkoutEstate ? `, ${checkoutEstate}` : ''}`,
-              items: cart.map(i => ({
-                productName: i.product.name,
-                quantity: i.quantity,
-                selectedVariant: i.selectedVariant,
-                price: i.selectedVariantObj?.price || i.product.price
-              }))
-            })
-          }).catch(err => console.error("Order confirmation email error:", err));
-        }
 
         // Clear cart
         if (shop?.clearCart) {
@@ -158,29 +135,6 @@ export default function CheckoutPage({ onAddOrder, promos }: CheckoutPageProps) 
           setStkStatus("success");
           toast.success("Payment confirmed from M-Pesa Gateway!");
           localStorage.removeItem("aloeflora_active_stk");
-
-          // Send Order Confirmation Email
-          if (checkoutEmail) {
-            fetch('/api/email/confirm', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                type: 'order',
-                email: checkoutEmail,
-                name: checkoutName || 'Valued Customer',
-                orderId: orderId,
-                mpesaReceipt: queryRes.details?.MpesaReceiptNumber || 'Confirmed',
-                amount: total,
-                deliveryAddress: `${checkoutCounty}, ${checkoutSubCounty}${checkoutEstate ? `, ${checkoutEstate}` : ''}`,
-                items: cart.map(i => ({
-                  productName: i.product.name,
-                  quantity: i.quantity,
-                  selectedVariant: i.selectedVariant,
-                  price: i.selectedVariantObj?.price || i.product.price
-                }))
-              })
-            }).catch(err => console.error("Order confirmation email error:", err));
-          }
 
           if (shop?.clearCart) shop.clearCart();
           setTimeout(() => {
@@ -241,6 +195,8 @@ export default function CheckoutPage({ onAddOrder, promos }: CheckoutPageProps) 
       createdAt: new Date().toISOString(),
       items: cart.map(item => ({
         productId: item.product.id,
+        sku: item.selectedVariantObj?.sku || item.product.sku,
+        batchNumber: item.product.batchNumber,
         productName: item.product.name,
         quantity: item.quantity,
         price: item.selectedVariantObj?.price || item.product.price,
@@ -309,7 +265,15 @@ export default function CheckoutPage({ onAddOrder, promos }: CheckoutPageProps) 
       const res = await fetch("/api/mpesa/stkpush", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone: validatedPhone, amount: total, orderId, accountRef }),
+        body: JSON.stringify({
+          phone: validatedPhone,
+          amount: total,
+          orderId,
+          accountRef,
+          promoCode: activePromo?.code || null,
+          items: cart.map(i => ({ price: i.selectedVariantObj?.price || i.product.price, quantity: i.quantity })),
+          deliveryFee: deliveryFee
+        }),
         signal: controller.signal
       });
       clearTimeout(timeoutId);

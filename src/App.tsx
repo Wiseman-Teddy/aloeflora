@@ -167,35 +167,14 @@ const DEFAULT_PROMOS: Promo[] = [
     }
   }, []);
 
-  // Sync state variables to LocalStorage on updates
+  // Sync essential data to LocalStorage (products & CMS for faster initial load only)
   useEffect(() => {
     localStorage.setItem("aloeflora_db_products", JSON.stringify(products));
   }, [products]);
 
   useEffect(() => {
-    localStorage.setItem("aloeflora_db_orders", JSON.stringify(orders));
-  }, [orders]);
-
-  useEffect(() => {
-    localStorage.setItem("aloeflora_db_tickets", JSON.stringify(tickets));
-  }, [tickets]);
-
-  useEffect(() => {
-    localStorage.setItem("aloeflora_db_campaigns", JSON.stringify(campaigns));
-  }, [campaigns]);
-
-  useEffect(() => {
-    localStorage.setItem("aloeflora_db_events", JSON.stringify(events));
-  }, [events]);
-
-  useEffect(() => {
     localStorage.setItem("aloeflora_db_cms", JSON.stringify(cmsPosts));
   }, [cmsPosts]);
-
-
-  useEffect(() => {
-    localStorage.setItem("aloeflora_db_anomalies", JSON.stringify(anomalies));
-  }, [anomalies]);
 
   useEffect(() => {
     localStorage.setItem("aloeflora_db_store_settings", JSON.stringify(storeSettings));
@@ -204,6 +183,10 @@ const DEFAULT_PROMOS: Promo[] = [
   useEffect(() => {
     localStorage.setItem("aloeflora_db_promos", JSON.stringify(promos));
   }, [promos]);
+
+  useEffect(() => {
+    localStorage.setItem("aloeflora_db_events", JSON.stringify(events));
+  }, [events]);
 
   // Apply visual theme tags
   useEffect(() => {
@@ -253,10 +236,29 @@ const DEFAULT_PROMOS: Promo[] = [
         if (prodRes.status === 'fulfilled' && prodRes.value.data && !prodRes.value.error) {
           const prodData = prodRes.value.data;
           const mappedProds: Product[] = prodData.map((p: any) => ({
-            id: p.id, name: p.name, description: p.description, price: p.price, costPrice: p.cost_price,
-            category: p.category as any, subCategory: p.sub_category, unitSize: p.unit_size || undefined, imageUrl: p.image_url, stock: p.stock,
-            safetyStock: p.safety_stock, reorderLevel: p.reorder_level, rating: p.rating, reviewsCount: p.reviews_count,
-            variants: p.variants || [], features: p.features || [], mediaUrls: p.media_urls || [], specifications: p.specifications || [], reviews: []
+            id: p.id,
+            sku: p.sku || undefined,
+            barcode: p.barcode || undefined,
+            batchNumber: p.batch_number || undefined,
+            expiryDate: p.expiry_date || undefined,
+            name: p.name,
+            description: p.description,
+            price: p.price,
+            costPrice: p.cost_price,
+            category: p.category as any,
+            subCategory: p.sub_category,
+            unitSize: p.unit_size || undefined,
+            imageUrl: p.image_url,
+            stock: p.stock,
+            safetyStock: p.safety_stock,
+            reorderLevel: p.reorder_level,
+            rating: p.rating,
+            reviewsCount: p.reviews_count,
+            variants: p.variants || [],
+            features: p.features || [],
+            mediaUrls: p.media_urls || [],
+            specifications: p.specifications || [],
+            reviews: []
           }));
           setProducts(mappedProds);
         }
@@ -333,17 +335,94 @@ const DEFAULT_PROMOS: Promo[] = [
 
       } catch (err) { console.warn("Supabase not active", err); }
     };
+
+    // Per-table fetch functions for targeted realtime updates (avoids refetching all tables on every change)
+    const fetchOrders = async () => {
+      try {
+        const { data, error } = await supabase.from('orders').select('*').order('created_at', { ascending: false });
+        if (data && !error) {
+          const mapped: Order[] = data.map((d: any) => ({
+            id: d.id, customerName: d.customer_name, phone: d.phone, email: d.email || "", county: d.county || "", subCounty: d.sub_county || "", estate: d.estate || "", building: d.building || "", houseNumber: d.house_number || "", deliveryNotes: d.delivery_notes || "", items: d.items || [], subtotal: d.subtotal || d.total_amount, deliveryFee: d.delivery_fee || 0, total: d.total_amount, paymentMethod: d.payment_method || "mpesa_stk", paymentStatus: d.payment_status || d.status, deliveryStatus: d.delivery_status || "pending", mpesaReceipt: d.mpesa_receipt || "", createdAt: d.created_at
+          }));
+          setOrders(mapped);
+        }
+      } catch (err) { console.warn("Orders fetch error", err); }
+    };
+
+    const fetchProducts = async () => {
+      try {
+        const { data, error } = await supabase.from('products').select('*');
+        if (data && !error) {
+          const mappedProds: Product[] = data.map((p: any) => ({
+            id: p.id, sku: p.sku || undefined, barcode: p.barcode || undefined, batchNumber: p.batch_number || undefined, expiryDate: p.expiry_date || undefined, name: p.name, description: p.description, price: p.price, costPrice: p.cost_price, category: p.category as any, subCategory: p.sub_category, unitSize: p.unit_size || undefined, imageUrl: p.image_url, stock: p.stock, safetyStock: p.safety_stock, reorderLevel: p.reorder_level, rating: p.rating, reviewsCount: p.reviews_count, variants: p.variants || [], features: p.features || [], mediaUrls: p.media_urls || [], specifications: p.specifications || [], reviews: []
+          }));
+          setProducts(mappedProds);
+        }
+      } catch (err) { console.warn("Products fetch error", err); }
+    };
+
+    const fetchCMS = async () => {
+      try {
+        const { data, error } = await supabase.from('cms_posts').select('*').order('created_at', { ascending: false });
+        if (data && !error) {
+          const mappedCms: CMSPost[] = data.map((c: any) => ({ id: c.id, title: c.title, content: c.content, type: c.type, status: c.status, author: c.author, imageUrl: c.image_url, createdAt: c.created_at, seoTitle: c.seo_title, seoDesc: c.seo_desc, seoKeywords: c.seo_keywords }));
+          setCmsPosts(mappedCms);
+        }
+      } catch (err) { console.warn("CMS fetch error", err); }
+    };
+
+    const fetchTickets = async () => {
+      try {
+        const { data, error } = await supabase.from('support_tickets').select('*').order('created_at', { ascending: false });
+        if (data && !error) {
+          const mappedTkts: SupportTicket[] = data.map((t: any) => ({ id: t.id, customerName: t.customer_name, email: t.email, phone: t.phone, subject: t.subject, message: t.message, status: t.status, createdAt: t.created_at, replies: t.replies || [] }));
+          setTickets(mappedTkts);
+        }
+      } catch (err) { console.warn("Tickets fetch error", err); }
+    };
+
+    const fetchProfiles = async () => {
+      try {
+        const { data, error } = await supabase.from('profiles').select('*');
+        if (data && !error) {
+          const mappedUsers: UserProfile[] = data.map((u: any) => ({ id: u.id, fullName: u.full_name, email: u.email, phone: u.phone, role: u.role, accountStatus: u.account_status, createdAt: u.created_at, lastLogin: u.last_login, totalSpending: u.total_spending, orderCount: u.order_count }));
+          setUsers(mappedUsers);
+        }
+      } catch (err) { console.warn("Profiles fetch error", err); }
+    };
+
+    const fetchCampaigns = async () => {
+      try {
+        const { data, error } = await supabase.from('campaigns').select('*');
+        if (data && !error) {
+          const mappedCamp: MarketingCampaign[] = data.map((c: any) => ({ id: c.id, name: c.name, platform: c.platform, status: c.status, budget: c.budget, impressions: c.impressions, clicks: c.clicks, conversions: c.conversions, roi: c.roi_percent, startDate: c.start_date, endDate: c.end_date }));
+          setCampaigns(mappedCamp);
+        }
+      } catch (err) { console.warn("Campaigns fetch error", err); }
+    };
+
+    const fetchPromos = async () => {
+      try {
+        const { data, error } = await supabase.from('promos').select('*');
+        if (data && !error) {
+          const mappedPromos: Promo[] = data.map((p: any) => ({ id: p.id, code: p.code, discountPercent: p.discount_percent, isActive: p.is_active, createdAt: p.created_at }));
+          setPromos(mappedPromos);
+        }
+      } catch (err) { console.warn("Promos fetch error", err); }
+    };
     
     fetchAllData();
-    const channels = supabase.channel('custom-all-channel')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, fetchAllData)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, fetchAllData)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'cms_posts' }, fetchAllData)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'support_tickets' }, fetchAllData)
+
+    // Per-table realtime listeners (only refetch the changed table)
+    const channels = supabase.channel('optimized-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, fetchOrders)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, fetchProducts)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'cms_posts' }, fetchCMS)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'support_tickets' }, fetchTickets)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'store_settings' }, fetchAllData)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, fetchAllData)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'campaigns' }, fetchAllData)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'promos' }, fetchAllData)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, fetchProfiles)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'campaigns' }, fetchCampaigns)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'promos' }, fetchPromos)
       .subscribe();
       
     return () => { supabase.removeChannel(channels); };
@@ -354,31 +433,8 @@ const DEFAULT_PROMOS: Promo[] = [
     setOrders((prev) => [newOrder, ...prev]);
   };
 
-  const handleUpdateProductStock = (productId: string, quantitySold: number) => {
-    setProducts((prev) => prev.map((p) => {
-      if (p.id === productId) {
-        const nextStock = Math.max(0, p.stock - quantitySold);
-        
-        // Log a warn log if falls below safety stock
-        if (nextStock <= p.safetyStock) {
-          const alertMessage = `Reorder trigger warning: inventory item '${p.name}' fallen below safety limit. Active stock: ${nextStock}.`;
-          
-          // Inject anomaly alert
-          const newAnomaly: AuditAnomaly = {
-            id: "ANM-" + Math.floor(100 + Math.random() * 900),
-            type: "stock_discrepancy",
-            severity: "medium",
-            message: alertMessage,
-            timestamp: new Date().toISOString(),
-            status: "unresolved"
-          };
-          setAnomalies((prevAnm) => [newAnomaly, ...prevAnm]);
-        }
-        return { ...p, stock: nextStock };
-      }
-      return p;
-    }));
-  };
+  // Stock decrement is handled exclusively by the M-Pesa callback server-side (single source of truth).
+  // No frontend stock decrement to prevent double/triple counting.
 
   const handleRegisterEventSeat = (eventId: string, registrant: { name: string; email: string; phone: string }) => {
     let success = false;
@@ -498,7 +554,7 @@ const DEFAULT_PROMOS: Promo[] = [
                   promos={promos}
                   onAddOrder={handleAddNewOrder}
                   onRegisterEvent={handleRegisterEventSeat}
-                  onUpdateProductStock={handleUpdateProductStock}
+                  onUpdateProductStock={() => {}} /* Stock decrement handled server-side only */
                 />
               } 
             />

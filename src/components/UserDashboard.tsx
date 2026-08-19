@@ -417,13 +417,6 @@ export default function UserDashboard({ orders, products, events = [], cmsPosts 
               clearInterval(pollTimer);
               setStkStatus("success");
               toast.success(`Payment confirmed! Ticket #${checkData.ticket_number || ticketNumber} created.`);
-              
-              const evTitle = cmsPosts.find(p => p.id === eventId)?.title || 'ALOEFLORA Event';
-              fetch('/api/email/confirm', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email: regEmail, name: regName, role: regRole, eventTitle: evTitle, ticketNumber: checkData.ticket_number || ticketNumber, paymentStatus: "Paid", amount: price })
-              }).catch(err => console.error("Email send error", err));
 
               setTimeout(() => {
                 setIsSTKPromptOpen(false);
@@ -453,21 +446,8 @@ export default function UserDashboard({ orders, products, events = [], cmsPosts 
         });
         
         if (insErr) throw insErr;
-        
-        fetch('/api/email/confirm', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
-            email: regEmail, 
-            name: regName, 
-            role: regRole, 
-            eventTitle: post?.title || evtData?.title || 'ALOEFLORA Event', 
-            ticketNumber, 
-            paymentStatus: "Free" 
-          })
-        }).catch(err => console.error("Email send error", err));
 
-        toast.success(`Successfully registered ${regName} as ${regRole}! Email confirmation sent.`);
+        toast.success(`Successfully registered ${regName} as ${regRole}!`);
         setRegEventId(null);
         setRegStep(1);
         setEventsSubTab("my_bookings");
@@ -1435,10 +1415,10 @@ export default function UserDashboard({ orders, products, events = [], cmsPosts 
             <div className="flex flex-wrap gap-2 mb-6 pb-2 border-b border-gray-100 dark:border-gray-800">
               {[
                 { id: "all", label: `All (${userOrders.length})` },
-                { id: "paid", label: `Paid (${userOrders.filter(o => o.paymentStatus === 'paid' || o.status === 'paid').length})` },
-                { id: "pending", label: `Pending (${userOrders.filter(o => (o.paymentStatus === 'pending' || o.status === 'pending') && o.deliveryStatus !== 'cancelled').length})` },
-                { id: "cancelled", label: `Cancelled (${userOrders.filter(o => o.deliveryStatus === 'cancelled' || o.status === 'cancelled').length})` },
-                { id: "failed", label: `Failed (${userOrders.filter(o => o.paymentStatus === 'failed' || o.status === 'failed').length})` }
+                { id: "paid", label: `Paid (${userOrders.filter(o => o.paymentStatus === 'paid').length})` },
+                { id: "pending", label: `Pending (${userOrders.filter(o => o.paymentStatus === 'pending' && o.deliveryStatus !== 'cancelled').length})` },
+                { id: "cancelled", label: `Cancelled (${userOrders.filter(o => o.deliveryStatus === 'cancelled').length})` },
+                { id: "failed", label: `Failed (${userOrders.filter(o => o.paymentStatus === 'failed').length})` }
               ].map(f => (
                 <button
                   key={f.id}
@@ -1457,10 +1437,10 @@ export default function UserDashboard({ orders, products, events = [], cmsPosts 
             <div className="space-y-4">
               {userOrders.filter(o => {
                 if (activeOrderStatusFilter === "all") return true;
-                if (activeOrderStatusFilter === "paid") return o.paymentStatus === "paid" || o.status === "paid";
-                if (activeOrderStatusFilter === "pending") return (o.paymentStatus === "pending" || o.status === "pending") && o.deliveryStatus !== "cancelled";
-                if (activeOrderStatusFilter === "cancelled") return o.deliveryStatus === "cancelled" || o.status === "cancelled";
-                if (activeOrderStatusFilter === "failed") return o.paymentStatus === "failed" || o.status === "failed";
+                if (activeOrderStatusFilter === "paid") return o.paymentStatus === "paid";
+                if (activeOrderStatusFilter === "pending") return o.paymentStatus === "pending" && o.deliveryStatus !== "cancelled";
+                if (activeOrderStatusFilter === "cancelled") return o.deliveryStatus === "cancelled";
+                if (activeOrderStatusFilter === "failed") return o.paymentStatus === "failed";
                 return true;
               }).map(order => (
                 <div key={order.id} className="flex flex-col">

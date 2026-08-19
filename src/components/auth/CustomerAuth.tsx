@@ -139,12 +139,41 @@ export default function CustomerAuth({ initialMode = 'login' }: CustomerAuthProp
                 <input
                   type="password"
                   required
+                  minLength={8}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
                   className="w-full pl-10 pr-4 py-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 transition text-sm dark:text-white"
                 />
               </div>
+              {mode === 'register' && password.length > 0 && (
+                <div className="space-y-1.5 pt-1">
+                  <div className="flex gap-1">
+                    {[
+                      password.length >= 8,
+                      /[A-Z]/.test(password),
+                      /[0-9]/.test(password),
+                      /[^A-Za-z0-9]/.test(password)
+                    ].map((met, i) => (
+                      <div key={i} className={`h-1 flex-1 rounded-full transition-colors ${met ? 'bg-emerald-500' : 'bg-gray-200 dark:bg-gray-700'}`} />
+                    ))}
+                  </div>
+                  <ul className="text-[10px] space-y-0.5 ml-1">
+                    <li className={password.length >= 8 ? 'text-emerald-600 dark:text-emerald-400' : 'text-gray-400'}>
+                      {password.length >= 8 ? '✓' : '○'} Minimum 8 characters
+                    </li>
+                    <li className={/[A-Z]/.test(password) ? 'text-emerald-600 dark:text-emerald-400' : 'text-gray-400'}>
+                      {/[A-Z]/.test(password) ? '✓' : '○'} One uppercase letter
+                    </li>
+                    <li className={/[0-9]/.test(password) ? 'text-emerald-600 dark:text-emerald-400' : 'text-gray-400'}>
+                      {/[0-9]/.test(password) ? '✓' : '○'} One number
+                    </li>
+                    <li className={/[^A-Za-z0-9]/.test(password) ? 'text-emerald-600 dark:text-emerald-400' : 'text-gray-400'}>
+                      {/[^A-Za-z0-9]/.test(password) ? '✓' : '○'} One special character (recommended)
+                    </li>
+                  </ul>
+                </div>
+              )}
             </div>
           )}
 

@@ -163,7 +163,7 @@ interface CustomerStoreProps {
   cmsPosts: CMSPost[];
   onAddOrder: (order: Order) => void;
   onRegisterEvent: (eventId: string, registrant: { name: string; email: string; phone: string }) => boolean;
-  onUpdateProductStock: (productId: string, quantitySold: number) => void;
+  onUpdateProductStock: (productId: string, quantitySold: number, referenceId?: string) => void;
   promos: Promo[];
 }
 
@@ -565,17 +565,9 @@ export default function CustomerStore({
         
         if (error) throw error;
         
-        // Send Email Confirmation
-        const evTitle = cmsPosts.find(p => p.id === pendingEventRegId)?.title || 'ALOEFLORA Event';
-        fetch('/api/email/confirm', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: regEmail, name: regName, role: regRole, eventTitle: evTitle, ticketNumber: ticketId, paymentStatus: "Paid", amount: pendingEventPrice })
-        }).catch(err => console.error("Email send error", err));
-        
         setTimeout(() => {
           setStkStatus("success");
-          toast.success(`Payment confirmed! Your ticket is ${ticketId}. Email sent.`);
+          toast.success(`Payment confirmed! Your ticket is ${ticketId}.`);
           // onRegisterEvent removed: handled by supabase
           setRegEventId(null);
           setRegName("");
@@ -601,9 +593,11 @@ export default function CustomerStore({
         deliveryNotes: checkoutNotes,
         items: cart.map((item) => ({
           productId: item.product.id,
+          sku: item.selectedVariantObj?.sku || item.product.sku,
+          batchNumber: item.product.batchNumber,
           productName: item.product.name,
           quantity: item.quantity,
-          price: item.product.price,
+          price: item.selectedVariantObj?.price || item.product.price,
           selectedVariant: item.selectedVariant
         })),
         subtotal,
@@ -623,8 +617,22 @@ export default function CustomerStore({
             id: newOrder.id,
             customer_name: newOrder.customerName,
             phone: newOrder.phone,
+            email: newOrder.email,
+            county: newOrder.county,
+            sub_county: newOrder.subCounty,
+            estate: newOrder.estate,
+            building: newOrder.building,
+            house_number: newOrder.houseNumber,
+            delivery_notes: newOrder.deliveryNotes,
+            items: newOrder.items,
+            subtotal: newOrder.subtotal,
+            delivery_fee: newOrder.deliveryFee,
             total_amount: newOrder.total,
+            payment_method: newOrder.paymentMethod,
             status: newOrder.paymentStatus,
+            payment_status: newOrder.paymentStatus,
+            delivery_status: newOrder.deliveryStatus,
+            mpesa_receipt: newOrder.mpesaReceipt,
             created_at: newOrder.createdAt
           }
         ]);
@@ -636,7 +644,7 @@ export default function CustomerStore({
       onAddOrder(newOrder);
 
       cart.forEach((item) => {
-        onUpdateProductStock(item.product.id, item.quantity);
+        onUpdateProductStock(item.product.id, item.quantity, newOrder.id);
       });
 
       const pointsEarned = Math.floor(subtotal / 100);
@@ -812,15 +820,9 @@ export default function CustomerStore({
         });
         
         if (insErr) throw insErr;
-        
-        fetch('/api/email/confirm', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: regEmail, name: regName, role: regRole, eventTitle: post.title, paymentStatus: "Free" })
-        }).catch(err => console.error("Email send error", err));
 
         // onRegisterEvent removed: handled by supabase
-        toast.success(`Successfully registered ${regName} as ${regRole}! Email sent.`);
+        toast.success(`Successfully registered ${regName} as ${regRole}!`);
         setRegEventId(null);
         setRegName("");
         setRegEmail("");

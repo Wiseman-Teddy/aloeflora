@@ -1,6 +1,24 @@
 import { IncomingMessage, ServerResponse } from 'http';
 import crypto from 'crypto';
 
+// Safaricom Daraja Production IP Whitelist
+const SAFARICOM_IP_RANGES = [
+  '196.201.214.', // 196.201.214.0/24
+  '102.133.143.', // Azure Kenya region used by Safaricom
+];
+
+/**
+ * Verify that a request originates from Safaricom's production IP range.
+ * Allows localhost in development.
+ */
+export function isSafaricomIP(req: IncomingMessage): boolean {
+  const forwarded = req.headers['x-forwarded-for'];
+  const ip = forwarded ? String(forwarded).split(',')[0].trim() : req.socket?.remoteAddress || '';
+  // Allow in development
+  if (ip === '127.0.0.1' || ip === '::1' || ip === '::ffff:127.0.0.1') return true;
+  return SAFARICOM_IP_RANGES.some(prefix => ip.startsWith(prefix));
+}
+
 // Simple in-memory rate limiter for serverless environments
 const rateLimitMap = new Map<string, { count: number, resetTime: number }>();
 

@@ -9,6 +9,7 @@ import { exportToPDF, exportToCSV } from "../../utils/exportUtils";
 import { normalizeVariants } from "../../utils/variantUtils";
 import { supabase } from "../../lib/supabase";
 import { toast } from "react-hot-toast";
+import FinancialPLReports from "./FinancialPLReports";
 
 interface AdvancedReportsProps {
   orders?: Order[];
@@ -691,9 +692,24 @@ export default function AdvancedReports({
         </div>
       )}
 
-      {/* --- TAB 4: FINANCIAL RECONCILIATION --- */}
+      {/* --- TAB 4: ENTERPRISE FINANCIAL P&L & RECONCILIATION --- */}
       {reportTab === "financial" && (
-        <div className="space-y-6 animate-in slide-in-from-bottom-2">
+        <div className="space-y-8 animate-in slide-in-from-bottom-2">
+          {/* Complete Financial P&L Suite */}
+          <FinancialPLReports 
+            orders={safeOrders} 
+            products={safeProducts} 
+            campaigns={safeCampaigns} 
+            promos={safePromos} 
+          />
+
+          <div className="pt-4 border-t border-gray-200 dark:border-gray-800">
+            <h4 className="text-base font-extrabold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
+              <CheckCircle className="w-5 h-5 text-emerald-600" />
+              Safaricom M-Pesa Settlement & Reconciliation
+            </h4>
+          </div>
+
           <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
             <div className="bg-zinc-50 border p-5 rounded-2xl">
               <div className="text-[10px] uppercase font-bold text-gray-400 mb-1">M-Pesa Gross Revenue</div>
