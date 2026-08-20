@@ -23,7 +23,7 @@ export default defineConfig(() => {
       exclude: ['node_modules', 'e2e/**'],
     },
     build: {
-      target: 'esnext',
+      target: ['es2020', 'edge88', 'firefox78', 'chrome87', 'safari14'],
       cssCodeSplit: true,
       minify: 'esbuild' as const,
       chunkSizeWarningLimit: 1000,
