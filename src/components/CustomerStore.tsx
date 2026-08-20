@@ -1282,6 +1282,9 @@ export default function CustomerStore({
                       alt={p.name} 
                       className="w-full h-full object-cover"
                       referrerPolicy="no-referrer"
+                      onError={(e) => {
+                        (e.currentTarget as HTMLImageElement).src = "/logo.jpeg";
+                      }}
                     />
                   </div>
 
