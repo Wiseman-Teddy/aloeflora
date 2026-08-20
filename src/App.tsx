@@ -131,6 +131,7 @@ const DEFAULT_PROMOS: Promo[] = [
 ];
 
   const [users, setUsers] = useState<UserProfile[]>([]);
+  const [isLoadingUsers, setIsLoadingUsers] = useState<boolean>(true);
   const [promos, setPromos] = useState<Promo[]>(() => {
     const saved = localStorage.getItem("aloeflora_db_promos");
     if (saved) {
@@ -201,6 +202,7 @@ const DEFAULT_PROMOS: Promo[] = [
 
   // Real-time Supabase integration for all data
   useEffect(() => {
+    setIsLoadingUsers(true);
     const fetchAllData = async () => {
       try {
         const [
@@ -310,11 +312,25 @@ const DEFAULT_PROMOS: Promo[] = [
         if (profRes.status === 'fulfilled' && profRes.value.data && !profRes.value.error) {
           const profData = profRes.value.data;
           const mappedUsers: UserProfile[] = profData.map((u: any) => ({
-            id: u.id, fullName: u.full_name, email: u.email, phone: u.phone, role: u.role, accountStatus: u.account_status,
-            createdAt: u.created_at, lastLogin: u.last_login, totalSpending: u.total_spending, orderCount: u.order_count
+            id: u.id,
+            fullName: u.full_name || '',
+            email: u.email || '',
+            phone: u.phone || '',
+            avatarUrl: u.avatar_url || '',
+            address: u.address || '',
+            hairType: u.hair_type || '',
+            skinType: u.skin_type || '',
+            role: (u.role === 'admin' || u.role === 'moderator') ? u.role : 'customer',
+            accountStatus: (u.account_status === 'suspended' || u.account_status === 'locked') ? u.account_status : 'active',
+            createdAt: u.created_at,
+            lastLogin: u.last_login || null,
+            totalSpending: Number(u.total_spending || 0),
+            orderCount: Number(u.order_count || 0),
+            loyaltyPoints: u.loyalty_points || 0,
           }));
           setUsers(mappedUsers);
         }
+        setIsLoadingUsers(false);
 
         if (campRes.status === 'fulfilled' && campRes.value.data && !campRes.value.error) {
           const campData = campRes.value.data;
@@ -383,12 +399,30 @@ const DEFAULT_PROMOS: Promo[] = [
 
     const fetchProfiles = async () => {
       try {
-        const { data, error } = await supabase.from('profiles').select('*');
+        setIsLoadingUsers(true);
+        const { data, error } = await supabase.from('profiles').select('*').order('created_at', { ascending: false });
         if (data && !error) {
-          const mappedUsers: UserProfile[] = data.map((u: any) => ({ id: u.id, fullName: u.full_name, email: u.email, phone: u.phone, role: u.role, accountStatus: u.account_status, createdAt: u.created_at, lastLogin: u.last_login, totalSpending: u.total_spending, orderCount: u.order_count }));
+          const mappedUsers: UserProfile[] = data.map((u: any) => ({
+            id: u.id,
+            fullName: u.full_name || '',
+            email: u.email || '',
+            phone: u.phone || '',
+            avatarUrl: u.avatar_url || '',
+            address: u.address || '',
+            hairType: u.hair_type || '',
+            skinType: u.skin_type || '',
+            role: (u.role === 'admin' || u.role === 'moderator') ? u.role : 'customer',
+            accountStatus: (u.account_status === 'suspended' || u.account_status === 'locked') ? u.account_status : 'active',
+            createdAt: u.created_at,
+            lastLogin: u.last_login || null,
+            totalSpending: Number(u.total_spending || 0),
+            orderCount: Number(u.order_count || 0),
+            loyaltyPoints: u.loyalty_points || 0,
+          }));
           setUsers(mappedUsers);
         }
-      } catch (err) { console.warn("Profiles fetch error", err); }
+      } catch (err) { console.warn('Profiles fetch error', err); }
+      finally { setIsLoadingUsers(false); }
     };
 
     const fetchCampaigns = async () => {
@@ -626,6 +660,7 @@ const DEFAULT_PROMOS: Promo[] = [
                     anomalies={anomalies}
                     storeSettings={storeSettings}
                     users={users}
+                    isLoadingUsers={isLoadingUsers}
                     promos={promos}
                     onUpdateInventory={setProducts}
                     onUpdateOrders={setOrders}

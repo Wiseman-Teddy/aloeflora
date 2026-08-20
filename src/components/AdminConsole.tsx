@@ -63,6 +63,7 @@ interface AdminConsoleProps {
   onUpdateSettings: (updatedSettings: StoreSettings) => void;
   onResolveAnomaly: (anomalyId: string) => void;
   users: UserProfile[];
+  isLoadingUsers?: boolean;
   onUpdateUsers: (users: UserProfile[]) => void;
   promos: Promo[];
   onUpdatePromos: (promos: Promo[]) => void;
@@ -83,6 +84,7 @@ export default function AdminConsole({
   onUpdateSettings,
   onResolveAnomaly,
   users,
+  isLoadingUsers = false,
   onUpdateUsers,
   promos,
   onUpdatePromos
@@ -257,10 +259,45 @@ export default function AdminConsole({
   const [vendorCapacity, setVendorCapacity] = useState<string>("10");
   const [attendeeEnabled, setAttendeeEnabled] = useState<boolean>(true);
 
+  const [isReportsLoading, setIsReportsLoading] = useState(false);
+
+  const fetchEventsAndRegistrations = async () => {
+    try {
+      const [evRes, regRes] = await Promise.all([
+        supabase.from('events').select('*'),
+        supabase.from('event_registrations').select('*')
+      ]);
+      if (evRes.data) setEventsData(evRes.data);
+      if (regRes.data) setEventRegistrations(regRes.data);
+    } catch (e) {
+      console.warn("Failed to load events/registrations", e);
+    }
+  };
+
   useEffect(() => {
-    supabase.from('events').select('*').then(({data}) => setEventsData(data || []));
-    supabase.from('event_registrations').select('*').then(({data}) => setEventRegistrations(data || []));
+    fetchEventsAndRegistrations();
+
+    const channel = supabase.channel('admin-events-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'events' }, fetchEventsAndRegistrations)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'event_registrations' }, fetchEventsAndRegistrations)
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
+
+  const handleRefreshReportsData = async () => {
+    setIsReportsLoading(true);
+    try {
+      await fetchEventsAndRegistrations();
+      toast.success("Reports data refreshed with latest real-time records.");
+    } catch (e: any) {
+      toast.error("Error refreshing reports: " + e.message);
+    } finally {
+      setIsReportsLoading(false);
+    }
+  };
 
   // Live interval ticker simulating DevOps process fluctuations
   useEffect(() => {
@@ -2514,8 +2551,11 @@ export default function AdminConsole({
             userProfiles={users || []}
             eventRegistrations={eventRegistrations || []}
             anomalies={anomalies || []}
+            storeSettings={storeSettings}
             generateReportsPDF={generateReportsPDF} 
-            generateReportsCSV={generateReportsCSV} 
+            generateReportsCSV={generateReportsCSV}
+            onRefresh={handleRefreshReportsData}
+            isLoading={isReportsLoading}
           />
         )}
 
@@ -2527,6 +2567,8 @@ export default function AdminConsole({
             campaigns={campaigns || []}
             promos={promos || []}
             storeSettings={storeSettings}
+            onRefresh={handleRefreshReportsData}
+            isLoading={isReportsLoading}
           />
         )}
 
@@ -3194,7 +3236,8 @@ export default function AdminConsole({
         {activeModule === "users" && (
           <UserManagement 
             users={users} 
-            onUpdateUsers={onUpdateUsers} 
+            onUpdateUsers={onUpdateUsers}
+            isLoading={isLoadingUsers}
           />
         )}
 

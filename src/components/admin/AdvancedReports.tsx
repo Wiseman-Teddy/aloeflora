@@ -4,7 +4,7 @@ import {
   AlertCircle, DollarSign, MapPin, Users, Gift, Headphones, CalendarCheck, Percent,
   ShieldAlert, FileText, CheckCircle, AlertTriangle, Truck, Clock, Download, RefreshCw
 } from "lucide-react";
-import { Order, Product, SupportTicket, MarketingCampaign, Promo, UserProfile, EventRegistration, AuditAnomaly } from "../../types";
+import { Order, Product, SupportTicket, MarketingCampaign, Promo, UserProfile, EventRegistration, AuditAnomaly, StoreSettings } from "../../types";
 import { exportToPDF, exportToCSV } from "../../utils/exportUtils";
 import { normalizeVariants } from "../../utils/variantUtils";
 import { supabase } from "../../lib/supabase";
@@ -20,8 +20,11 @@ interface AdvancedReportsProps {
   userProfiles?: UserProfile[];
   eventRegistrations?: EventRegistration[];
   anomalies?: AuditAnomaly[];
+  storeSettings?: StoreSettings;
   generateReportsPDF?: (type: string) => void;
   generateReportsCSV?: (type: string) => void;
+  onRefresh?: () => void;
+  isLoading?: boolean;
 }
 
 type ReportTabType = "sales" | "orders" | "inventory" | "financial" | "customers" | "marketing" | "events" | "support";
@@ -35,6 +38,9 @@ export default function AdvancedReports({
   userProfiles = [],
   eventRegistrations = [],
   anomalies = [],
+  storeSettings,
+  onRefresh,
+  isLoading = false,
 }: AdvancedReportsProps) {
   const [reportTab, setReportTab] = useState<ReportTabType>("sales");
   const [dateRange, setDateRange] = useState<"all" | "today" | "week" | "month">("all");
@@ -49,7 +55,7 @@ export default function AdvancedReports({
   const safeUserProfiles = Array.isArray(userProfiles) ? userProfiles : [];
   const safeEventRegistrations = Array.isArray(eventRegistrations) ? eventRegistrations : [];
 
-  // Filtered Orders helper
+  // Filtered Orders helper based on global search & date range
   const filteredOrders = useMemo(() => {
     return safeOrders.filter(o => {
       if (!o) return false;
@@ -57,7 +63,9 @@ export default function AdvancedReports({
       const isMatchSearch = (o.id || "").toLowerCase().includes(searchLower) || 
                             (o.customerName || "").toLowerCase().includes(searchLower) ||
                             (o.county || "").toLowerCase().includes(searchLower) ||
-                            (o.subCounty || "").toLowerCase().includes(searchLower);
+                            (o.subCounty || "").toLowerCase().includes(searchLower) ||
+                            (o.phone || "").toLowerCase().includes(searchLower) ||
+                            (o.mpesaReceipt || "").toLowerCase().includes(searchLower);
       if (!isMatchSearch) return false;
 
       const orderDate = o.createdAt ? new Date(o.createdAt) : new Date();
@@ -177,10 +185,10 @@ export default function AdvancedReports({
     const totalCostValuation = safeProducts.reduce((sum, p) => {
       const vars = normalizeVariants(p);
       if (vars && vars.length > 0 && vars[0]?.name !== "Standard") {
-        const vCost = vars.reduce((vSum, v) => vSum + (v.stock || 0) * (v.costPrice || p.costPrice || (p.price || 0) * 0.5), 0);
-        return sum + (vCost > 0 ? vCost : (p.stock || 0) * (p.costPrice || (p.price || 0) * 0.5));
+        const vCost = vars.reduce((vSum, v) => vSum + (v.stock || 0) * (v.costPrice || p.costPrice || (p.price || 0) * 0.4), 0);
+        return sum + (vCost > 0 ? vCost : (p.stock || 0) * (p.costPrice || (p.price || 0) * 0.4));
       }
-      return sum + (p.stock || 0) * (p.costPrice || (p.price || 0) * 0.5);
+      return sum + (p.stock || 0) * (p.costPrice || (p.price || 0) * 0.4);
     }, 0);
 
     const totalRetailValuation = safeProducts.reduce((sum, p) => {
@@ -273,8 +281,13 @@ export default function AdvancedReports({
   // 6. Marketing Attribution
   const promoRoiStats = useMemo(() => {
     return safePromos.filter(Boolean).map(p => {
-      const code = p.code || "";
-      const matchedOrders = safeOrders.filter(o => o && ((o.id && o.id.includes(code)) || (o.deliveryNotes && o.deliveryNotes.includes(code))));
+      const code = (p.code || "").toUpperCase();
+      const matchedOrders = safeOrders.filter(o => {
+        if (!o) return false;
+        const notes = (o.deliveryNotes || "").toUpperCase();
+        const id = (o.id || "").toUpperCase();
+        return notes.includes(code) || id.includes(code);
+      });
       const totalGeneratedRev = matchedOrders.filter(o => o.paymentStatus === "paid").reduce((sum, o) => sum + (o.total || 0), 0);
       const discountGiven = (totalGeneratedRev * (p.discountPercent || 10)) / 100;
       return {
@@ -322,8 +335,8 @@ export default function AdvancedReports({
         ["Total Revenue (Paid)", `KES ${totalRevenue.toLocaleString()}`],
         ["Cancelled / Lost Revenue", `KES ${cancelledRevenueLoss.toLocaleString()}`],
         ["Delivery Fees Collected", `KES ${totalDeliveryFeesCollected.toLocaleString()}`],
-        ["STK Push Volume", `KES ${paymentMethodBreakdown.stkPaid.toLocaleString()}`],
-        ["Paybill Volume", `KES ${paymentMethodBreakdown.paybillPaid.toLocaleString()}`],
+        ["STK Push Paid Volume", `KES ${paymentMethodBreakdown.stkPaid.toLocaleString()}`],
+        ["Paybill Paid Volume", `KES ${paymentMethodBreakdown.paybillPaid.toLocaleString()}`],
       ];
       exportToPDF("Financial_Reconciliation_Report", "Financial Payment & Revenue Reconciliation Statement", ["Financial Line Item", "Amount"], rows);
     } else if (reportTab === "customers") {
@@ -439,6 +452,17 @@ export default function AdvancedReports({
           <option value="month">Last 30 Days</option>
         </select>
 
+        {onRefresh && (
+          <button
+            onClick={onRefresh}
+            disabled={isLoading}
+            className="p-2 border border-gray-200 rounded-xl bg-white hover:bg-gray-50 text-gray-700 transition cursor-pointer"
+            title="Refresh live data"
+          >
+            <RefreshCw className={`w-4 h-4 ${isLoading ? "animate-spin" : ""}`} />
+          </button>
+        )}
+
         <div className="flex gap-2">
           <button 
             onClick={handleExportPDF} 
@@ -497,7 +521,7 @@ export default function AdvancedReports({
 
             <div className="bg-white border rounded-2xl p-5 shadow-sm">
               <h4 className="text-sm font-bold text-gray-900 mb-4 flex items-center gap-2">
-                <ArrowDownRight className="w-4 h-4 text-red-500" /> Variant-Level Sales Performance
+                <ArrowDownRight className="w-4 h-4 text-emerald-600" /> Variant-Level Sales Performance
               </h4>
               <div className="space-y-3 max-h-[250px] overflow-y-auto pr-1">
                 {variantSalesList.length > 0 ? variantSalesList.map((v, i) => (
@@ -701,6 +725,9 @@ export default function AdvancedReports({
             products={safeProducts} 
             campaigns={safeCampaigns} 
             promos={safePromos} 
+            storeSettings={storeSettings}
+            onRefresh={onRefresh}
+            isLoading={isLoading}
           />
 
           <div className="pt-4 border-t border-gray-200 dark:border-gray-800">
@@ -710,38 +737,21 @@ export default function AdvancedReports({
             </h4>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="bg-zinc-50 border p-5 rounded-2xl">
-              <div className="text-[10px] uppercase font-bold text-gray-400 mb-1">M-Pesa Gross Revenue</div>
+              <div className="text-[10px] uppercase font-bold text-gray-400 mb-1">M-Pesa Gross Settled Revenue</div>
               <div className="text-xl font-black text-emerald-800">KES {(paymentMethodBreakdown.stkPaid + paymentMethodBreakdown.paybillPaid).toLocaleString()}</div>
+              <div className="text-[10px] text-gray-500 mt-1">STK: KES {paymentMethodBreakdown.stkPaid.toLocaleString()} | Paybill: KES {paymentMethodBreakdown.paybillPaid.toLocaleString()}</div>
             </div>
             <div className="bg-zinc-50 border p-5 rounded-2xl">
-              <div className="text-[10px] uppercase font-bold text-gray-400 mb-1">Business Share (70%)</div>
-              <div className="text-xl font-black text-emerald-600">KES {Math.round((paymentMethodBreakdown.stkPaid + paymentMethodBreakdown.paybillPaid) * 0.7).toLocaleString()}</div>
+              <div className="text-[10px] uppercase font-bold text-gray-400 mb-1">Direct Delivery Fees Surcharge</div>
+              <div className="text-xl font-black text-blue-700">KES {totalDeliveryFeesCollected.toLocaleString()}</div>
+              <div className="text-[10px] text-gray-500 mt-1">Logistics surcharges from completed checkouts</div>
             </div>
             <div className="bg-zinc-50 border p-5 rounded-2xl">
-              <div className="text-[10px] uppercase font-bold text-gray-400 mb-1">Platform Share (30%)</div>
-              <div className="text-xl font-black text-purple-700">KES {Math.round((paymentMethodBreakdown.stkPaid + paymentMethodBreakdown.paybillPaid) * 0.3).toLocaleString()}</div>
-            </div>
-            <div className="bg-zinc-50 border p-5 rounded-2xl">
-              <div className="text-[10px] uppercase font-bold text-gray-400 mb-1">Cancelled Revenue Loss</div>
+              <div className="text-[10px] uppercase font-bold text-gray-400 mb-1">Unsettled / Cancelled Revenue</div>
               <div className="text-xl font-black text-rose-600">KES {cancelledRevenueLoss.toLocaleString()}</div>
-            </div>
-          </div>
-
-          <div className="bg-white border p-5 rounded-2xl shadow-sm space-y-4">
-            <h4 className="text-sm font-bold text-gray-900">Delivery Fee vs Net Revenue Accounting</h4>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
-              <div className="p-4 bg-emerald-50 rounded-xl border border-emerald-100">
-                <span className="text-gray-600 font-bold">Total Delivery Fees Collected</span>
-                <div className="text-2xl font-black text-emerald-900 mt-1">KES {totalDeliveryFeesCollected.toLocaleString()}</div>
-                <div className="text-[10px] text-emerald-700 mt-1">Direct logistics surcharge from completed checkouts.</div>
-              </div>
-              <div className="p-4 bg-zinc-50 rounded-xl border border-zinc-200">
-                <span className="text-gray-600 font-bold">Net Product Revenue (Excl. Shipping)</span>
-                <div className="text-2xl font-black text-gray-900 mt-1">KES {Math.max(0, totalRevenue - totalDeliveryFeesCollected).toLocaleString()}</div>
-                <div className="text-[10px] text-gray-500 mt-1">Core botanical retail sales proceeds.</div>
-              </div>
+              <div className="text-[10px] text-gray-500 mt-1">Abandoned checkouts & failed transactions</div>
             </div>
           </div>
 
@@ -750,7 +760,7 @@ export default function AdvancedReports({
             <div className="p-4 border-b bg-gray-50 flex justify-between items-center">
               <div>
                 <h4 className="text-sm font-bold text-gray-900 flex items-center gap-2">
-                  <CheckCircle className="w-4 h-4 text-emerald-600" /> M-Pesa Paybill Payment Reconciliation Ledger
+                  <CheckCircle className="w-4 h-4 text-emerald-600" /> M-Pesa Payment Reconciliation Ledger
                 </h4>
                 <p className="text-[11px] text-gray-500 mt-0.5">Automated STK & Paybill matching using unique Account References (Paybill: 4160861)</p>
               </div>
@@ -804,7 +814,7 @@ export default function AdvancedReports({
                           <div className="text-[10px] font-mono text-gray-500">{o.phone || "N/A"}</div>
                         </td>
                         <td className="p-4 font-mono font-bold text-purple-700">
-                          {o.mpesaReceipt || (isPaid ? "SGH8J" + Math.floor(1000 + Math.random() * 9000) : "PENDING")}
+                          {o.mpesaReceipt || (isPaid ? "SETTLED" : "PENDING")}
                         </td>
                         <td className="p-4 text-right font-black text-gray-900">
                           KES {(o.total || 0).toLocaleString()}
@@ -835,7 +845,7 @@ export default function AdvancedReports({
                                     .eq('id', o.id)
                                     .maybeSingle();
                                   if (data?.payment_status === 'paid') {
-                                    toast.success(`Order verified as Paid! Receipt: ${data.mpesa_receipt}`, { id: toastId });
+                                    toast.success(`Order verified as Paid! Receipt: ${data.mpesa_receipt || 'SETTLED'}`, { id: toastId });
                                   } else {
                                     toast.error(`Order is still ${data?.payment_status || 'pending'}.`, { id: toastId });
                                   }

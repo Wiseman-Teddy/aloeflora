@@ -32,6 +32,8 @@ interface FinancialPLReportsProps {
   campaigns?: MarketingCampaign[];
   promos?: Promo[];
   storeSettings?: StoreSettings;
+  onRefresh?: () => void;
+  isLoading?: boolean;
 }
 
 type PeriodType = "daily" | "weekly" | "monthly" | "semi_annually" | "annually" | "custom";
@@ -42,7 +44,9 @@ export default function FinancialPLReports({
   products = [],
   campaigns = [],
   promos = [],
-  storeSettings
+  storeSettings,
+  onRefresh,
+  isLoading = false
 }: FinancialPLReportsProps) {
   // Period Aggregation State
   const [periodType, setPeriodType] = useState<PeriodType>("monthly");
@@ -56,13 +60,12 @@ export default function FinancialPLReports({
   
   // Filtering & View State
   const [orderStatusFilter, setOrderStatusFilter] = useState<"paid_only" | "all" | "delivered_only">("paid_only");
-  const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [activeSubTab, setActiveSubTab] = useState<"period_table" | "category_matrix" | "expense_breakdown">("period_table");
-  const [searchQuery, setSearchQuery] = useState<string>("");
+  const [searchQuery, setSearchQuery] = useState<string>("" );
   const [hoveredDataPoint, setHoveredDataPoint] = useState<any | null>(null);
   const [hoveredSlice, setHoveredSlice] = useState<string | null>(null);
 
-  // Filter Orders by Payment/Delivery Status and Custom Date
+  // Filter Orders by Payment/Delivery Status
   const eligibleOrders = useMemo(() => {
     return orders.filter(o => {
       if (!o) return false;
@@ -72,26 +75,68 @@ export default function FinancialPLReports({
     });
   }, [orders, orderStatusFilter]);
 
-  // Operational Base Expenses (Hosting, Marketing, Logistics from Campaigns & Settings)
-  const baseMonthlyHosting = 3500; // KES server/database infrastructure estimate
+  // Operational Base Expenses from real Campaigns & Settings
   const totalCampaignSpend = useMemo(() => {
-    return campaigns.reduce((sum, c) => sum + (Number(c.budget) || 0), 0);
+    return (campaigns || []).reduce((sum, c) => sum + (Number(c.budget) || 0), 0);
   }, [campaigns]);
 
-  // Build Map of Product Cost Prices for fast COGS calculation
+  // Fast product Cost of Goods lookup map
   const productCostMap = useMemo(() => {
     const map: Record<string, { cost: number; price: number; name: string; category: string; sku: string }> = {};
-    products.forEach(p => {
+    (products || []).forEach(p => {
+      if (!p) return;
+      const unitPrice = Number(p.price) || 0;
+      const unitCost = Number(p.costPrice) > 0 ? Number(p.costPrice) : (unitPrice > 0 ? unitPrice * 0.4 : 0);
       map[p.id] = {
-        cost: Number(p.costPrice) || 200,
-        price: Number(p.price) || 500,
+        cost: unitCost,
+        price: unitPrice,
         name: p.name || "Product",
-        category: p.category || "general",
+        category: (p.category || "general").toLowerCase(),
         sku: p.sku || "N/A"
       };
     });
     return map;
   }, [products]);
+
+  // Dynamic set of all categories found in products + orders
+  const allCategories = useMemo(() => {
+    const cats = new Set<string>();
+    (products || []).forEach(p => {
+      if (p?.category) cats.add(p.category.toLowerCase());
+    });
+    eligibleOrders.forEach(o => {
+      (o.items || []).forEach(item => {
+        const cat = productCostMap[item.productId]?.category;
+        if (cat) cats.add(cat);
+      });
+    });
+    if (cats.size === 0) {
+      cats.add("hair");
+      cats.add("body");
+      cats.add("home");
+      cats.add("coffee");
+    }
+    return Array.from(cats);
+  }, [products, eligibleOrders, productCostMap]);
+
+  // Dynamic Category Colors Palette
+  const categoryColors = useMemo(() => {
+    const basePalette = [
+      "#047857", // Emerald
+      "#84cc16", // Lime
+      "#0284c7", // Sky
+      "#b45309", // Amber
+      "#8b5cf6", // Purple
+      "#ec4899", // Pink
+      "#14b8a6", // Teal
+      "#f97316", // Orange
+    ];
+    const colorMap: Record<string, string> = {};
+    allCategories.forEach((cat, index) => {
+      colorMap[cat] = basePalette[index % basePalette.length];
+    });
+    return colorMap;
+  }, [allCategories]);
 
   // Aggregate Performance Data by Period Intervals
   const aggregatedData = useMemo(() => {
@@ -113,7 +158,6 @@ export default function FinancialPLReports({
         periods.push({ key: d.toISOString().slice(0, 10), label, startDate: start, endDate: end });
       }
     } else if (periodType === "weekly") {
-      // 12 Rolling Weeks
       for (let i = 11; i >= 0; i--) {
         const d = new Date(now);
         d.setDate(d.getDate() - (i * 7));
@@ -128,7 +172,6 @@ export default function FinancialPLReports({
         periods.push({ key: `wk-${12 - i}`, label, startDate: start, endDate: end });
       }
     } else if (periodType === "monthly") {
-      // 12 Calendar Months of Current Year
       const currentYear = now.getFullYear();
       for (let m = 0; m < 12; m++) {
         const start = new Date(currentYear, m, 1, 0, 0, 0);
@@ -137,7 +180,6 @@ export default function FinancialPLReports({
         periods.push({ key: `m-${m}`, label, startDate: start, endDate: end });
       }
     } else if (periodType === "semi_annually") {
-      // Current Year and Last Year Semi-Annuals (H1 / H2)
       const currentYear = now.getFullYear();
       periods.push(
         {
@@ -166,7 +208,6 @@ export default function FinancialPLReports({
         }
       );
     } else if (periodType === "annually") {
-      // 3 Years Comparison
       const currentYear = now.getFullYear();
       for (let y = currentYear - 2; y <= currentYear; y++) {
         const start = new Date(y, 0, 1, 0, 0, 0);
@@ -184,9 +225,10 @@ export default function FinancialPLReports({
       });
     }
 
-    // Compute period stats
-    const periodRows = periods.map(p => {
+    // Compute period financial stats
+    return periods.map(p => {
       const matchingOrders = eligibleOrders.filter(o => {
+        if (!o.createdAt) return false;
         const oDate = new Date(o.createdAt);
         return oDate >= p.startDate && oDate <= p.endDate;
       });
@@ -207,15 +249,14 @@ export default function FinancialPLReports({
           const qty = Number(item.quantity) || 1;
           unitsSold += qty;
           const pInfo = productCostMap[item.productId];
-          const unitCost = pInfo ? pInfo.cost : (Number(item.price) || 500) * 0.4;
-          cogs += unitCost * qty;
+          const itemCost = Number(item.costPrice) > 0 ? Number(item.costPrice) : (pInfo ? pInfo.cost : (Number(item.price) || 0) * 0.4);
+          cogs += itemCost * qty;
         });
       });
 
-      // Scale marketing and hosting to period length
       const periodDurationDays = Math.max(1, (p.endDate.getTime() - p.startDate.getTime()) / (1000 * 60 * 60 * 24));
-      const hostingShare = Math.round((baseMonthlyHosting / 30) * periodDurationDays);
-      const marketingShare = Math.round((totalCampaignSpend / 365) * periodDurationDays);
+      const marketingShare = totalCampaignSpend > 0 ? Math.round((totalCampaignSpend / 365) * periodDurationDays) : 0;
+      const hostingShare = 0; // Configured directly from actual operational accounts
 
       const operatingExpenses = shippingLogistics + discounts + hostingShare + marketingShare;
       const grossProfit = revenue - cogs;
@@ -243,8 +284,6 @@ export default function FinancialPLReports({
         }
       };
     });
-
-    return periodRows;
   }, [eligibleOrders, periodType, dailySpan, customStartDate, customEndDate, productCostMap, totalCampaignSpend]);
 
   // Overall Totals Across Selected Time Range
@@ -284,25 +323,23 @@ export default function FinancialPLReports({
     };
   }, [aggregatedData]);
 
-  // Product Category Profitability Matrix
+  // Product Category Profitability Matrix (Dynamic across all real categories)
   const categoryMatrix = useMemo(() => {
-    const catMap: Record<string, { unitsSold: number; revenue: number; cogs: number; grossProfit: number; marginPct: number }> = {
-      hair: { unitsSold: 0, revenue: 0, cogs: 0, grossProfit: 0, marginPct: 0 },
-      body: { unitsSold: 0, revenue: 0, cogs: 0, grossProfit: 0, marginPct: 0 },
-      home: { unitsSold: 0, revenue: 0, cogs: 0, grossProfit: 0, marginPct: 0 },
-      coffee: { unitsSold: 0, revenue: 0, cogs: 0, grossProfit: 0, marginPct: 0 }
-    };
+    const catMap: Record<string, { unitsSold: number; revenue: number; cogs: number; grossProfit: number; marginPct: number }> = {};
+    allCategories.forEach(cat => {
+      catMap[cat] = { unitsSold: 0, revenue: 0, cogs: 0, grossProfit: 0, marginPct: 0 };
+    });
 
     eligibleOrders.forEach(o => {
       (o.items || []).forEach(item => {
         const pInfo = productCostMap[item.productId];
-        const category = (pInfo?.category || "hair").toLowerCase();
+        const category = (pInfo?.category || "general").toLowerCase();
         if (!catMap[category]) {
           catMap[category] = { unitsSold: 0, revenue: 0, cogs: 0, grossProfit: 0, marginPct: 0 };
         }
         const qty = Number(item.quantity) || 1;
         const rev = (Number(item.price) || 0) * qty;
-        const cost = (pInfo?.cost || 200) * qty;
+        const cost = (Number(item.costPrice) > 0 ? Number(item.costPrice) : (pInfo ? pInfo.cost : (Number(item.price) || 0) * 0.4)) * qty;
 
         catMap[category].unitsSold += qty;
         catMap[category].revenue += rev;
@@ -322,7 +359,7 @@ export default function FinancialPLReports({
         marginPct
       };
     }).sort((a, b) => b.revenue - a.revenue);
-  }, [eligibleOrders, productCostMap]);
+  }, [eligibleOrders, productCostMap, allCategories]);
 
   // Individual Products Profitability List
   const productProfitability = useMemo(() => {
@@ -345,7 +382,7 @@ export default function FinancialPLReports({
         }
         const qty = Number(item.quantity) || 1;
         const rev = (Number(item.price) || 0) * qty;
-        const cost = (pInfo?.cost || 200) * qty;
+        const cost = (Number(item.costPrice) > 0 ? Number(item.costPrice) : (pInfo ? pInfo.cost : (Number(item.price) || 0) * 0.4)) * qty;
 
         prodMap[id].unitsSold += qty;
         prodMap[id].revenue += rev;
@@ -418,14 +455,6 @@ export default function FinancialPLReports({
     toast.success("P&L Financial Ledger exported to CSV!");
   };
 
-  // Color palette for Categories
-  const categoryColors: Record<string, string> = {
-    hair: "#047857", // Emerald
-    body: "#84cc16", // Lime
-    home: "#0284c7", // Sky
-    coffee: "#b45309" // Amber/Brown
-  };
-
   // Calculate Angles for Category Pie / Donut Chart
   const categoryDonutSlices = useMemo(() => {
     const totalRev = categoryMatrix.reduce((sum, c) => sum + c.revenue, 0) || 1;
@@ -460,11 +489,11 @@ export default function FinancialPLReports({
         category: c.category,
         percentage,
         revenue: c.revenue,
-        color: categoryColors[c.category] || "#6b7280",
+        color: categoryColors[c.category] || "#047857",
         pathData
       };
     });
-  }, [categoryMatrix]);
+  }, [categoryMatrix, categoryColors]);
 
   // Operational Expenses Donut Slices
   const expenseDonutSlices = useMemo(() => {
@@ -522,7 +551,7 @@ export default function FinancialPLReports({
               Enterprise Profit & Loss (P&L) Reports
             </h3>
             <span className="text-[10px] uppercase font-bold text-emerald-800 dark:text-emerald-300 bg-emerald-100/80 dark:bg-emerald-900/60 px-2 py-0.5 rounded-full">
-              Audited ERP
+              Live Audited ERP
             </span>
           </div>
           <p className="text-xs text-gray-500 mt-0.5">
@@ -530,7 +559,7 @@ export default function FinancialPLReports({
           </p>
         </div>
 
-        {/* Period Selector Tabs */}
+        {/* Period Selector Tabs & Controls */}
         <div className="flex flex-wrap items-center gap-2">
           {/* Period Mode Selector */}
           <div className="bg-gray-100 dark:bg-gray-800 p-1 rounded-xl flex items-center gap-1 border border-gray-200 dark:border-gray-700">
@@ -592,6 +621,18 @@ export default function FinancialPLReports({
             </div>
           )}
 
+          {/* Refresh Action */}
+          {onRefresh && (
+            <button
+              onClick={onRefresh}
+              disabled={isLoading}
+              className="p-2 border border-gray-200 dark:border-gray-700 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-200 transition cursor-pointer"
+              title="Refresh live data"
+            >
+              <RefreshCw className={`w-4 h-4 ${isLoading ? "animate-spin" : ""}`} />
+            </button>
+          )}
+
           {/* Export Actions */}
           <div className="flex items-center gap-1.5">
             <button
@@ -603,7 +644,7 @@ export default function FinancialPLReports({
             </button>
             <button
               onClick={handleExportCSV}
-              className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 text-gray-700 dark:text-gray-200 font-bold text-xs py-2 px-3 rounded-xl flex items-center gap-1.5 cursor-pointer shadow-2xs transition"
+              className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 text-gray-700 dark:text-gray-200 font-bold text-xs py-2 px-3 rounded-xl flex items-center gap-1.5 cursor-pointer shadow-xs transition"
               title="Export P&L CSV Ledger"
             >
               <FileSpreadsheet className="w-3.5 h-3.5" /> CSV Ledger
@@ -626,7 +667,7 @@ export default function FinancialPLReports({
               onClick={() => setOrderStatusFilter(f.id as any)}
               className={`px-3 py-1 rounded-full text-[11px] font-bold transition cursor-pointer ${
                 orderStatusFilter === f.id
-                  ? "bg-emerald-800 text-white shadow-2xs"
+                  ? "bg-emerald-800 text-white shadow-xs"
                   : "bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-700 hover:bg-gray-100"
               }`}
             >
@@ -682,7 +723,7 @@ export default function FinancialPLReports({
             KES {totals.operatingExpenses.toLocaleString()}
           </div>
           <div className="text-[10px] text-amber-700 dark:text-amber-400 font-medium mt-1">
-            Logistics, Ads & Cloud
+            Logistics, Ads & Discounts
           </div>
         </div>
 
@@ -887,14 +928,14 @@ export default function FinancialPLReports({
               </div>
 
               {/* Legend List */}
-              <div className="space-y-1.5 flex-1 text-xs">
+              <div className="space-y-1.5 flex-1 text-xs max-h-32 overflow-y-auto pr-1">
                 {categoryMatrix.map(c => (
                   <div key={c.category} className="flex items-center justify-between">
-                    <span className="flex items-center gap-1.5 text-gray-700 dark:text-gray-300 font-medium">
-                      <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: categoryColors[c.category] || "#6b7280" }}></span>
-                      <span className="capitalize">{c.category}</span>
+                    <span className="flex items-center gap-1.5 text-gray-700 dark:text-gray-300 font-medium truncate">
+                      <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: categoryColors[c.category] || "#047857" }}></span>
+                      <span className="capitalize truncate">{c.category}</span>
                     </span>
-                    <span className="font-bold text-gray-900 dark:text-white font-mono text-[11px]">
+                    <span className="font-bold text-gray-900 dark:text-white font-mono text-[11px] shrink-0 ml-1">
                       {totals.totalRevenue > 0 ? ((c.revenue / totals.totalRevenue) * 100).toFixed(1) : 0}%
                     </span>
                   </div>
@@ -1174,7 +1215,7 @@ export default function FinancialPLReports({
             <div className="p-4 bg-amber-50/50 dark:bg-amber-950/20 border border-amber-200/60 dark:border-amber-800/40 rounded-xl flex items-center justify-between text-xs">
               <div className="flex items-center gap-2 text-amber-900 dark:text-amber-300 font-semibold">
                 <Zap className="w-4 h-4 text-amber-700 shrink-0" />
-                <span>Operational expenses include delivery fulfillment, marketing campaign ad-spends, server infrastructure, and promo discounts.</span>
+                <span>Operational expenses include delivery fulfillment, marketing campaign ad-spends, and checkout promo discounts.</span>
               </div>
               <span className="font-mono font-black text-amber-950 dark:text-white shrink-0">Total: KES {totals.operatingExpenses.toLocaleString()}</span>
             </div>
@@ -1216,20 +1257,6 @@ export default function FinancialPLReports({
                     </td>
                     <td className="p-3 text-center font-bold text-gray-700 dark:text-gray-300 font-mono">
                       {totals.operatingExpenses > 0 ? ((totals.expenseBreakdown.marketing / totals.operatingExpenses) * 100).toFixed(1) : 0}%
-                    </td>
-                  </tr>
-
-                  <tr className="hover:bg-gray-50/60 dark:hover:bg-gray-800/40 transition">
-                    <td className="p-3 font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                      <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" /> Cloud & DevOps Hosting
-                    </td>
-                    <td className="p-3 text-gray-500">Supabase Postgres database, edge functions & storage</td>
-                    <td className="p-3 text-gray-600 dark:text-gray-400">Fixed Operating Infrastructure</td>
-                    <td className="p-3 text-right font-black font-mono text-gray-900 dark:text-white">
-                      KES {totals.expenseBreakdown.hosting.toLocaleString()}
-                    </td>
-                    <td className="p-3 text-center font-bold text-gray-700 dark:text-gray-300 font-mono">
-                      {totals.operatingExpenses > 0 ? ((totals.expenseBreakdown.hosting / totals.operatingExpenses) * 100).toFixed(1) : 0}%
                     </td>
                   </tr>
 
