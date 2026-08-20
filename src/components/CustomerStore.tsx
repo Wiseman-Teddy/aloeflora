@@ -460,19 +460,62 @@ export default function CustomerStore({
     });
   };
 
+  // Dynamic categories with real-time counts from catalog
+  const categoryFilters = useMemo(() => {
+    const counts: Record<string, number> = {
+      all: (products || []).length,
+      hair: 0,
+      body: 0,
+      home: 0,
+    };
+    (products || []).forEach((p) => {
+      const cat = (p?.category || "").toLowerCase().trim();
+      if (cat) {
+        counts[cat] = (counts[cat] || 0) + 1;
+      }
+    });
+
+    const categories = [
+      { id: "all", label: "All Items", count: counts.all },
+      { id: "hair", label: "Hair Care", count: counts.hair || 0 },
+      { id: "body", label: "Body Care", count: counts.body || 0 },
+      { id: "home", label: "Home Care", count: counts.home || 0 },
+    ];
+
+    // Include any additional categories present in the products catalog
+    Object.keys(counts).forEach((catId) => {
+      if (!["all", "hair", "body", "home"].includes(catId) && counts[catId] > 0) {
+        categories.push({
+          id: catId,
+          label: catId.charAt(0).toUpperCase() + catId.slice(1),
+          count: counts[catId]
+        });
+      }
+    });
+
+    return categories;
+  }, [products]);
+
   // Filters and Sorters
-  const filteredProducts = products.filter((p) => {
-    const matchesCategory = selectedCategory === "all" || p.category === selectedCategory;
-    const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                          p.subCategory.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          p.description.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesCategory && matchesSearch;
-  }).sort((a, b) => {
-    if (sortBy === "price_asc") return a.price - b.price;
-    if (sortBy === "price_desc") return b.price - a.price;
-    if (sortBy === "rating") return b.rating - a.rating;
-    return 0; // default
-  });
+  const filteredProducts = useMemo(() => {
+    return (products || []).filter((p) => {
+      if (!p) return false;
+      const pCategory = (p.category || "").toLowerCase().trim();
+      const sCategory = selectedCategory.toLowerCase().trim();
+      const matchesCategory = sCategory === "all" || pCategory === sCategory;
+      const q = (searchQuery || "").trim().toLowerCase();
+      const matchesSearch = !q || 
+                            (p.name || "").toLowerCase().includes(q) || 
+                            (p.subCategory || "").toLowerCase().includes(q) ||
+                            (p.description || "").toLowerCase().includes(q);
+      return matchesCategory && matchesSearch;
+    }).sort((a, b) => {
+      if (sortBy === "price_asc") return (Number(a.price) || 0) - (Number(b.price) || 0);
+      if (sortBy === "price_desc") return (Number(b.price) || 0) - (Number(a.price) || 0);
+      if (sortBy === "rating") return (Number(b.rating) || 0) - (Number(a.rating) || 0);
+      return 0; // default
+    });
+  }, [products, selectedCategory, searchQuery, sortBy]);
 
   // Call server-side Gemini endpoint or fallback to direct SDK for natural counseling
   const handleAiConsultation = async (e: React.FormEvent) => {
@@ -1213,34 +1256,58 @@ export default function CustomerStore({
         </div>
 
         {/* Categories Pills */}
-        <div className="flex flex-wrap gap-1.5 py-4">
-          {[
-            { id: "all", label: "All Items" },
-            { id: "hair", label: "Hair Care" },
-            { id: "body", label: "Body Care" },
-            { id: "home", label: "Home Care" },
-            { id: "coffee", label: "Coffee" }
-          ].map((cat) => (
+        <div className="flex flex-wrap gap-1.5 py-4 items-center">
+          {categoryFilters.map((cat) => (
             <button
               key={cat.id}
               onClick={() => setSelectedCategory(cat.id)}
-              className={`px-4 py-2 rounded-full text-xs font-semibold cursor-pointer transition ${
+              className={`px-4 py-2 rounded-full text-xs font-semibold cursor-pointer transition flex items-center gap-1.5 ${
                 selectedCategory === cat.id
-                  ? "bg-emerald-800 text-white shadow"
-                  : "bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+                  ? "bg-emerald-800 text-white shadow-sm"
+                  : "bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 text-gray-700"
               }`}
             >
-              {cat.label}
+              <span>{cat.label}</span>
+              <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${
+                selectedCategory === cat.id
+                  ? "bg-white/20 text-white"
+                  : "bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300"
+              }`}>
+                {cat.count}
+              </span>
             </button>
           ))}
+          {selectedCategory !== "all" && (
+            <button
+              onClick={() => setSelectedCategory("all")}
+              className="text-xs text-emerald-800 dark:text-emerald-400 font-bold hover:underline ml-2 cursor-pointer"
+            >
+              Show All
+            </button>
+          )}
         </div>
 
         {/* Dynamic Products Grid */}
         {filteredProducts.length === 0 ? (
-          <div className="text-center py-20 bg-gray-50 dark:bg-gray-800/20 rounded-2xl border border-dashed border-gray-200">
-            <AlertCircle className="w-8 h-8 text-gray-400 mx-auto" />
-            <h4 className="text-sm font-semibold text-gray-700 mt-2">No items match your criteria</h4>
-            <p className="text-xs text-gray-500 mt-1">Try resetting search string or filtering metrics.</p>
+          <div className="text-center py-16 px-4 bg-gray-50 dark:bg-gray-800/20 rounded-3xl border border-dashed border-gray-200 dark:border-gray-700">
+            <AlertCircle className="w-10 h-10 text-emerald-700 dark:text-emerald-400 mx-auto" />
+            <h4 className="text-base font-bold text-gray-900 dark:text-white mt-3">
+              {searchQuery ? `No products found matching "${searchQuery}"` : `No products currently in ${selectedCategory} category`}
+            </h4>
+            <p className="text-xs text-gray-500 mt-1 max-w-md mx-auto">
+              We have {products.length} organic botanical products available in the catalog.
+            </p>
+            <div className="flex justify-center gap-3 mt-5">
+              <button
+                onClick={() => {
+                  setSelectedCategory("all");
+                  setSearchQuery("");
+                }}
+                className="bg-emerald-800 hover:bg-emerald-700 text-white font-bold text-xs px-6 py-2.5 rounded-full shadow-sm transition cursor-pointer"
+              >
+                View All {products.length} Products
+              </button>
+            </div>
           </div>
         ) : (
           <div className={viewMode === 'grid' ? "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-6" : "flex flex-col gap-4"}>
